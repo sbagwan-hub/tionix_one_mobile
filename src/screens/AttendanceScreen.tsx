@@ -666,7 +666,7 @@ const AttendanceScreen = () => {
           </AppCard>
         </View>
 
-        <AppCard style={styles.punchCard}>
+        <View style={styles.punchContainer}>
           <Text style={styles.sectionTitle}>Mark Attendance</Text>
           <Text style={styles.punchHint}>
             {canPunch
@@ -722,7 +722,7 @@ const AttendanceScreen = () => {
               </View>
             </TouchableOpacity>
           </View>
-        </AppCard>
+        </View>
 
         {recentLogs.length > 0 ? (
           <View style={styles.logsSection}>
@@ -934,14 +934,10 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(15),
     color: Colors.text,
   },
-  punchCard: {
+  punchContainer: {
     alignItems: 'center',
     paddingVertical: Theme.spacing.xl,
     paddingHorizontal: Theme.spacing.lg,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.md,
   },
   sectionTitle: {
     ...Typography.heading,
