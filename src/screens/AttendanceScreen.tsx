@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert, Platform, Animated, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '../icons/Ionicons';
@@ -46,12 +46,25 @@ const formatLogDate = (dateStr: string) => {
   }
 };
 
+const formatTime12h = (date: Date, includeSeconds: boolean = false) => {
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+  const hoursStr = hours < 10 ? '0' + hours : hours;
+  if (includeSeconds) {
+    const secondsStr = seconds < 10 ? '0' + seconds : seconds;
+    return `${hoursStr}:${minutesStr}:${secondsStr} ${ampm}`;
+  }
+  return `${hoursStr}:${minutesStr} ${ampm}`;
+};
+
 const formatLogTime = (isoString: string) => {
   try {
-    return new Date(isoString).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatTime12h(new Date(isoString), false);
   } catch {
     return '--:--';
   }
@@ -121,7 +134,8 @@ const getPreciseCoordinates = (officeName: string, defaultLat: number, defaultLn
 
 const AttendanceScreen = () => {
   const navigation = useNavigation<any>();
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const insets = useSafeAreaInsets();
+  const [currentTime, setCurrentTime] = useState(formatTime12h(new Date(), false));
   const [recentLogs, setRecentLogs] = useState<RecentLog[]>([]);
   const currentDate = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
@@ -134,6 +148,8 @@ const AttendanceScreen = () => {
   const [officeAddress, setOfficeAddress] = useState<string | null>(COMPANY.office.address);
   const [employeeName, setEmployeeName] = useState('Employee');
   const [refreshing, setRefreshing] = useState(false);
+  const [todayInTime, setTodayInTime] = useState<string>('--:--');
+  const [todayOutTime, setTodayOutTime] = useState<string>('--:--');
 
   // Dynamic geofencing configuration states
   const [officeLocation, setOfficeLocation] = useState<{
@@ -248,11 +264,43 @@ const AttendanceScreen = () => {
       const response = await getAttendanceHistory();
       if (response.success && Array.isArray(response.data) && response.data.length > 0) {
         setRecentLogs(mapHistoryToRecentLogs(response.data));
+
+        // Find today's records (local date YYYY-MM-DD)
+        const localDate = new Date();
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, '0');
+        const day = String(localDate.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        const todayData = response.data.find((item: any) => item.date === todayStr);
+        if (todayData && Array.isArray(todayData.records)) {
+          const inRecord = todayData.records.find((r: any) => r.Punch === 'Check IN');
+          const outRecord = [...todayData.records].reverse().find((r: any) => r.Punch === 'Check OUT');
+
+          if (inRecord) {
+            setTodayInTime(formatLogTime(inRecord.PunchDatetime));
+          } else {
+            setTodayInTime('--:--');
+          }
+
+          if (outRecord) {
+            setTodayOutTime(formatLogTime(outRecord.PunchDatetime));
+          } else {
+            setTodayOutTime('--:--');
+          }
+        } else {
+          setTodayInTime('--:--');
+          setTodayOutTime('--:--');
+        }
       } else {
         setRecentLogs([]);
+        setTodayInTime('--:--');
+        setTodayOutTime('--:--');
       }
     } catch {
       setRecentLogs([]);
+      setTodayInTime('--:--');
+      setTodayOutTime('--:--');
     }
   }, []);
 
@@ -333,7 +381,7 @@ const AttendanceScreen = () => {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString());
+      setCurrentTime(formatTime12h(new Date(), false));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -406,7 +454,7 @@ const AttendanceScreen = () => {
 
   const isInRadius = distanceMeters !== null && distanceMeters <= officeRadius;
   const canPunch = isWithinRange && isTracking && !isVerifying;
-  const isGlowing = canPunch;
+  const isGlowing = canPunch && !(todayInTime !== '--:--' && todayOutTime !== '--:--');
 
   const buttonColors = useMemo(() => {
     if (status === 'IN') {
@@ -620,7 +668,7 @@ const AttendanceScreen = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -631,39 +679,28 @@ const AttendanceScreen = () => {
         }
       >
         <AppCard style={styles.clockCard}>
-          <Text style={styles.dateLabel}>{currentDate}</Text>
-          <View style={styles.clockContainer}>
-            <Text style={styles.clock}>{currentTime.split(' ')[0]}</Text>
-            {currentTime.split(' ')[1] && (
-              <Text style={styles.clockAmpm}> {currentTime.split(' ')[1]}</Text>
-            )}
+          <View style={styles.clockCardRow}>
+            <View style={styles.dateContainer}>
+              <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 77, 28, 0.08)', width: 36, height: 36 }]}>
+                <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.primary} />
+              </View>
+              <View style={styles.dateTextGroup}>
+                <Text style={styles.dayText}>{currentDate.split(',')[0]}</Text>
+                <Text style={styles.dateLabelText}>{currentDate.split(',')[1]?.trim() || currentDate}</Text>
+              </View>
+            </View>
+            <View style={styles.dividerLine} />
+            <View style={styles.timeContainer}>
+              <Text style={styles.clock}>{currentTime.split(' ')[0]}</Text>
+              {currentTime.split(' ')[1] && (
+                <Text style={styles.clockAmpm}>{currentTime.split(' ')[1]}</Text>
+              )}
+            </View>
           </View>
           {locationError ? (
             <Text style={styles.locationError}>{locationError}</Text>
           ) : null}
         </AppCard>
-
-        <View style={styles.statsRow}>
-          <AppCard style={styles.statCard}>
-            <View style={styles.statIconFrame}>
-              <Ionicons name="time" size={moderateScale(18)} color={Colors.primary} />
-            </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>IN TIME</Text>
-              <Text style={styles.statValue}>09:15 AM</Text>
-            </View>
-          </AppCard>
-
-          <AppCard style={styles.statCard}>
-            <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.08)' }]}>
-              <Ionicons name="timer" size={moderateScale(18)} color={Colors.accent} />
-            </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>WORK HRS</Text>
-              <Text style={styles.statValue}>05:30 h</Text>
-            </View>
-          </AppCard>
-        </View>
 
         <View style={styles.punchContainer}>
           <Text style={styles.sectionTitle}>Mark Attendance</Text>
@@ -703,11 +740,11 @@ const AttendanceScreen = () => {
               activeOpacity={0.85}
               onPress={handlePunch}
               disabled={!canPunch}
-              style={[
+              style={StyleSheet.flatten([
                 styles.punchButton,
-                !canPunch && styles.punchButtonDisabled,
                 status === 'IN' && styles.punchButtonOut,
-              ]}
+                !canPunch && styles.punchButtonDisabled,
+              ])}
             >
               <View style={styles.punchButtonInner}>
                 <Ionicons
@@ -721,6 +758,28 @@ const AttendanceScreen = () => {
               </View>
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <AppCard style={styles.statCard}>
+            <View style={styles.statIconFrame}>
+              <Ionicons name="time" size={moderateScale(18)} color={Colors.primary} />
+            </View>
+            <View style={styles.statTextContainer}>
+              <Text style={styles.statLabel}>PUNCH IN</Text>
+              <Text style={styles.statValue}>{todayInTime}</Text>
+            </View>
+          </AppCard>
+
+          <AppCard style={styles.statCard}>
+            <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.08)' }]}>
+              <Ionicons name="timer" size={moderateScale(18)} color={Colors.accent} />
+            </View>
+            <View style={styles.statTextContainer}>
+              <Text style={styles.statLabel}>PUNCH OUT</Text>
+              <Text style={styles.statValue}>{todayOutTime}</Text>
+            </View>
+          </AppCard>
         </View>
 
         {recentLogs.length > 0 ? (
@@ -856,36 +915,62 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.lg,
   },
   clockCard: {
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.xl,
-    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.sm + 4,
+    paddingHorizontal: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.md,
   },
-  dateLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
-    color: Colors.primary,
-    letterSpacing: 2,
-    marginBottom: Theme.spacing.sm,
+  clockCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  clockContainer: {
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
+    flex: 1,
+  },
+  dateTextGroup: {
+    flexDirection: 'column',
+  },
+  dayText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+  },
+  dateLabelText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  dividerLine: {
+    width: 1,
+    height: 32,
+    backgroundColor: Colors.border,
+    marginHorizontal: Theme.spacing.md,
+  },
+  timeContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    minWidth: 80,
   },
   clock: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(48),
+    fontSize: moderateScale(24),
     color: Colors.text,
-    letterSpacing: -1.5,
+    letterSpacing: -0.5,
   },
   clockAmpm: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(12),
     color: Colors.textMuted,
-    marginLeft: moderateScale(4),
+    marginLeft: 3,
   },
   locationError: {
     ...Typography.caption,
@@ -905,7 +990,7 @@ const styles = StyleSheet.create({
     paddingVertical: Theme.spacing.lg,
     paddingHorizontal: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.sm,
   },
@@ -980,13 +1065,13 @@ const styles = StyleSheet.create({
   punchButtonOut: {
     backgroundColor: Colors.secondary,
     shadowColor: Colors.secondary,
+    borderRadius: moderateScale(80),
   },
   punchButtonDisabled: {
     backgroundColor: Colors.surfaceMuted,
     shadowOpacity: 0,
     elevation: 0,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius: moderateScale(80),
   },
   punchButtonInner: {
     alignItems: 'center',
@@ -1020,7 +1105,7 @@ const styles = StyleSheet.create({
     padding: Theme.spacing.md,
     borderRadius: Theme.borderRadius.xl,
     marginBottom: Theme.spacing.sm,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.sm,
   },

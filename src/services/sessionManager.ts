@@ -9,6 +9,42 @@ export const setSessionExpiredHandler = (handler: SessionExpiredHandler) => {
   sessionExpiredHandler = handler;
 };
 
+const base64Decode = (str: string): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const bytes: number[] = [];
+  const cleaned = str.replace(/=+$/, '');
+  
+  for (let i = 0; i < cleaned.length; i += 4) {
+    const chunk = cleaned.slice(i, i + 4);
+    const indices = [];
+    for (let j = 0; j < 4; j++) {
+      const char = chunk[j];
+      const idx = char ? chars.indexOf(char) : -1;
+      indices.push(idx === -1 ? 0 : idx);
+    }
+    
+    const byte1 = (indices[0] << 2) | (indices[1] >> 4);
+    const byte2 = ((indices[1] & 15) << 4) | (indices[2] >> 2);
+    const byte3 = ((indices[2] & 3) << 6) | indices[3];
+    
+    bytes.push(byte1);
+    if (chunk.length > 2) {
+      bytes.push(byte2);
+    }
+    if (chunk.length > 3) {
+      bytes.push(byte3);
+    }
+  }
+
+  try {
+    return decodeURIComponent(
+      bytes.map(b => '%' + b.toString(16).padStart(2, '0')).join('')
+    );
+  } catch {
+    return bytes.map(b => String.fromCharCode(b)).join('');
+  }
+};
+
 const decodeJwtPayload = (token: string): { exp?: number } | null => {
   try {
     const [, payloadSegment] = token.split('.');
@@ -18,7 +54,7 @@ const decodeJwtPayload = (token: string): { exp?: number } | null => {
 
     const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
     const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
-    const payload = JSON.parse(atob(`${normalized}${padding}`)) as { exp?: number };
+    const payload = JSON.parse(base64Decode(`${normalized}${padding}`)) as { exp?: number };
 
     return payload;
   } catch {

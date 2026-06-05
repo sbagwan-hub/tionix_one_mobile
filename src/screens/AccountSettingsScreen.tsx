@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   heroIcon: {
     width: moderateScale(64),
     height: moderateScale(64),
-    borderRadius: moderateScale(14),
+    borderRadius: Theme.borderRadius.xl,
     backgroundColor: 'rgba(254, 0, 0, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',

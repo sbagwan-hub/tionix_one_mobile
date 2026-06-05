@@ -15,6 +15,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import PersonalDetailsScreen from '../screens/PersonalDetailsScreen';
 import MyAttendanceScreen from '../screens/MyAttendanceScreen';
 import MyLeaveScreen from '../screens/MyLeaveScreen';
+import LeaveDetailsScreen from '../screens/LeaveDetailsScreen';
 import AccountSettingsScreen from '../screens/AccountSettingsScreen';
 import ApplyLeaveScreen from '../screens/ApplyLeaveScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
@@ -32,19 +33,12 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
-  const insets = useSafeAreaInsets();
   return (
     <LiveLocationProvider>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [
-          styles.tabBar,
-          {
-            height: (Platform.OS === 'ios' ? 60 : 54) + insets.bottom,
-            paddingBottom: insets.bottom > 0 ? insets.bottom - 4 : 8,
-          }
-        ],
+        tabBarStyle: styles.tabBar,
         tabBarShowLabel: true,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
@@ -140,6 +134,7 @@ const AppNavigator = () => {
         <Stack.Screen name="MyLeave" component={MyLeaveScreen} />
         <Stack.Screen name="ApplyLeave" component={ApplyLeaveScreen} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+        <Stack.Screen name="LeaveDetails" component={LeaveDetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -147,10 +142,6 @@ const AppNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',

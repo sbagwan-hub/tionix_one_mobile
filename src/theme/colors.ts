@@ -61,11 +61,11 @@ export const Theme = {
     xxl: moderateScale(40),
   },
   borderRadius: {
-    sm: moderateScale(6),
-    md: moderateScale(8),
-    lg: moderateScale(10),
-    xl: moderateScale(14),
-    xxl: moderateScale(18),
+    sm: moderateScale(4),
+    md: moderateScale(6),
+    lg: moderateScale(8),
+    xl: moderateScale(8),
+    xxl: moderateScale(10),
     pill: moderateScale(24),
   },
   shadow: {

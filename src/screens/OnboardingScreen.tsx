@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  Dimensions,
   TouchableOpacity,
   StatusBar,
   StyleSheet,
   ViewToken,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '../icons/Ionicons';
@@ -24,7 +24,7 @@ import { Colors, Theme } from '../theme/colors';
 import { moderateScale } from '../utils/responsive';
 import { Typography } from '../theme/typography';
 
-const { width, height } = Dimensions.get('window');
+// baseline dimensions from responsive.ts
 
 const slides = [
   {
@@ -58,7 +58,7 @@ const slides = [
 
 // --- Subcomponents ---
 
-const Slide = ({ item, index, scrollX }: any) => {
+const Slide = ({ item, index, scrollX, width, height }: any) => {
   const shieldStyle = useAnimatedStyle(() => {
     const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
     const scale = interpolate(scrollX.value, inputRange, [0.6, 1, 0.6], Extrapolation.CLAMP);
@@ -81,8 +81,8 @@ const Slide = ({ item, index, scrollX }: any) => {
   });
 
   return (
-    <View style={styles.slide}>
-      <Animated.View style={[styles.imageContainer, shieldStyle]}>
+    <View style={[styles.slide, { width }]}>
+      <Animated.View style={[styles.imageContainer, { height: height * 0.45 }, shieldStyle]}>
         <View style={[styles.iconShieldBackground, { backgroundColor: item.gradientColors[0] }]} />
         <LinearGradient colors={item.gradientColors} style={styles.iconShield}>
           <Ionicons name={item.icon as any} size={90} color={item.iconColor} />
@@ -101,7 +101,7 @@ const Slide = ({ item, index, scrollX }: any) => {
   );
 };
 
-const Pagination = ({ data, scrollX }: any) => {
+const Pagination = ({ data, scrollX, width }: any) => {
   return (
     <View style={styles.indicatorContainer}>
       {data.map((_: any, i: number) => {
@@ -131,6 +131,7 @@ const Pagination = ({ data, scrollX }: any) => {
 };
 
 const OnboardingScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions();
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const scrollX = useSharedValue(0);
   const flatListRef = useRef<Animated.FlatList<any>>(null);
@@ -254,12 +255,12 @@ const OnboardingScreen = ({ navigation }: any) => {
         onViewableItemsChanged={viewableItemsChanged}
         viewabilityConfig={viewConfig}
         renderItem={({ item, index }) => (
-          <Slide item={item} index={index} scrollX={scrollX} />
+          <Slide item={item} index={index} scrollX={scrollX} width={width} height={height} />
         )}
       />
 
       <View style={styles.bottomBar}>
-        <Pagination data={slides} scrollX={scrollX} />
+        <Pagination data={slides} scrollX={scrollX} width={width} />
 
         <TouchableOpacity 
           activeOpacity={0.88} 
@@ -308,12 +309,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   slide: {
-    width,
     paddingHorizontal: Theme.spacing.xxl,
     justifyContent: 'center',
   },
   imageContainer: {
-    height: height * 0.45,
     justifyContent: 'center',
     alignItems: 'center',
   },

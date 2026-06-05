@@ -1,4 +1,5 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
+import { LeaveRequest } from '../services/leave';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -11,6 +12,7 @@ export type RootStackParamList = {
   MyLeave: undefined;
   ApplyLeave: undefined;
   AccountSettings: undefined;
+  LeaveDetails: { leaveItem: LeaveRequest };
 };
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();

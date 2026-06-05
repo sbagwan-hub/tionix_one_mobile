@@ -117,7 +117,6 @@ const styles = StyleSheet.create({
     ...Typography.display,
     color: Colors.text,
     fontSize: moderateScale(38),
-    fontWeight: '900',
     marginBottom: Theme.spacing.sm,
     letterSpacing: -0.5,
   },
@@ -130,9 +129,9 @@ const styles = StyleSheet.create({
   },
   tagline: {
     ...Typography.body,
+    fontFamily: 'Outfit_600SemiBold',
     color: Colors.textSecondary,
     textAlign: 'center',
-    fontWeight: '600',
     letterSpacing: 0.5,
   },
 });

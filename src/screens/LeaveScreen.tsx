@@ -135,7 +135,12 @@ const BalanceCard = ({ type }: { type: LeaveType }) => {
             <Text style={styles.balanceTileTotal}> / {total}</Text>
           </Text>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+            <LinearGradient
+              colors={Colors.primaryGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.progressFill, { width: `${progress * 100}%` }]}
+            />
           </View>
           <Text style={styles.balanceTileHint}>days left</Text>
         </>
@@ -353,7 +358,13 @@ const LeaveScreen = ({ navigation }: any) => {
           ) : (
             <View style={styles.historyList}>
               {history.map(item => (
-                <HistoryCard key={item.id} item={item} />
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('LeaveDetails', { leaveItem: item })}
+                >
+                  <HistoryCard item={item} />
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -438,7 +449,7 @@ const styles = StyleSheet.create({
   applyIconWrap: {
     width: moderateScale(48),
     height: moderateScale(48),
-    borderRadius: moderateScale(14),
+    borderRadius: Theme.borderRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -484,10 +495,8 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.xxl,
     paddingVertical: moderateScale(14),
     paddingHorizontal: moderateScale(8),
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.04,
+    borderWidth: 0,
+    ...Theme.shadow.md,
   },
   summaryIconFrame: {
     width: moderateScale(36),
@@ -519,10 +528,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xxl,
     padding: Theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.04,
+    borderWidth: 0,
+    ...Theme.shadow.md,
     minHeight: moderateScale(132),
   },
   balanceIconWrap: {
@@ -629,11 +636,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xxl,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderWidth: 0,
     overflow: 'hidden',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.04,
+    ...Theme.shadow.md,
   },
   historyAccent: {
     width: moderateScale(4),

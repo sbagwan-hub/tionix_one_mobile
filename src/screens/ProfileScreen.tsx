@@ -7,10 +7,9 @@ import {
   StatusBar,
   StyleSheet,
   Image,
-  Alert,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '../icons/Ionicons';
@@ -20,6 +19,7 @@ import { moderateScale } from '../utils/responsive';
 import AppCard from '../components/AppCard';
 import { clearAuthSession } from '../services/auth';
 import { EmployeeProfile, getEmployeeProfile } from '../services/profile';
+import { getAttendanceHistory } from '../services/attendance';
 import { API_BASE_URL } from '../config/api';
 import Toast from 'react-native-toast-message';
 
@@ -75,10 +75,13 @@ const menuItems = [
 ];
 
 const ProfileScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarImageError, setAvatarImageError] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [presentDays, setPresentDays] = useState(0);
+  const [lateDays, setLateDays] = useState(0);
 
   const resetToLogin = useCallback(async () => {
     await clearAuthSession();
@@ -118,7 +121,38 @@ const ProfileScreen = ({ navigation }: any) => {
         }
       };
 
+      const loadStats = async () => {
+        try {
+          const historyResponse = await getAttendanceHistory();
+          if (historyResponse.success && Array.isArray(historyResponse.data)) {
+            let pCount = 0;
+            let lCount = 0;
+            historyResponse.data.forEach((day: any) => {
+              const inPunch = day.records?.find((r: any) => r.Punch === 'Check IN');
+              if (inPunch) {
+                const dateObj = new Date(inPunch.PunchDatetime);
+                const hours = dateObj.getHours();
+                const minutes = dateObj.getMinutes();
+                const isLate = hours > 9 || (hours === 9 && minutes > 15);
+                if (isLate) {
+                  lCount += 1;
+                } else {
+                  pCount += 1;
+                }
+              }
+            });
+            if (isActive) {
+              setPresentDays(pCount);
+              setLateDays(lCount);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load stats for profile:', err);
+        }
+      };
+
       loadProfile();
+      loadStats();
 
       return () => {
         isActive = false;
@@ -181,16 +215,18 @@ const ProfileScreen = ({ navigation }: any) => {
 
         <View style={styles.profileHeaderContent}>
           <View style={styles.avatarWrapper}>
-            <View style={styles.avatar}>
-              {profile?.profileImageUrl && !avatarImageError ? (
-                <Image
-                  source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
-                  style={styles.avatarImage}
-                  onError={() => setAvatarImageError(true)}
-                />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
+            <View style={styles.avatarRing}>
+              <View style={styles.avatar}>
+                {profile?.profileImageUrl && !avatarImageError ? (
+                  <Image
+                    source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
+                    style={styles.avatarImage}
+                    onError={() => setAvatarImageError(true)}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>{initials}</Text>
+                )}
+              </View>
             </View>
             <TouchableOpacity
               style={styles.editButton}
@@ -214,7 +250,7 @@ const ProfileScreen = ({ navigation }: any) => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: moderateScale(120) + insets.bottom }]}
       >
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Overview</Text>
@@ -225,7 +261,9 @@ const ProfileScreen = ({ navigation }: any) => {
               </View>
               <View style={styles.statTextContainer}>
                 <Text style={styles.statLabel}>PRESENT</Text>
-                <Text style={styles.statValue}>22 Days</Text>
+                <Text style={styles.statValue}>
+                  {String(presentDays).padStart(2, '0')} {presentDays === 1 ? 'Day' : 'Days'}
+                </Text>
               </View>
             </View>
 
@@ -235,7 +273,9 @@ const ProfileScreen = ({ navigation }: any) => {
               </View>
               <View style={styles.statTextContainer}>
                 <Text style={styles.statLabel}>LATE PUNCH</Text>
-                <Text style={styles.statValue}>01 Day</Text>
+                <Text style={styles.statValue}>
+                  {String(lateDays).padStart(2, '0')} {lateDays === 1 ? 'Day' : 'Days'}
+                </Text>
               </View>
             </View>
           </View>
@@ -243,25 +283,29 @@ const ProfileScreen = ({ navigation }: any) => {
 
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Account Services</Text>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.floatingMenuPill}
-              onPress={() => item.route && navigation.navigate(item.route)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIconWrapper}>
-                <Ionicons name={item.icon as any} size={moderateScale(20)} color={Colors.primary} />
-              </View>
-              <View style={styles.menuCopy}>
-                <Text style={styles.menuItemTitle}>{item.title}</Text>
-                <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
-              </View>
-              <View style={styles.menuChevron}>
-                <Ionicons name="chevron-forward" size={moderateScale(18)} color={Colors.textMuted} />
-              </View>
-            </TouchableOpacity>
-          ))}
+          <AppCard style={styles.menuCard}>
+            {menuItems.map((item, index) => (
+              <React.Fragment key={item.id}>
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => item.route && navigation.navigate(item.route)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuIconWrapper}>
+                    <Ionicons name={item.icon as any} size={moderateScale(20)} color={Colors.primary} />
+                  </View>
+                  <View style={styles.menuCopy}>
+                    <Text style={styles.menuItemTitle}>{item.title}</Text>
+                    <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                  </View>
+                  <View style={styles.menuChevron}>
+                    <Ionicons name="chevron-forward" size={moderateScale(16)} color={Colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+                {index < menuItems.length - 1 && <View style={styles.menuDivider} />}
+              </React.Fragment>
+            ))}
+          </AppCard>
         </View>
 
         <View style={styles.footerContainer}>
@@ -276,6 +320,7 @@ const ProfileScreen = ({ navigation }: any) => {
           <Text style={styles.version}>Attendance v1.0.2</Text>
         </View>
       </ScrollView>
+
       <Modal
         visible={isLogoutModalVisible}
         transparent={true}
@@ -371,7 +416,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: moderateScale(16),
-    paddingBottom: moderateScale(120),
   },
   profileHeaderContent: {
     flexDirection: 'row',
@@ -391,6 +435,15 @@ const styles = StyleSheet.create({
   avatarWrapper: {
     position: 'relative',
     marginRight: Theme.spacing.md,
+  },
+  avatarRing: {
+    width: moderateScale(76),
+    height: moderateScale(76),
+    borderRadius: moderateScale(38),
+    borderWidth: 2,
+    borderColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: moderateScale(68),
@@ -472,6 +525,7 @@ const styles = StyleSheet.create({
     marginLeft: moderateScale(8),
     marginBottom: moderateScale(12),
     letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   statsRow: {
     flexDirection: 'row',
@@ -514,24 +568,31 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(16),
     color: Colors.text,
   },
-  floatingMenuPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menuCard: {
+    padding: 0,
     backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    paddingHorizontal: moderateScale(8),
-    paddingVertical: moderateScale(8),
-    marginBottom: moderateScale(12),
+    borderRadius: Theme.borderRadius.xl,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    ...Theme.shadow.sm,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+  },
+  menuDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginLeft: moderateScale(66), // aligns nicely after the icon box
+    marginRight: Theme.spacing.md,
   },
   menuIconWrapper: {
-    width: moderateScale(52),
-    height: moderateScale(52),
-    borderRadius: moderateScale(12),
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: Theme.borderRadius.md,
     backgroundColor: 'rgba(254, 0, 0, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -542,23 +603,22 @@ const styles = StyleSheet.create({
   },
   menuItemTitle: {
     ...Typography.heading,
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(15),
     color: Colors.text,
   },
   menuItemSubtitle: {
     ...Typography.body,
     fontSize: moderateScale(12),
     color: Colors.textMuted,
-    marginTop: moderateScale(2),
+    marginTop: moderateScale(1),
   },
   menuChevron: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(8),
-    backgroundColor: 'rgba(0,0,0,0.02)',
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(6),
+    backgroundColor: 'rgba(0,0,0,0.01)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: moderateScale(4),
   },
   footerContainer: {
     paddingHorizontal: Theme.spacing.lg,
@@ -588,6 +648,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: Colors.textMuted,
     textTransform: 'uppercase',
+    paddingBottom: moderateScale(20),
   },
   modalOverlay: {
     flex: 1,

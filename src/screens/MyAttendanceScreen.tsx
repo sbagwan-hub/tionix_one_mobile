@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '../icons/Ionicons';
 import AppCard from '../components/AppCard';
@@ -18,11 +18,29 @@ import { Typography } from '../theme/typography';
 import { moderateScale } from '../utils/responsive';
 import { getAttendanceHistory, AttendanceHistoryDay } from '../services/attendance';
 
+const formatTime = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+    const hoursStr = hours < 10 ? '0' + hours : hours;
+    return `${hoursStr}:${minutesStr} ${ampm}`;
+  } catch {
+    return '--:--';
+  }
+};
+
 const MyAttendanceScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<AttendanceHistoryDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE'>('ALL');
 
   const fetchHistory = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -55,36 +73,41 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }, []);
 
+  const getDayStatus = useCallback((day: AttendanceHistoryDay) => {
+    const inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    if (!inPunch) return 'Absent';
+    const dateObj = new Date(inPunch.PunchDatetime);
+    const hours = dateObj.getHours();
+    const minutes = dateObj.getMinutes();
+    return (hours > 9 || (hours === 9 && minutes > 15)) ? 'Late' : 'Present';
+  }, []);
+
   const presentCount = useMemo(() => {
     return history.filter(day => {
-      const inPunch = day.records.find(r => r.Punch === 'Check IN');
-      if (!inPunch) return false;
-      const dateObj = new Date(inPunch.PunchDatetime);
-      const hours = dateObj.getHours();
-      const minutes = dateObj.getMinutes();
-      const isLate = hours > 9 || (hours === 9 && minutes > 15);
-      return !isLate;
+      const status = getDayStatus(day);
+      return status === 'Present';
     }).length;
-  }, [history]);
+  }, [history, getDayStatus]);
 
   const lateCount = useMemo(() => {
     return history.filter(day => {
-      const inPunch = day.records.find(r => r.Punch === 'Check IN');
-      if (!inPunch) return false;
-      const dateObj = new Date(inPunch.PunchDatetime);
-      const hours = dateObj.getHours();
-      const minutes = dateObj.getMinutes();
-      return hours > 9 || (hours === 9 && minutes > 15);
+      const status = getDayStatus(day);
+      return status === 'Late';
     }).length;
-  }, [history]);
+  }, [history, getDayStatus]);
 
-  const absentCount = 0;
+  const absentCount = useMemo(() => {
+    return history.filter(day => {
+      const status = getDayStatus(day);
+      return status === 'Absent';
+    }).length;
+  }, [history, getDayStatus]);
 
   const summaryCards = useMemo(() => [
     { label: 'Present', value: String(presentCount).padStart(2, '0'), icon: 'checkmark-circle-outline', tone: Colors.success },
     { label: 'Late', value: String(lateCount).padStart(2, '0'), icon: 'time-outline', tone: Colors.warning },
     { label: 'Absent', value: String(absentCount).padStart(2, '0'), icon: 'close-circle-outline', tone: Colors.error },
-  ], [presentCount, lateCount]);
+  ], [presentCount, lateCount, absentCount]);
 
   const averageWorkHours = useMemo(() => {
     let totalMinutes = 0;
@@ -111,6 +134,51 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return `${avgHours}h ${String(avgMinsRemaining).padStart(2, '0')}m`;
   }, [history]);
 
+  const attendanceRate = useMemo(() => {
+    const totalWorkingDays = history.length;
+    if (totalWorkingDays === 0) return '0%';
+    const rate = ((presentCount + lateCount) / totalWorkingDays) * 100;
+    return `${rate.toFixed(1)}%`;
+  }, [history, presentCount, lateCount]);
+
+  const averageWorkHoursDecimal = useMemo(() => {
+    let totalMinutes = 0;
+    let daysWithWork = 0;
+
+    history.forEach(day => {
+      const match = day.totalWork.match(/(\d+)h\s+(\d+)m/);
+      if (match) {
+        const hours = parseInt(match[1], 10);
+        const mins = parseInt(match[2], 10);
+        const total = hours * 60 + mins;
+        if (total > 0) {
+          totalMinutes += total;
+          daysWithWork += 1;
+        }
+      }
+    });
+
+    if (daysWithWork === 0) return 0;
+    return totalMinutes / daysWithWork / 60;
+  }, [history]);
+
+  const shiftCompletionPercent = useMemo(() => {
+    const standardShiftHours = 8.0;
+    if (averageWorkHoursDecimal === 0) return 0;
+    const percent = (averageWorkHoursDecimal / standardShiftHours) * 100;
+    return Math.min(100, Math.round(percent));
+  }, [averageWorkHoursDecimal]);
+
+  const filteredHistory = useMemo(() => {
+    return history.filter(day => {
+      const status = getDayStatus(day);
+      if (activeFilter === 'ALL') return true;
+      if (activeFilter === 'PRESENT') return status === 'Present';
+      if (activeFilter === 'LATE') return status === 'Late';
+      return true;
+    });
+  }, [history, activeFilter, getDayStatus]);
+
   const formatDate = (dateStr: string) => {
     try {
       const dateObj = new Date(dateStr);
@@ -124,34 +192,10 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     }
   };
 
-  const getDayStatus = (day: AttendanceHistoryDay) => {
-    const inPunch = day.records.find(r => r.Punch === 'Check IN');
-    if (!inPunch) return 'Absent';
-    const dateObj = new Date(inPunch.PunchDatetime);
-    const hours = dateObj.getHours();
-    const minutes = dateObj.getMinutes();
-    return (hours > 9 || (hours === 9 && minutes > 15)) ? 'Late' : 'Present';
-  };
-
-  const getDayTimeRange = (day: AttendanceHistoryDay) => {
-    const inPunch = day.records.find(r => r.Punch === 'Check IN');
-    const outPunch = [...day.records].reverse().find(r => r.Punch === 'Check OUT');
-
-    if (!inPunch) return 'No records';
-
-    const formatTime = (isoString: string) => {
-      try {
-        const date = new Date(isoString);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      } catch {
-        return '--:--';
-      }
-    };
-
-    const inTime = formatTime(inPunch.PunchDatetime);
-    const outTime = outPunch ? formatTime(outPunch.PunchDatetime) : 'Active';
-
-    return `${inTime} - ${outTime}`;
+  const getDailyPunches = (day: AttendanceHistoryDay) => {
+    const inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    const outPunch = day.records ? [...day.records].reverse().find(r => r.Punch === 'Check OUT') : undefined;
+    return { inPunch, outPunch };
   };
 
   return (
@@ -199,7 +243,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -222,46 +266,140 @@ const MyAttendanceScreen = ({ navigation }: any) => {
           </View>
 
           <AppCard style={styles.insightCard}>
-            <View style={styles.insightIcon}>
-              <Ionicons name="time-outline" size={moderateScale(24)} color={Colors.primary} />
+            <View style={styles.insightHeader}>
+              <View style={styles.insightTitleContainer}>
+                <Ionicons name="analytics-outline" size={moderateScale(20)} color={Colors.primary} />
+                <Text style={styles.insightCardTitle}>Analytics Overview</Text>
+              </View>
+              <Text style={styles.avgHoursLabel}>Avg: {averageWorkHours}</Text>
             </View>
-            <View style={styles.insightCopy}>
-              <Text style={styles.insightTitle}>Average work hours</Text>
-              <Text style={styles.insightText}>
-                You are averaging {averageWorkHours} per working day this month.
-              </Text>
+
+            <View style={styles.statsPanel}>
+              <View style={styles.statMetricItem}>
+                <View style={styles.metricInfoRow}>
+                  <Text style={styles.metricLabel}>Attendance Rate</Text>
+                  <Text style={styles.metricValue}>{attendanceRate}</Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <LinearGradient
+                    colors={Colors.successGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: attendanceRate as any,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.statMetricItem}>
+                <View style={styles.metricInfoRow}>
+                  <Text style={styles.metricLabel}>Shift Target Completion (8h)</Text>
+                  <Text style={styles.metricValue}>{shiftCompletionPercent}%</Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <LinearGradient
+                    colors={Colors.primaryGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${shiftCompletionPercent}%` as any,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
             </View>
           </AppCard>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Logs</Text>
-            <Text style={styles.sectionAction}>This month</Text>
+          <View style={styles.filterTabsContainer}>
+            {(['ALL', 'PRESENT', 'LATE'] as const).map(filter => {
+              const isActive = activeFilter === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  onPress={() => setActiveFilter(filter)}
+                  style={[styles.filterTab, isActive && styles.filterTabActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+                    {filter === 'ALL' ? 'All' : filter === 'PRESENT' ? 'Present' : 'Late'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {history.length === 0 ? (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Daily Logs</Text>
+            <Text style={styles.sectionAction}>This Month</Text>
+          </View>
+
+          {filteredHistory.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="calendar-outline" size={moderateScale(40)} color={Colors.borderStrong} />
-              <Text style={styles.emptyText}>No attendance records found for this month.</Text>
+              <Text style={styles.emptyText}>No attendance records found matching this filter.</Text>
             </View>
           ) : (
-            history.map((log, index) => {
+            filteredHistory.map((log, index) => {
               const statusVal = getDayStatus(log);
               const isLate = statusVal === 'Late';
+              const { inPunch, outPunch } = getDailyPunches(log);
+              const inTime = inPunch ? formatTime(inPunch.PunchDatetime) : '--:--';
+              const outTime = outPunch ? formatTime(outPunch.PunchDatetime) : '--:--';
 
               return (
                 <AppCard key={index} style={styles.logCard}>
-                  <View style={[styles.logAccentDot, { backgroundColor: isLate ? Colors.warning : Colors.success }]} />
-                  <View style={styles.logBody}>
-                    <Text style={styles.logDate}>{formatDate(log.date)}</Text>
-                    <Text style={styles.logTime}>{getDayTimeRange(log)}</Text>
-                  </View>
-                  <View style={styles.logMeta}>
-                    <View style={[styles.statusPill, { backgroundColor: isLate ? 'rgba(255, 179, 0, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}>
-                      <Text style={[styles.logStatus, { color: isLate ? Colors.warning : Colors.success }]}>
-                        {statusVal}
-                      </Text>
+                  {/* Left edge colored indicator stripe */}
+                  <View style={[styles.logAccentBar, { backgroundColor: isLate ? Colors.warning : Colors.success }]} />
+                  
+                  <View style={styles.logContainer}>
+                    {/* Top Row: Date and Status Badge */}
+                    <View style={styles.logTopRow}>
+                      <Text style={styles.logDateText}>{formatDate(log.date)}</Text>
+                      <View style={[styles.statusPill, { backgroundColor: isLate ? 'rgba(255, 179, 0, 0.08)' : 'rgba(16, 185, 129, 0.08)' }]}>
+                        <Text style={[styles.logStatus, { color: isLate ? Colors.warningDark : Colors.successDark }]}>
+                          {statusVal}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.logHours}>{log.totalWork}</Text>
+
+                    {/* Middle Row: Punch IN / Punch OUT Timeline Columns */}
+                    <View style={styles.logMiddleRow}>
+                      <View style={styles.punchColumn}>
+                        <View style={[styles.punchIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.06)' }]}>
+                          <Ionicons name="arrow-down" size={moderateScale(14)} color={Colors.success} />
+                        </View>
+                        <View>
+                          <Text style={styles.punchTimeLabel}>CHECK IN</Text>
+                          <Text style={styles.punchTimeValue}>{inTime}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.punchColumn}>
+                        <View style={[styles.punchIconBox, { backgroundColor: 'rgba(255, 179, 0, 0.06)' }]}>
+                          <Ionicons name="arrow-up" size={moderateScale(14)} color={Colors.accent} />
+                        </View>
+                        <View>
+                          <Text style={styles.punchTimeLabel}>CHECK OUT</Text>
+                          <Text style={styles.punchTimeValue}>{outTime}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Bottom Row: Working Hours info */}
+                    <View style={styles.logBottomRow}>
+                      <View style={styles.workHoursContainer}>
+                        <Ionicons name="time-outline" size={moderateScale(15)} color={Colors.textMuted} />
+                        <Text style={styles.workHoursText}>Total Hours: </Text>
+                        <Text style={styles.workHoursValue}>{log.totalWork}</Text>
+                      </View>
+                    </View>
                   </View>
                 </AppCard>
               );
@@ -369,9 +507,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.md,
+    borderRadius: Theme.borderRadius.xxl,
+    borderWidth: 0,
+    ...Theme.shadow.floating,
+    shadowOpacity: 0.05,
   },
   summaryIcon: {
     width: moderateScale(40),
@@ -392,36 +531,97 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   insightCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.md,
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.md,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0,
+    ...Theme.shadow.card,
   },
-  insightIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(254, 0, 0, 0.08)',
+  insightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingBottom: moderateScale(10),
+    marginBottom: moderateScale(12),
   },
-  insightCopy: {
-    flex: 1,
+  insightTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
   },
-  insightTitle: {
+  insightCardTitle: {
     ...Typography.heading,
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(15),
     color: Colors.text,
   },
-  insightText: {
+  avgHoursLabel: {
+    ...Typography.label,
+    fontSize: moderateScale(10),
+    color: Colors.primary,
+    fontWeight: '800',
+  },
+  statsPanel: {
+    gap: moderateScale(12),
+  },
+  statMetricItem: {
+    width: '100%',
+  },
+  metricInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
     ...Typography.caption,
-    marginTop: moderateScale(4),
-    lineHeight: moderateScale(18),
+    fontSize: moderateScale(12),
     color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  metricValue: {
+    ...Typography.heading,
+    fontSize: moderateScale(13),
+    color: Colors.text,
+  },
+  progressBarBg: {
+    height: moderateScale(6),
+    backgroundColor: '#F1F5F9',
+    borderRadius: moderateScale(3),
+    width: '100%',
+    marginTop: moderateScale(6),
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: moderateScale(3),
+  },
+  filterTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: Theme.borderRadius.lg,
+    padding: moderateScale(4),
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.xs,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: moderateScale(8),
+    alignItems: 'center',
+    borderRadius: Theme.borderRadius.md,
+  },
+  filterTabActive: {
+    backgroundColor: Colors.white,
+    ...Theme.shadow.sm,
+  },
+  filterTabText: {
+    ...Typography.heading,
+    fontSize: moderateScale(13),
+    color: Colors.textMuted,
+  },
+  filterTabTextActive: {
+    color: Colors.primary,
+    fontWeight: '800',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -440,53 +640,96 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   logCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md,
+    padding: 0,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.sm,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    marginBottom: Theme.spacing.sm,
+    borderWidth: 0,
+    ...Theme.shadow.md,
   },
-  logAccentDot: {
-    width: moderateScale(8),
-    height: moderateScale(8),
-    borderRadius: moderateScale(4),
-    marginRight: Theme.spacing.md,
+  logAccentBar: {
+    width: moderateScale(4),
   },
-  logBody: {
+  logContainer: {
     flex: 1,
+    padding: Theme.spacing.md,
   },
-  logDate: {
+  logTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.sm,
+  },
+  logDateText: {
     ...Typography.heading,
     fontSize: moderateScale(15),
     color: Colors.text,
-  },
-  logTime: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.textSecondary,
-    marginTop: moderateScale(2),
-  },
-  logMeta: {
-    alignItems: 'flex-end',
   },
   statusPill: {
     paddingHorizontal: moderateScale(10),
     paddingVertical: moderateScale(4),
     borderRadius: Theme.borderRadius.pill,
-    marginBottom: moderateScale(4),
   },
   logStatus: {
     ...Typography.label,
     fontSize: moderateScale(10),
     fontWeight: '800',
   },
-  logHours: {
+  logMiddleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: Theme.borderRadius.lg,
+    padding: moderateScale(10),
+    marginBottom: Theme.spacing.sm,
+  },
+  punchColumn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+    flex: 1,
+  },
+  punchIconBox: {
+    width: moderateScale(26),
+    height: moderateScale(26),
+    borderRadius: moderateScale(13),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  punchTimeLabel: {
+    ...Typography.label,
+    fontSize: moderateScale(8),
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  punchTimeValue: {
+    ...Typography.heading,
+    fontSize: moderateScale(12),
+    color: Colors.text,
+    marginTop: moderateScale(1),
+  },
+  logBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  workHoursContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+  },
+  workHoursText: {
+    ...Typography.caption,
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+  },
+  workHoursValue: {
     ...Typography.heading,
     fontSize: moderateScale(13),
-    color: Colors.text,
+    color: Colors.primary,
   },
   loadingContainer: {
     flex: 1,

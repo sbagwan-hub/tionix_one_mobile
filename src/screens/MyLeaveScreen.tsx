@@ -129,7 +129,7 @@ const MyLeaveScreen = ({ navigation }: any) => {
 
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -220,26 +220,34 @@ const MyLeaveScreen = ({ navigation }: any) => {
             history.map(item => {
               const tone = statusTone[item.status];
               return (
-                <AppCard key={item.id} style={styles.logCard}>
-                  <View style={[styles.logAccentDot, { backgroundColor: tone.color }]} />
-                  <View style={styles.logBody}>
-                    <Text style={styles.logDate}>{item.leaveType}</Text>
-                    <Text style={styles.logTime}>{formatDateRange(item.startDate, item.endDate)}</Text>
-                    {item.reason ? (
-                      <Text style={styles.logReason} numberOfLines={1}>
-                        {item.reason}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.logMeta}>
-                    <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
-                      <Text style={[styles.logStatus, { color: tone.color }]}>{item.status}</Text>
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('LeaveDetails', { leaveItem: item })}
+                >
+                  <AppCard style={styles.logCard}>
+                    <View style={[styles.logAccentBar, { backgroundColor: tone.color }]} />
+                    <View style={styles.logContent}>
+                      <View style={styles.logBody}>
+                        <Text style={styles.logDate}>{item.leaveType}</Text>
+                        <Text style={styles.logTime}>{formatDateRange(item.startDate, item.endDate)}</Text>
+                        {item.reason ? (
+                          <Text style={styles.logReason} numberOfLines={1}>
+                            {item.reason}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.logMeta}>
+                        <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
+                          <Text style={[styles.logStatus, { color: tone.color }]}>{item.status}</Text>
+                        </View>
+                        <Text style={styles.logHours}>
+                          {item.days} day{item.days === 1 ? '' : 's'}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.logHours}>
-                      {item.days} day{item.days === 1 ? '' : 's'}
-                    </Text>
-                  </View>
-                </AppCard>
+                  </AppCard>
+                </TouchableOpacity>
               );
             })
           )}
@@ -281,7 +289,7 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(254, 0, 0, 0.1)',
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
   },
   header: {
     backgroundColor: 'transparent',
@@ -343,8 +351,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderRadius: Theme.borderRadius.xxl,
+    borderWidth: 0,
     ...Theme.shadow.md,
   },
   summaryIcon: {
@@ -371,15 +379,15 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.md,
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0,
     ...Theme.shadow.md,
   },
   insightIcon: {
     width: moderateScale(48),
     height: moderateScale(48),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(254, 0, 0, 0.08)',
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -415,19 +423,20 @@ const styles = StyleSheet.create({
   },
   logCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md,
     backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.sm,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0,
+    overflow: 'hidden',
+    ...Theme.shadow.md,
   },
-  logAccentDot: {
-    width: moderateScale(8),
-    height: moderateScale(8),
-    borderRadius: moderateScale(4),
-    marginRight: Theme.spacing.md,
+  logAccentBar: {
+    width: moderateScale(4),
+  },
+  logContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
   },
   logBody: {
     flex: 1,
@@ -518,7 +527,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.lg,
     paddingVertical: moderateScale(10),
     borderRadius: Theme.borderRadius.pill,
-    backgroundColor: 'rgba(254, 0, 0, 0.10)',
+    backgroundColor: 'rgba(255, 77, 28, 0.10)',
   },
   emptyButtonText: {
     ...Typography.subheading,
