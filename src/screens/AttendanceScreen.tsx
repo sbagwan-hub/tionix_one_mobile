@@ -209,7 +209,7 @@ const AttendanceScreen = () => {
 
         // Find active geolocation, fallback to the first one available
         const activeGeo = mappedGeos.find(geo => geo.IsActive) || mappedGeos[0];
-        
+
         if (activeGeo) {
           setSelectedGeoId(activeGeo.pkGeoId);
           const office = {
@@ -267,20 +267,20 @@ const AttendanceScreen = () => {
       const response = await getAttendanceStatus();
       if (response) {
         let checkedIn = false;
-        
+
         if (response.nextSuggestedPunch) {
           checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
         } else if (response.status) {
           const statusText = response.status.toLowerCase();
           checkedIn =
             (statusText.includes('checked in') ||
-            statusText.includes('punch in') ||
-            statusText.includes('check in') ||
-            statusText === 'in' ||
-            statusText === 'present') &&
+              statusText.includes('punch in') ||
+              statusText.includes('check in') ||
+              statusText === 'in' ||
+              statusText === 'present') &&
             !statusText.includes('not checked in');
         }
-        
+
         setStatus(checkedIn ? 'IN' : 'OUT');
         setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
       }
@@ -327,8 +327,8 @@ const AttendanceScreen = () => {
     await fetchConfig();
     await fetchStatusAndName(true);
   }, [fetchConfig, fetchStatusAndName]);
-  
-  const lastFetchedLocationRef = useRef<{latitude: number, longitude: number} | null>(null);
+
+  const lastFetchedLocationRef = useRef<{ latitude: number, longitude: number } | null>(null);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -399,11 +399,10 @@ const AttendanceScreen = () => {
   const distanceLabel =
     distanceMeters === null
       ? 'Office Distance: locating...'
-      : `Office Distance: ${
-          distanceMeters > 1000
-            ? (distanceMeters / 1000).toFixed(2) + 'km'
-            : Math.round(distanceMeters) + 'm'
-        }`;
+      : `Office Distance: ${distanceMeters > 1000
+        ? (distanceMeters / 1000).toFixed(2) + 'km'
+        : Math.round(distanceMeters) + 'm'
+      }`;
 
   const isInRadius = distanceMeters !== null && distanceMeters <= officeRadius;
   const canPunch = isWithinRange && isTracking && !isVerifying;
@@ -654,7 +653,7 @@ const AttendanceScreen = () => {
               <Text style={styles.statValue}>09:15 AM</Text>
             </View>
           </AppCard>
-          
+
           <AppCard style={styles.statCard}>
             <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.08)' }]}>
               <Ionicons name="timer" size={moderateScale(18)} color={Colors.accent} />
@@ -699,7 +698,7 @@ const AttendanceScreen = () => {
                 />
               </>
             )}
-            
+
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handlePunch}
@@ -736,10 +735,10 @@ const AttendanceScreen = () => {
             {recentLogs.map(log => (
               <View key={log.id} style={styles.logItem}>
                 <View style={[styles.logIcon, { backgroundColor: log.tone === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 77, 28, 0.1)' }]}>
-                  <Ionicons 
-                    name={log.tone === 'success' ? 'checkmark' : 'time'} 
-                    size={moderateScale(18)} 
-                    color={log.tone === 'success' ? Colors.success : Colors.primary} 
+                  <Ionicons
+                    name={log.tone === 'success' ? 'checkmark' : 'time'}
+                    size={moderateScale(18)}
+                    color={log.tone === 'success' ? Colors.success : Colors.primary}
                   />
                 </View>
                 <View style={styles.logBody}>
@@ -877,13 +876,13 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   clock: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(48),
     color: Colors.text,
     letterSpacing: -1.5,
   },
   clockAmpm: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(18),
     color: Colors.textMuted,
     marginLeft: moderateScale(4),

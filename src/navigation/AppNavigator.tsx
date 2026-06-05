@@ -26,17 +26,25 @@ import Toast from 'react-native-toast-message';
 import { Colors, Theme } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { moderateScale } from '../utils/responsive';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const insets = useSafeAreaInsets();
   return (
     <LiveLocationProvider>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: (Platform.OS === 'ios' ? 60 : 54) + insets.bottom,
+            paddingBottom: insets.bottom > 0 ? insets.bottom - 4 : 8,
+          }
+        ],
         tabBarShowLabel: true,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
@@ -143,7 +151,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: Platform.OS === 'ios' ? 88 : 64,
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
@@ -152,7 +159,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
     paddingTop: 8,
   },
   tabItem: {

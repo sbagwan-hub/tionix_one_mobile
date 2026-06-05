@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Theme.spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 77, 28, 0.1)',
+    borderColor: 'rgba(254, 0, 0, 0.1)',
   },
   formTitle: {
     ...Typography.heading,

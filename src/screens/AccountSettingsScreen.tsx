@@ -48,7 +48,7 @@ const AccountSettingsScreen = ({ navigation }: any) => {
       {/* Stunning Background Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -88,7 +88,7 @@ const AccountSettingsScreen = ({ navigation }: any) => {
             <Switch
               value={biometricEnabled}
               onValueChange={setBiometricEnabled}
-              trackColor={{ false: 'rgba(0,0,0,0.1)', true: 'rgba(255, 77, 28, 0.2)' }}
+              trackColor={{ false: 'rgba(0,0,0,0.1)', true: 'rgba(254, 0, 0, 0.2)' }}
               thumbColor={biometricEnabled ? Colors.primary : Colors.white}
             />
           </View>
@@ -104,7 +104,7 @@ const AccountSettingsScreen = ({ navigation }: any) => {
             <Switch
               value={locationAlertsEnabled}
               onValueChange={setLocationAlertsEnabled}
-              trackColor={{ false: 'rgba(0,0,0,0.1)', true: 'rgba(255, 77, 28, 0.2)' }}
+              trackColor={{ false: 'rgba(0,0,0,0.1)', true: 'rgba(254, 0, 0, 0.2)' }}
               thumbColor={locationAlertsEnabled ? Colors.primary : Colors.white}
             />
           </View>
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
     filter: 'blur(50px)',
   },
   header: {
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     width: moderateScale(64),
     height: moderateScale(64),
     borderRadius: moderateScale(14),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    backgroundColor: 'rgba(254, 0, 0, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Theme.spacing.md,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     width: moderateScale(42),
     height: moderateScale(42),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.05)',
+    backgroundColor: 'rgba(254, 0, 0, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Theme.spacing.md,

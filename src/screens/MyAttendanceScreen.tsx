@@ -161,7 +161,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
       {/* Stunning Background Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
     filter: 'blur(50px)',
   },
   header: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     width: moderateScale(48),
     height: moderateScale(48),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    backgroundColor: 'rgba(254, 0, 0, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },

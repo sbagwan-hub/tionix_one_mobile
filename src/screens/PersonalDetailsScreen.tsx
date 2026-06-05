@@ -280,7 +280,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
       {/* Stunning Background Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
     filter: 'blur(50px)',
   },
   header: {
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
   },
   employeeBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    backgroundColor: 'rgba(254, 0, 0, 0.08)',
     paddingHorizontal: moderateScale(8),
     paddingVertical: moderateScale(4),
     borderRadius: Theme.borderRadius.md,
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   pillInputFocused: {
-    borderColor: 'rgba(255, 77, 28, 0.2)',
+    borderColor: 'rgba(254, 0, 0, 0.2)',
     shadowOpacity: 0.08,
     shadowColor: Colors.primary,
     backgroundColor: '#FFFAFA',
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(12),
   },
   pillIconFocused: {
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
   },
   pillInputWrapper: {
     flex: 1,
@@ -698,12 +698,12 @@ const styles = StyleSheet.create({
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 77, 28, 0.04)',
+    backgroundColor: 'rgba(254, 0, 0, 0.04)',
     borderRadius: Theme.borderRadius.xxl,
     paddingHorizontal: moderateScale(8),
     paddingVertical: moderateScale(8),
     borderWidth: 1,
-    borderColor: 'rgba(255, 77, 28, 0.1)',
+    borderColor: 'rgba(254, 0, 0, 0.1)',
   },
   infoPillIcon: {
     width: moderateScale(48),
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     width: moderateScale(44),
     height: moderateScale(44),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Theme.spacing.md,

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '../icons/Ionicons';
 import AppCard from '../components/AppCard';
@@ -49,6 +49,7 @@ const formatDateRange = (startDate: string, endDate: string) => {
 };
 
 const MyLeaveScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -128,7 +129,7 @@ const MyLeaveScreen = ({ navigation }: any) => {
 
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -166,7 +167,7 @@ const MyLeaveScreen = ({ navigation }: any) => {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
   },
   header: {
     backgroundColor: 'transparent',
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
     width: moderateScale(48),
     height: moderateScale(48),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    backgroundColor: 'rgba(254, 0, 0, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -517,7 +518,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.lg,
     paddingVertical: moderateScale(10),
     borderRadius: Theme.borderRadius.pill,
-    backgroundColor: 'rgba(255, 77, 28, 0.10)',
+    backgroundColor: 'rgba(254, 0, 0, 0.10)',
   },
   emptyButtonText: {
     ...Typography.subheading,
