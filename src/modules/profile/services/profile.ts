@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
-import { API_ENDPOINTS } from '../config/api';
-import { apiRequest } from './apiClient';
-import { getAuthSession, saveAuthSession } from './auth';
-import type { AuthSession } from '../types/auth';
+import { API_ENDPOINTS } from '../../../config/api';
+import { apiRequest } from '../../../services/apiClient';
+import { getAuthSession, saveAuthSession } from '../../auth/services/auth';
+import type { AuthSession } from '../../auth/types/auth';
 
 export type EmployeeProfile = {
   pkUserId: string;

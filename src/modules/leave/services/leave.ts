@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_ENDPOINTS } from '../config/api';
-import { apiRequest, ApiError } from './apiClient';
-import { getAuthSession } from './auth';
+import { API_ENDPOINTS } from '../../../config/api';
+import { apiRequest, ApiError } from '../../../services/apiClient';
+import { getAuthSession } from '../../auth/services/auth';
 
 const leaveHistoryStorageKey = (fkEmpId: number) => `@attendance/leave-history/${fkEmpId}`;
 

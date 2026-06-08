@@ -1,7 +1,7 @@
-import { API_ENDPOINTS } from '../config/api';
-import { COMPANY } from '../config/company';
-import { apiRequest, ApiError } from './apiClient';
-import { getAuthSession } from './auth';
+import { API_ENDPOINTS } from '../../../config/api';
+import { COMPANY } from '../../../config/company';
+import { apiRequest, ApiError } from '../../../services/apiClient';
+import { getAuthSession } from '../../auth/services/auth';
 
 export type AttendanceResponse = {
   success: boolean;

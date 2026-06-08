@@ -12,15 +12,15 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
-import AppCard from '../components/AppCard';
-import { clearAuthSession } from '../services/auth';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
+import AppCard from '../../../components/AppCard';
+import { clearAuthSession } from '../../auth/services/auth';
 import { EmployeeProfile, getEmployeeProfile } from '../services/profile';
-import { getAttendanceHistory } from '../services/attendance';
-import { API_BASE_URL } from '../config/api';
+import { getAttendanceHistory } from '../../attendance/services/attendance';
+import { API_BASE_URL } from '../../../config/api';
 import Toast from 'react-native-toast-message';
 
 const isInvalidTokenError = (message: string) =>

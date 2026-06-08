@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS } from '../../../config/api';
+import { ApiError, apiRequest } from '../../../services/apiClient';
+import { logApiError } from '../../../services/logger';
 import { AuthSession, AuthUser, LoginCredentials, LoginResponse } from '../types/auth';
-import { apiRequest, ApiError } from './apiClient';
-import { logApiError } from './logger';
-import { isTokenExpired } from './sessionManager';
+import { isTokenExpired } from '../../../services/sessionManager';
 
 const AUTH_SESSION_KEY = '@attendance/auth-session';
 

@@ -15,21 +15,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import AppCard from '../components/AppCard';
-import PrimaryButton from '../components/PrimaryButton';
-import { clearAuthSession } from '../services/auth';
+
 import {
   EmployeeProfile,
   getEmployeeProfile,
   updateEmployeeProfile,
   uploadProfileImage,
 } from '../services/profile';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
-import { API_BASE_URL } from '../config/api';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
+import { API_BASE_URL } from '../../../config/api';
+import { clearAuthSession } from '../../auth/services/auth';
 
 const isInvalidTokenError = (message: string) =>
   message.toLowerCase().includes('token is not valid') ||

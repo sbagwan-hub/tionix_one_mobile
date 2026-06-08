@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '../../../icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../../../theme/colors';
 import { moderateScale } from '../../../utils/responsive';
 import { Typography } from '../../../theme/typography';

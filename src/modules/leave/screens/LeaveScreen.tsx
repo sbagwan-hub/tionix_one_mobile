@@ -12,11 +12,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
-import AppCard from '../components/AppCard';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
+import { Ionicons } from '@expo/vector-icons';
+import AppCard from '../../../components/AppCard';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
 import {
   DEFAULT_LEAVE_TYPES,
   getLeaveBalances,

@@ -15,13 +15,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
-import Ionicons from '../icons/Ionicons';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
+import { ApiError } from '../../../services/apiClient';
+import { getAuthSession } from '../../auth/services/auth';
 import { applyForLeave, getLeaveBalances } from '../services/leave';
-import { getAuthSession } from '../services/auth';
-import { ApiError } from '../services/apiClient';
 
 const PRIMARY_GRADIENT = Colors.primaryGradient;
 

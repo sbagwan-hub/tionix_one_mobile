@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
-import AppCard from '../components/AppCard';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
+import AppCard from '../../../components/AppCard';
 
 const settingsRows = [
   {

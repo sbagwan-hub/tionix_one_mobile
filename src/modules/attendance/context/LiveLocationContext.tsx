@@ -8,9 +8,9 @@ import React, {
 } from 'react';
 import { useOfficeDistance } from '../hooks/useOfficeDistance';
 import { useLiveLocationPing } from '../hooks/useLiveLocationPing';
-import { getAuthSession } from '../services/auth';
+import { getAuthSession } from '../../auth/services/auth';
 import { getLiveLocationConfig } from '../services/attendance';
-import { COMPANY } from '../config/company';
+import { COMPANY } from '../../../config/company';
 
 const DEFAULT_PING_MS = 15000;
 
