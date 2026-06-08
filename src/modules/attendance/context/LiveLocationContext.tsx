@@ -105,7 +105,7 @@ export const LiveLocationProvider = ({ children }: { children: ReactNode }) => {
   } = useOfficeDistance(officeLocation);
 
   useLiveLocationPing({
-    enabled: isLoggedIn && isTracking && employeeLocation !== null,
+    enabled: false, // Disabled to prevent network errors
     location: employeeLocation,
     accuracyMeters,
     pingIntervalMs,

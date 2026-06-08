@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../../config/api';
 import { apiRequest, ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
+import { getLeaveBalance as getLeaveBalanceApi, getLeaveTypes as getLeaveTypesApi, applyForLeave as applyForLeaveApi, getLeaveHistory as getLeaveHistoryApi } from './leaveRequest.service';
 
 const leaveHistoryStorageKey = (fkEmpId: number) => `@attendance/leave-history/${fkEmpId}`;
 
@@ -125,38 +126,53 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
   }
 
   try {
-    const response = await apiRequest<LeaveTypesResponse>(API_ENDPOINTS.leaveTypes, {
-      method: 'GET',
-      token: session.token,
-      quiet: true,
-    });
+    const fkEmpId = String(session.user.fkEmpId);
+    const today = new Date();
+    const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    const fromDate = `${year}-04-01`;
+    const toDate = `${year + 1}-03-31`;
 
-    const rows = response.types ?? response.data ?? response.leaveTypes ?? [];
+    const balance = await getLeaveBalanceApi(fkEmpId, fromDate, toDate);
+    
+    // Map balance to LeaveType format
+    const types: LeaveType[] = [
+      {
+        id: 'annual',
+        label: 'Annual Leave',
+        icon: 'ribbon-outline',
+        remaining: balance.bal_annual_leave,
+      },
+      {
+        id: 'paid-holiday',
+        label: 'Paid Holiday',
+        icon: 'calendar-outline',
+        remaining: balance.bal_paid_holiday,
+      },
+      {
+        id: 'sick',
+        label: 'Sick Leave',
+        icon: 'medkit-outline',
+        remaining: balance.bal_sick_leave,
+      },
+      {
+        id: 'paid-casual',
+        label: 'Paid Casual Leave',
+        icon: 'sunny-outline',
+        remaining: balance.bal_paid_casual,
+      },
+      {
+        id: 'unpaid-casual',
+        label: 'Unpaid Casual Leave',
+        icon: 'wallet-outline',
+        remaining: balance.bal_unpaid_casual,
+      },
+    ];
 
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return DEFAULT_LEAVE_TYPES;
-    }
-
-    const normalized = rows
-      .map((row, index) => {
-        const fallback = DEFAULT_LEAVE_TYPES[index % DEFAULT_LEAVE_TYPES.length]?.icon ?? 'list-outline';
-        return normalizeLeaveType(row as Record<string, unknown>, fallback);
-      })
-      .filter(Boolean) as LeaveType[];
-
-    return normalized
-      .map(type => {
-        const match = DEFAULT_LEAVE_TYPES.find(
-          candidate => candidate.id === type.id || candidate.label.toLowerCase() === type.label.toLowerCase(),
-        );
-        return match ? { ...type, icon: match.icon, id: match.id } : type;
-      })
-      .filter(type => !isWorkFromHomeType(type));
+    return types.filter(t => t.remaining !== undefined && t.remaining !== null && t.remaining > 0);
   } catch (error) {
     if (isMissingLeaveRouteError(error)) {
       return DEFAULT_LEAVE_TYPES;
     }
-
     throw error;
   }
 };
@@ -266,16 +282,34 @@ export const getLeaveHistory = async (): Promise<LeaveRequest[]> => {
   const localHistory = await readLocalLeaveHistory(fkEmpId);
 
   try {
-    const response = await apiRequest<LeaveHistoryResponse>(API_ENDPOINTS.leaveHistory, {
-      method: 'GET',
-      token: session.token,
-      quiet: true,
-    });
+    const response = await getLeaveHistoryApi(1, 50);
+    
+    // Map API response to LeaveRequest format
+    const remoteHistory = (response.data || []).map((row: any, index: number) => {
+      const startDate = row.from_date || row.startDate || '';
+      const endDate = row.to_date || row.endDate || startDate;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffMs = end.getTime() - start.getTime();
+      const computedDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
 
-    const rows = response.data ?? response.leaves ?? [];
-    const remoteHistory = rows.map((row, index) =>
-      normalizeLeaveRequest(row as Record<string, unknown>, index),
-    );
+      const statusRaw = row.authorize ? (row.accepted === 'Accept' ? 'Approved' : 'Rejected') : 'Pending';
+      const status = (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(statusRaw)
+        ? statusRaw
+        : 'Pending') as LeaveStatus;
+
+      return {
+        id: String(row.pk_lr_id || index),
+        leaveType: row.reason || 'Leave',
+        startDate,
+        endDate,
+        days: Number(row.total_leave) || computedDays,
+        reason: row.reason || row.remarks || '',
+        status,
+        appliedOn: row.request_date || new Date().toISOString(),
+        isHalfDay: false,
+      };
+    });
 
     if (remoteHistory.length > 0) {
       await writeLocalLeaveHistory(fkEmpId, remoteHistory);
@@ -302,30 +336,19 @@ export const applyForLeave = async (payload: ApplyLeavePayload): Promise<LeaveRe
   const fkEmpId = Number(session.user.fkEmpId);
 
   try {
-    const response = await apiRequest<ApplyLeaveResponse>(API_ENDPOINTS.leaveApply, {
-      method: 'POST',
-      token: session.token,
-      body: {
-        empCode: session.user.UserName,
-        fkEmpId: session.user.fkEmpId,
-        leaveType: payload.leaveType,
-        startDate: payload.startDate,
-        endDate: payload.endDate,
-        fromDate: payload.startDate,
-        toDate: payload.endDate,
-        reason: payload.reason,
-        isHalfDay: payload.isHalfDay ?? false,
-      },
+    const response = await applyForLeaveApi({
+      leaveType: payload.leaveType,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      reason: payload.reason,
+      isHalfDay: payload.isHalfDay ?? false,
     });
 
     if (!response.success) {
       throw new ApiError(response.message ?? 'Unable to submit leave request.');
     }
 
-    const created = response.leave
-      ? normalizeLeaveRequest(response.leave as unknown as Record<string, unknown>, 0)
-      : buildLeaveRequestFromPayload(payload);
-
+    const created = buildLeaveRequestFromPayload(payload);
     await appendLocalLeaveRequest(fkEmpId, created);
     return created;
   } catch (error) {

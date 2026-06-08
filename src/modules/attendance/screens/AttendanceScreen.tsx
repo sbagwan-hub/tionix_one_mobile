@@ -312,26 +312,27 @@ const AttendanceScreen = () => {
       const session = await getAuthSession();
       setEmployeeName(session?.user?.UserName || 'Employee');
 
-      const response = await getAttendanceStatus();
-      if (response) {
-        let checkedIn = false;
+      // Temporarily disabled attendance status API to prevent network errors
+      // const response = await getAttendanceStatus();
+      // if (response) {
+      //   let checkedIn = false;
 
-        if (response.nextSuggestedPunch) {
-          checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
-        } else if (response.status) {
-          const statusText = response.status.toLowerCase();
-          checkedIn =
-            (statusText.includes('checked in') ||
-              statusText.includes('punch in') ||
-              statusText.includes('check in') ||
-              statusText === 'in' ||
-              statusText === 'present') &&
-            !statusText.includes('not checked in');
-        }
+      //   if (response.nextSuggestedPunch) {
+      //     checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
+      //   } else if (response.status) {
+      //     const statusText = response.status.toLowerCase();
+      //     checkedIn =
+      //       (statusText.includes('checked in') ||
+      //         statusText.includes('punch in') ||
+      //         statusText.includes('check in') ||
+      //         statusText === 'in' ||
+      //         statusText === 'present') &&
+      //       !statusText.includes('not checked in');
+      //   }
 
-        setStatus(checkedIn ? 'IN' : 'OUT');
-        setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
-      }
+      //   setStatus(checkedIn ? 'IN' : 'OUT');
+      //   setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
+      // }
 
       await fetchRecentLogs();
     } catch {
