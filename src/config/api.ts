@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:4100';
+export const API_BASE_URL = 'http://192.168.1.5:4100';
 export const API_ENDPOINTS = {
   login: '/api/mobile/auth/login',
   attendance: '/api/mobile/attendance/punch-in',
