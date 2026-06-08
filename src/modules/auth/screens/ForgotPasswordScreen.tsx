@@ -13,11 +13,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '../icons/Ionicons';
-import { Colors, Theme } from '../theme/colors';
-import { moderateScale } from '../utils/responsive';
-import { Typography } from '../theme/typography';
-import PrimaryButton from '../components/PrimaryButton';
+import Ionicons from '../../../icons/Ionicons';
+import { Colors, Theme } from '../../../theme/colors';
+import { moderateScale } from '../../../utils/responsive';
+import { Typography } from '../../../theme/typography';
+import PrimaryButton from '../../../components/PrimaryButton';
 
 const ForgotPasswordScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');

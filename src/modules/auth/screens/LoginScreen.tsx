@@ -14,15 +14,15 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '../icons/Ionicons';
+import Ionicons from '../../../icons/Ionicons';
 import Toast from 'react-native-toast-message';
-import { Colors, Theme } from '../theme/colors';
-import { moderateScale } from '../utils/responsive';
-import { Typography } from '../theme/typography';
-import PrimaryButton from '../components/PrimaryButton';
+import { Colors, Theme } from '../../../theme/colors';
+import { moderateScale } from '../../../utils/responsive';
+import { Typography } from '../../../theme/typography';
+import PrimaryButton from '../../../components/PrimaryButton';
 import { loginWithCredentials } from '../services/auth';
-import { ApiError } from '../services/apiClient';
-import { COMPANY } from '../config/company';
+import { ApiError } from '../../../services/apiClient';
+import { COMPANY } from '../../../config/company';
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
@@ -78,7 +78,7 @@ const LoginScreen = ({ navigation }: any) => {
         <SafeAreaView edges={['top']} style={styles.headerContent}>
           <View style={styles.logoFrame}>
             <Image
-              source={require('../assets/app_logo.png')}
+              source={require('../../../assets/app_logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />

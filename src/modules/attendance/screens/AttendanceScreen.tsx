@@ -3,16 +3,16 @@ import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
+import Ionicons from '../../../icons/Ionicons';
 import MapView, { Circle, Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { getDistance } from 'geolib';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
-import AppCard from '../components/AppCard';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
+import AppCard from '../../../components/AppCard';
 import { showLocationAlert } from '../hooks/useOfficeDistance';
 import { useLiveLocation } from '../context/LiveLocationContext';
-import { verifyAttendanceBiometric } from '../services/biometrics';
+import { verifyAttendanceBiometric } from '../../../services/biometrics';
 import {
   punchIn,
   punchOut,
@@ -23,8 +23,8 @@ import {
   AttendanceHistoryDay,
   getGeolocations,
 } from '../services/attendance';
-import { getAuthSession } from '../services/auth';
-import { COMPANY } from '../config/company';
+import { getAuthSession } from '../../auth/services/auth';
+import { COMPANY } from '../../../config/company';
 
 type RecentLog = {
   id: string;

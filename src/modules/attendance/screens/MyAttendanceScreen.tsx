@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '../icons/Ionicons';
-import AppCard from '../components/AppCard';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
-import { moderateScale } from '../utils/responsive';
+import Ionicons from '../../../icons/Ionicons';
+import AppCard from '../../../components/AppCard';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
+import { moderateScale } from '../../../utils/responsive';
 import { getAttendanceHistory, AttendanceHistoryDay } from '../services/attendance';
 
 const formatTime = (isoString: string) => {

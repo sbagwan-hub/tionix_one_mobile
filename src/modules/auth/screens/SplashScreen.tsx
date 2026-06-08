@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { View, Image, StatusBar, Text, StyleSheet } from 'react-native';
-import { Colors, Theme } from '../theme/colors';
-import { Typography } from '../theme/typography';
+import { Colors, Theme } from '../../../theme/colors';
+import { Typography } from '../../../theme/typography';
 import { getAuthSession } from '../services/auth';
-import { moderateScale } from '../utils/responsive';
+import { moderateScale } from '../../../utils/responsive';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 const SplashScreen = ({ navigation }: any) => {
@@ -52,7 +52,7 @@ const SplashScreen = ({ navigation }: any) => {
             style={styles.logoFrame}
           >
             <Image
-              source={require('../assets/app_logo.png')}
+              source={require('../../../assets/app_logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />

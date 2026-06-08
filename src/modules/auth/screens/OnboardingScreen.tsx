@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '../icons/Ionicons';
+import Ionicons from '../../../icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -20,9 +20,9 @@ import Animated, {
   withTiming,
   withSpring,
 } from 'react-native-reanimated';
-import { Colors, Theme } from '../theme/colors';
-import { moderateScale } from '../utils/responsive';
-import { Typography } from '../theme/typography';
+import { Colors, Theme } from '../../../theme/colors';
+import { moderateScale } from '../../../utils/responsive';
+import { Typography } from '../../../theme/typography';
 
 // baseline dimensions from responsive.ts
 
