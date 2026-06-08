@@ -64,8 +64,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.inputBgFocused,
   },
   input: {
+    fontFamily: 'Outfit_600SemiBold',
     fontSize: moderateScale(16),
-    fontWeight: '600',
     color: Colors.text,
     padding: 0,
   },

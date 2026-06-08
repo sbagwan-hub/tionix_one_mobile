@@ -103,7 +103,7 @@ const LoginScreen = ({ navigation }: any) => {
 
               <View style={styles.fieldGroup}>
                 <Text style={[styles.fieldLabel, isEmailFocused && styles.fieldLabelFocused]}>
-                  Email / Username / Mobile
+                  Username / Mobile
                 </Text>
                 <View
                   style={[
@@ -117,7 +117,7 @@ const LoginScreen = ({ navigation }: any) => {
                     color={isEmailFocused ? Colors.primary : Colors.textMuted}
                   />
                   <TextInput
-                    placeholder="Email, username, or mobile"
+                    placeholder="Username or mobile"
                     placeholderTextColor={Colors.textMuted}
                     value={email}
                     onChangeText={setEmail}
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     ...Typography.title,
     color: Colors.text,
     fontSize: moderateScale(26),
-    fontWeight: '900',
+    fontFamily: 'Outfit_900Black',
     marginBottom: Theme.spacing.xs,
     letterSpacing: -0.5,
   },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   formTitle: {
     ...Typography.heading,
     fontSize: moderateScale(24),
-    fontWeight: '900',
+    fontFamily: 'Outfit_800ExtraBold',
     color: Colors.text,
     marginBottom: Theme.spacing.xs,
     letterSpacing: -0.5,
@@ -278,7 +278,6 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.sm,
     marginLeft: moderateScale(4),
     color: Colors.textSecondary,
-    fontWeight: '700',
   },
   fieldLabelFocused: {
     color: Colors.primary,
@@ -305,8 +304,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    fontFamily: 'Outfit_600SemiBold',
     fontSize: moderateScale(16),
-    fontWeight: '600',
     color: Colors.text,
     padding: 0,
   },
@@ -318,7 +317,6 @@ const styles = StyleSheet.create({
   forgotText: {
     ...Typography.caption,
     color: Colors.primary,
-    fontWeight: '700',
     fontSize: moderateScale(13),
   },
   errorBanner: {
