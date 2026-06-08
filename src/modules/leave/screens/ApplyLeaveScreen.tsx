@@ -255,7 +255,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   }, [currentCalendarMonth, currentCalendarYear, getDaysInMonth, getFirstDayOfMonth]);
 
   // 3. Dropdown Pickers State
-  const [isEmployeePickerOpen, setIsEmployeePickerOpen] = useState(false);
   const [isLeaveTypePickerOpen, setIsLeaveTypePickerOpen] = useState(false);
   const [isWorkingTypePickerOpen, setIsWorkingTypePickerOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -915,14 +914,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
             </View>
 
             <Text style={[styles.inputLabel, { marginTop: Theme.spacing.md }]}>Employee Name</Text>
-            <TouchableOpacity
-              style={styles.dropdownTrigger}
-              onPress={() => setIsEmployeePickerOpen(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.dropdownValueText}>{employeeName}</Text>
-              <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.disabledInputRow}>
+              <Text style={styles.disabledInputText}>{employeeName}</Text>
+            </View>
           </FormCard>
 
           {/* 5. Form Section: Date & Types */}
@@ -1188,36 +1182,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       </View>
 
       {/* Modals for selectors */}
-      {/* A. Employee Selector Modal */}
-      <Modal visible={isEmployeePickerOpen} transparent animationType="fade" onRequestClose={() => setIsEmployeePickerOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setIsEmployeePickerOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Employee</Text>
-              <TouchableOpacity onPress={() => setIsEmployeePickerOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {[employeeName].map(emp => (
-                <TouchableOpacity
-                  key={emp}
-                  style={styles.modalItem}
-                  onPress={() => {
-                    setEmployeeName(emp);
-                    setIsEmployeePickerOpen(false);
-                  }}
-                >
-                  <Text style={[styles.modalItemText, employeeName === emp && styles.modalItemTextActive]}>{emp}</Text>
-                  {employeeName === emp && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* B. Leave Type Selector Modal */}
+      {/* A. Leave Type Selector Modal */}
       <Modal visible={isLeaveTypePickerOpen} transparent animationType="fade" onRequestClose={() => setIsLeaveTypePickerOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setIsLeaveTypePickerOpen(false)}>
           <Pressable style={styles.modalSheet} onPress={() => undefined}>
