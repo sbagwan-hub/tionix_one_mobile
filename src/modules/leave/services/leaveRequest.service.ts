@@ -13,6 +13,11 @@ export interface LeaveBalance {
   bal_sick_leave: number;
   bal_paid_casual: number;
   bal_unpaid_casual: number;
+  tot_annual_leave: number;
+  tot_paid_holiday: number;
+  tot_sick_leave: number;
+  tot_paid_casual: number;
+  tot_unpaid_casual: number;
 }
 
 export interface LeaveType {

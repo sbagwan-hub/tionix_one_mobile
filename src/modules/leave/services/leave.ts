@@ -141,34 +141,39 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
         label: 'Annual Leave',
         icon: 'ribbon-outline',
         remaining: balance.bal_annual_leave,
+        total: balance.tot_annual_leave,
       },
       {
         id: 'paid-holiday',
         label: 'Paid Holiday',
         icon: 'calendar-outline',
         remaining: balance.bal_paid_holiday,
+        total: balance.tot_paid_holiday,
       },
       {
         id: 'sick',
         label: 'Sick Leave',
         icon: 'medkit-outline',
         remaining: balance.bal_sick_leave,
+        total: balance.tot_sick_leave,
       },
       {
         id: 'paid-casual',
         label: 'Paid Casual Leave',
         icon: 'sunny-outline',
         remaining: balance.bal_paid_casual,
+        total: balance.tot_paid_casual,
       },
       {
         id: 'unpaid-casual',
         label: 'Unpaid Casual Leave',
         icon: 'wallet-outline',
         remaining: balance.bal_unpaid_casual,
+        total: balance.tot_unpaid_casual,
       },
     ];
 
-    return types.filter(t => t.remaining !== undefined && t.remaining !== null && t.remaining > 0);
+    return types.filter(t => t.remaining !== undefined && t.remaining !== null);
   } catch (error) {
     if (isMissingLeaveRouteError(error)) {
       return DEFAULT_LEAVE_TYPES;
