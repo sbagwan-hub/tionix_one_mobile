@@ -145,20 +145,23 @@ export const loginWithCredentials = async (
       throw new ApiError('Login failed. Please check your credentials.');
     }
 
-    if (!response.token || !response.refreshToken || !response.user) {
+    // Extract data from nested structure returned by ResponseBuilder
+    const data = response.data || response;
+
+    if (!data.token || !data.refreshToken || !data.user) {
       throw new ApiError('Login response is missing required authentication data.');
     }
 
-    const user = normalizeAuthUser(response.user);
+    const user = normalizeAuthUser(data.user);
 
     if (!user.UserName || !user.fkEmpId) {
       throw new ApiError('Login response is missing employee details.');
     }
 
     const session: AuthSession = {
-      token: response.token,
-      refreshToken: response.refreshToken,
-      role: response.role,
+      token: data.token,
+      refreshToken: data.refreshToken,
+      role: data.role,
       user,
     };
 

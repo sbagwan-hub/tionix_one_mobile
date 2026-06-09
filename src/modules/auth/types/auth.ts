@@ -23,10 +23,20 @@ export type AuthUser = {
 
 export type LoginResponse = {
   success: boolean;
-  token: string;
-  refreshToken: string;
+  message?: string;
+  timestamp?: string;
+  module?: string;
+  data?: {
+    token: string;
+    refreshToken: string;
+    role?: string;
+    user: Record<string, unknown>;
+  };
+  // Flat structure for backward compatibility
+  token?: string;
+  refreshToken?: string;
   role?: string;
-  user: Record<string, unknown>;
+  user?: Record<string, unknown>;
 };
 
 export type LoginCredentials = {
