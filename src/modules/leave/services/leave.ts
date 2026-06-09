@@ -121,7 +121,7 @@ const isWorkFromHomeType = (type: LeaveType) => {
 export const getLeaveBalances = async (): Promise<LeaveType[]> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new ApiError('Authentication required. Please log in again.');
   }
 
@@ -279,7 +279,7 @@ const normalizeLeaveRequest = (raw: Record<string, unknown>, index: number): Lea
 export const getLeaveHistory = async (): Promise<LeaveRequest[]> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new ApiError('Authentication required. Please log in again.');
   }
 
@@ -334,7 +334,7 @@ export const getLeaveHistory = async (): Promise<LeaveRequest[]> => {
 export const applyForLeave = async (payload: ApplyLeavePayload): Promise<LeaveRequest> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new ApiError('Authentication required. Please log in again.');
   }
 

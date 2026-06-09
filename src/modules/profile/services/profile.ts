@@ -37,7 +37,7 @@ export const getProfileFromAuthSession = (session: AuthSession): EmployeeProfile
 export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -50,7 +50,7 @@ export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
   try {
     const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
       method: 'GET',
-      token: session.token,
+      token: session.accessToken,
     });
 
     if (!response.success || !response.profile) {
@@ -75,7 +75,7 @@ export const updateEmployeeProfile = async (
 ): Promise<EmployeeProfile> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -87,7 +87,7 @@ export const updateEmployeeProfile = async (
 
   const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
     method: 'PUT',
-    token: session.token,
+    token: session.accessToken,
     body: payload,
   });
 
@@ -112,7 +112,7 @@ export const uploadProfileImage = async (
 ): Promise<EmployeeProfile> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.accessToken) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -129,7 +129,7 @@ export const uploadProfileImage = async (
 
   const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profileImage, {
     method: 'POST',
-    token: session.token,
+    token: session.accessToken,
     body: formData,
   });
 

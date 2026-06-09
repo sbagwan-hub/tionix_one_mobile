@@ -35,7 +35,7 @@ export const punchIn = async (
 ): Promise<AttendanceResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -52,7 +52,7 @@ export const punchIn = async (
 
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
     method: 'POST',
-    token: session.token,
+    token: session.access_token,
     body: formData,
   });
 };
@@ -63,7 +63,7 @@ export const punchOut = async (
 ): Promise<AttendanceResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -75,7 +75,7 @@ export const punchOut = async (
 
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.checkout, {
     method: 'POST',
-    token: session.token,
+    token: session.access_token,
     body: payload,
   });
 };
@@ -94,7 +94,7 @@ export type AttendanceStatusResponse = {
 export const getAttendanceStatus = async (empId?: number): Promise<AttendanceStatusResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -106,7 +106,7 @@ export const getAttendanceStatus = async (empId?: number): Promise<AttendanceSta
 
   return await apiRequest<AttendanceStatusResponse>(API_ENDPOINTS.status(fkEmpId), {
     method: 'GET',
-    token: session.token,
+    token: session.access_token,
   });
 };
 
@@ -187,13 +187,13 @@ export type LiveLocationConfigResponse = {
 export const getLiveLocationConfig = async (): Promise<LiveLocationConfigResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
   return await apiRequest<LiveLocationConfigResponse>(API_ENDPOINTS.liveLocationConfig, {
     method: 'GET',
-    token: session.token,
+    token: session.access_token,
   });
 };
 
@@ -204,7 +204,7 @@ export const postLiveLocation = async ({
 }: LiveLocationPayload): Promise<LiveLocationResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -218,7 +218,7 @@ export const postLiveLocation = async ({
     API_ENDPOINTS.liveLocation,
     {
       method: 'POST',
-      token: session.token,
+      token: session.access_token,
       body: payload,
     },
   );
@@ -227,13 +227,13 @@ export const postLiveLocation = async ({
 export const getAttendanceConfig = async (): Promise<AttendanceConfigResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
   return await apiRequest<AttendanceConfigResponse>(API_ENDPOINTS.config, {
     method: 'GET',
-    token: session.token,
+    token: session.access_token,
   });
 };
 
@@ -276,7 +276,7 @@ export const getDefaultGeolocations = (): GeolocationItem[] => [
 export const getGeolocations = async (): Promise<GeolocationResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
@@ -291,7 +291,7 @@ export const getGeolocations = async (): Promise<GeolocationResponse> => {
   try {
     return await apiRequest<GeolocationResponse>(API_ENDPOINTS.geolocations, {
       method: 'GET',
-      token: session.token,
+      token: session.access_token,
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 403) {
@@ -332,12 +332,12 @@ export type AttendanceHistoryResponse = {
 export const getAttendanceHistory = async (): Promise<AttendanceHistoryResponse> => {
   const session = await getAuthSession();
 
-  if (!session?.token) {
+  if (!session?.access_token) {
     throw new Error('Authentication required. Please log in again.');
   }
 
   return await apiRequest<AttendanceHistoryResponse>(API_ENDPOINTS.history, {
     method: 'GET',
-    token: session.token,
+    token: session.access_token,
   });
 };

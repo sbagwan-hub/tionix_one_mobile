@@ -27,13 +27,13 @@ export type LoginResponse = {
   timestamp?: string;
   module?: string;
   data?: {
-    token: string;
+    accessToken: string;
     refreshToken: string;
     role?: string;
     user: Record<string, unknown>;
   };
   // Flat structure for backward compatibility
-  token?: string;
+  accessToken?: string;
   refreshToken?: string;
   role?: string;
   user?: Record<string, unknown>;
@@ -45,7 +45,7 @@ export type LoginCredentials = {
 };
 
 export type AuthSession = {
-  token: string;
+  accessToken: string;
   refreshToken: string;
   role?: string;
   user: AuthUser;
