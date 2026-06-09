@@ -1,6 +1,7 @@
 export const API_BASE_URL = 'http://192.168.1.5:4100';
 export const API_ENDPOINTS = {
   login: '/api/mobile/auth/login',
+  logout: '/api/mobile/auth/logout',
   attendance: '/api/mobile/attendance/punch-in',
   checkout: '/api/mobile/attendance/checkout',
   history: '/api/mobile/attendance/history',

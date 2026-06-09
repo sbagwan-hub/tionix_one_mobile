@@ -29,9 +29,6 @@ export type AttendanceResponse = {
 export const punchIn = async (
   latitude: number,
   longitude: number,
-  status: string = 'Check IN',
-  remark: string = '',
-  deviceInfo: string = '',
 ): Promise<AttendanceResponse> => {
   const session = await getAuthSession();
 
@@ -39,21 +36,16 @@ export const punchIn = async (
     throw new Error('Authentication required. Please log in again.');
   }
 
-  const formData = new FormData();
-  formData.append('empCode', session.user.UserName);
-  formData.append('status', status);
-  formData.append('latitude', latitude.toString());
-  formData.append('longitude', longitude.toString());
-  formData.append('remark', remark);
-
-  if (deviceInfo) {
-    formData.append('device_info', deviceInfo);
-  }
+  const payload = {
+    empCode: session.user.UserName,
+    latitude,
+    longitude,
+  };
 
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
     method: 'POST',
     token: session.access_token,
-    body: formData,
+    body: payload,
   });
 };
 

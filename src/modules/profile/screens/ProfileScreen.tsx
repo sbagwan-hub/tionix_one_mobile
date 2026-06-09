@@ -17,7 +17,7 @@ import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import AppCard from '../../../components/AppCard';
-import { clearAuthSession } from '../../auth/services/auth';
+import { clearAuthSession, logout } from '../../auth/services/auth';
 import { EmployeeProfile, getEmployeeProfile } from '../services/profile';
 import { getAttendanceHistory } from '../../attendance/services/attendance';
 import { API_BASE_URL } from '../../../config/api';
@@ -181,16 +181,27 @@ const ProfileScreen = ({ navigation }: any) => {
 
   const confirmLogout = async () => {
     setIsLogoutModalVisible(false);
-    await resetToLogin();
-    setTimeout(() => {
+    try {
+      await logout();
+      await resetToLogin();
+      setTimeout(() => {
+        Toast.show({
+          type: 'info',
+          text1: 'Logged out',
+          text2: 'You have been safely signed out.',
+          position: 'top',
+          topOffset: 60,
+        });
+      }, 100);
+    } catch (error) {
       Toast.show({
-        type: 'info',
-        text1: 'Logged out',
-        text2: 'You have been safely signed out.',
+        type: 'error',
+        text1: 'Logout failed',
+        text2: 'Please try again.',
         position: 'top',
         topOffset: 60,
       });
-    }, 100);
+    }
   };
 
   return (

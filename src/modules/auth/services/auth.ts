@@ -128,6 +128,24 @@ export const clearAuthSession = async () => {
   await AsyncStorage.removeItem('@attendance/fk-emp-id');
 };
 
+export const logout = async (): Promise<void> => {
+  try {
+    const session = await getAuthSession();
+    if (session?.refresh_token) {
+      await apiRequest(API_ENDPOINTS.logout, {
+        method: 'POST',
+        body: { refreshToken: session.refresh_token },
+        token: session.access_token,
+      });
+    }
+  } catch (error) {
+    // Log error but continue with local cleanup
+    console.error('Logout API call failed:', error);
+  } finally {
+    await clearAuthSession();
+  }
+};
+
 export const getStoredFkEmpId = async (): Promise<number | null> => {
   const empId = await AsyncStorage.getItem('@attendance/fk-emp-id');
   if (empId) {

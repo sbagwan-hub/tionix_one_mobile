@@ -312,27 +312,26 @@ const AttendanceScreen = () => {
       const session = await getAuthSession();
       setEmployeeName(session?.user?.UserName || 'Employee');
 
-      // Temporarily disabled attendance status API to prevent network errors
-      // const response = await getAttendanceStatus();
-      // if (response) {
-      //   let checkedIn = false;
+      const response = await getAttendanceStatus(session?.user?.fkEmpId);
+      if (response && response.success) {
+        let checkedIn = false;
 
-      //   if (response.nextSuggestedPunch) {
-      //     checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
-      //   } else if (response.status) {
-      //     const statusText = response.status.toLowerCase();
-      //     checkedIn =
-      //       (statusText.includes('checked in') ||
-      //         statusText.includes('punch in') ||
-      //         statusText.includes('check in') ||
-      //         statusText === 'in' ||
-      //         statusText === 'present') &&
-      //       !statusText.includes('not checked in');
-      //   }
+        if (response.nextSuggestedPunch) {
+          checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
+        } else if (response.status) {
+          const statusText = response.status.toLowerCase();
+          checkedIn =
+            (statusText.includes('checked in') ||
+              statusText.includes('punch in') ||
+              statusText.includes('check in') ||
+              statusText === 'in' ||
+              statusText === 'present') &&
+            !statusText.includes('not checked in');
+        }
 
-      //   setStatus(checkedIn ? 'IN' : 'OUT');
-      //   setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
-      // }
+        setStatus(checkedIn ? 'IN' : 'OUT');
+        setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
+      }
 
       await fetchRecentLogs();
     } catch {
@@ -455,7 +454,7 @@ const AttendanceScreen = () => {
 
   const isInRadius = distanceMeters !== null && distanceMeters <= officeRadius;
   const canPunch = isWithinRange && isTracking && !isVerifying;
-  const isGlowing = canPunch && !(todayInTime !== '--:--' && todayOutTime !== '--:--');
+  const isGlowing = false;
 
   const buttonColors = useMemo(() => {
     if (status === 'IN') {
@@ -552,9 +551,6 @@ const AttendanceScreen = () => {
         response = await punchIn(
           employeeLocation.latitude,
           employeeLocation.longitude,
-          'Check IN',
-          'Reached location and starting work',
-          deviceInfo,
         );
       } else {
         // Checking OUT
@@ -575,7 +571,8 @@ const AttendanceScreen = () => {
           status: nextStatus === 'IN' ? 'Check IN' : 'Check OUT',
         }).catch(() => undefined);
         fetchRecentLogs();
-        Alert.alert('Success', response.message);
+        const punchType = nextStatus === 'IN' ? 'Punch In' : 'Punch Out';
+        Alert.alert(punchType + ' Successful', response.message);
       } else {
         throw new Error(response.message || 'Failed to mark attendance.');
       }
@@ -584,6 +581,15 @@ const AttendanceScreen = () => {
         error instanceof Error
           ? error.message
           : 'Biometric verification failed. Please try again.';
+
+      // Handle duplicate attendance error - don't show alert, just update status
+      if (message.includes('already recorded Check IN') || message.includes('DUPLICATE_ATTENDANCE')) {
+        setStatus('IN');
+        setLiveStatus('Check IN');
+        fetchRecentLogs();
+        setIsVerifying(false);
+        return;
+      }
 
       // Determine an accurate alert title
       const isBiometricError =
@@ -756,6 +762,11 @@ const AttendanceScreen = () => {
                 <Text style={[styles.punchLabel, !canPunch && { color: Colors.textMuted }]}>
                   {buttonLabel}
                 </Text>
+                {status === 'IN' && todayInTime !== '--:--' && (
+                  <Text style={styles.punchTimeLabel}>
+                    {todayInTime}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -1064,8 +1075,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
   },
   punchButtonOut: {
-    backgroundColor: Colors.secondary,
-    shadowColor: Colors.secondary,
+    backgroundColor: Colors.success,
+    shadowColor: Colors.success,
     borderRadius: moderateScale(80),
   },
   punchButtonDisabled: {
@@ -1084,6 +1095,12 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     color: Colors.white,
     letterSpacing: 1,
+  },
+  punchTimeLabel: {
+    ...Typography.label,
+    fontSize: moderateScale(12),
+    color: Colors.white,
+    fontWeight: '600',
   },
   logsSection: {
     marginTop: Theme.spacing.md,
