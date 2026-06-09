@@ -126,14 +126,9 @@ export const loginWithCredentials = async (
   }
 
   const normalized = email.replace(/\s/g, '');
-  const isMobileLogin = /^\+?\d{10,15}$/.test(normalized);
-  const isEmailLogin = normalized.includes('@');
 
-  const body = isMobileLogin
-    ? { mobile: normalized, password }
-    : isEmailLogin
-      ? { email: normalized, password }
-      : { username: normalized, password };
+  // Always send as username; backend resolves username, email, or mobile
+  const body = { username: normalized, password };
 
   try {
     const response = await apiRequest<LoginResponse>(API_ENDPOINTS.login, {
