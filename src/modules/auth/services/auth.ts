@@ -64,7 +64,7 @@ const normalizeAuthSession = (value: unknown): AuthSession | null => {
 
   const session = value as Partial<AuthSession> & { user?: Record<string, unknown> };
 
-  if (!session.accessToken || !session.refreshToken || !session.user) {
+  if (!session.access_token || !session.refresh_token || !session.user) {
     return null;
   }
 
@@ -78,8 +78,8 @@ const normalizeAuthSession = (value: unknown): AuthSession | null => {
   }
 
   return {
-    accessToken: session.accessToken,
-    refreshToken: session.refreshToken,
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
     role: session.role,
     user,
   };
@@ -109,7 +109,7 @@ export const getAuthSession = async (): Promise<AuthSession | null> => {
       return null;
     }
 
-    if (isTokenExpired(session.accessToken)) {
+    if (isTokenExpired(session.access_token)) {
       await clearAuthSession();
       return null;
     }
@@ -167,7 +167,7 @@ export const loginWithCredentials = async (
     // Extract data from nested structure returned by ResponseBuilder
     const data = response.data || response;
 
-    if (!data.accessToken || !data.refreshToken || !data.user) {
+    if (!data.access_token || !data.refresh_token || !data.user) {
       throw new ApiError('Login response is missing required authentication data.');
     }
 
@@ -178,8 +178,8 @@ export const loginWithCredentials = async (
     }
 
     const session: AuthSession = {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
       role: data.role,
       user,
     };

@@ -77,7 +77,7 @@ export async function getLeaveBalance(
     `${LEAVE_REQUEST_ENDPOINTS.BALANCE}?${params.toString()}`,
     {
       method: 'GET',
-      token: session?.accessToken,
+      token: session?.access_token,
     }
   );
 
@@ -93,7 +93,7 @@ export async function getLeaveTypes(): Promise<LeaveType[]> {
     LEAVE_REQUEST_ENDPOINTS.LEAVE_TYPES,
     {
       method: 'GET',
-      token: session?.accessToken,
+      token: session?.access_token,
     }
   );
 
@@ -148,7 +148,7 @@ export async function applyForLeave(
     {
       method: 'POST',
       body: payload,
-      token: session?.accessToken,
+      token: session?.access_token,
     }
   );
 
@@ -180,7 +180,7 @@ export async function getLeaveHistory(
     `${LEAVE_REQUEST_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
-      token: session?.accessToken,
+      token: session?.access_token,
     }
   );
 
