@@ -7,31 +7,55 @@ import { isTokenExpired } from '../../../services/sessionManager';
 
 const AUTH_SESSION_KEY = '@attendance/auth-session';
 
-export const normalizeAuthUser = (raw: Record<string, unknown>): AuthUser => ({
-  pkUserId: String(raw.pkUserId ?? ''),
-  UserName: String(raw.UserName ?? ''),
-  Password: raw.Password ? String(raw.Password) : undefined,
-  Answer: raw.Answer == null ? null : String(raw.Answer),
-  Sync: String(raw.Sync ?? ''),
-  SysDefined: raw.SysDefined as string | boolean,
-  DateTimeStamp: String(raw.DateTimeStamp ?? ''),
-  fkUserId: String(raw.fkUserId ?? ''),
-  LastStatus: String(raw.LastStatus ?? ''),
-  fkECId: raw.fkECId == null ? null : String(raw.fkECId),
-  OwnRecords: raw.OwnRecords as string | boolean,
-  OtherRecords: raw.OtherRecords as string | boolean,
-  Mobile: String(raw.Mobile ?? raw.Phone ?? ''),
-  fkEmpId: Number(raw.fkEmpId) || 0,
-  ProfileImage: raw.ProfileImage == null ? null : String(raw.ProfileImage),
-  Email: raw.Email == null ? null : String(raw.Email),
-  Phone: raw.Phone == null ? null : String(raw.Phone),
-  GeofencePoint: raw.GeofencePoint == null ? null : String(raw.GeofencePoint),
-  AttendanceMode: raw.AttendanceMode ? String(raw.AttendanceMode) : undefined,
-  fkLocationId:
-    raw.fkLocationId == null || raw.fkLocationId === ''
-      ? null
-      : (raw.fkLocationId as string | number),
-});
+export const normalizeAuthUser = (raw: Record<string, unknown>): AuthUser => {
+  // Backend (Node/Drizzle) returns snake_case keys; fall back to legacy PascalCase keys
+  const pkUserId = raw.pk_user_id ?? raw.pkUserId;
+  const userName = raw.username ?? raw.UserName;
+  const password = raw.password ?? raw.Password;
+  const answer = raw.answer ?? raw.Answer;
+  const sync = raw.sync ?? raw.Sync;
+  const sysDefined = raw.sys_defined ?? raw.SysDefined;
+  const dateTimeStamp = raw.date_time_stamp ?? raw.DateTimeStamp;
+  const fkUserId = raw.fk_user_id ?? raw.fkUserId;
+  const lastStatus = raw.last_status ?? raw.LastStatus;
+  const fkECId = raw.fk_ec_id ?? raw.fkECId;
+  const ownRecords = raw.own_records ?? raw.OwnRecords;
+  const otherRecords = raw.other_records ?? raw.OtherRecords;
+  const mobile = raw.mobile ?? raw.Mobile ?? raw.phone ?? raw.Phone;
+  const fkEmpId = raw.fk_emp_id ?? raw.fkEmpId;
+  const profileImage = raw.profile_image ?? raw.ProfileImage;
+  const email = raw.email ?? raw.Email;
+  const phone = raw.phone ?? raw.Phone;
+  const geofencePoint = raw.geofence_point ?? raw.GeofencePoint;
+  const attendanceMode = raw.attendance_mode ?? raw.AttendanceMode;
+  const fkLocationId = raw.fk_location_id ?? raw.fkLocationId;
+
+  return {
+    pkUserId: String(pkUserId ?? ''),
+    UserName: String(userName ?? ''),
+    Password: password ? String(password) : undefined,
+    Answer: answer == null ? null : String(answer),
+    Sync: String(sync ?? ''),
+    SysDefined: sysDefined as string | boolean,
+    DateTimeStamp: String(dateTimeStamp ?? ''),
+    fkUserId: String(fkUserId ?? ''),
+    LastStatus: String(lastStatus ?? ''),
+    fkECId: fkECId == null ? null : String(fkECId),
+    OwnRecords: ownRecords as string | boolean,
+    OtherRecords: otherRecords as string | boolean,
+    Mobile: String(mobile ?? ''),
+    fkEmpId: Number(fkEmpId) || 0,
+    ProfileImage: profileImage == null ? null : String(profileImage),
+    Email: email == null ? null : String(email),
+    Phone: phone == null ? null : String(phone),
+    GeofencePoint: geofencePoint == null ? null : String(geofencePoint),
+    AttendanceMode: attendanceMode ? String(attendanceMode) : undefined,
+    fkLocationId:
+      fkLocationId == null || fkLocationId === ''
+        ? null
+        : (fkLocationId as string | number),
+  };
+};
 
 const normalizeAuthSession = (value: unknown): AuthSession | null => {
   if (!value || typeof value !== 'object') {
