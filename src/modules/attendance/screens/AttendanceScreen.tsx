@@ -561,17 +561,15 @@ const AttendanceScreen = () => {
       }
 
       if (response.success) {
-        const nextStatus = status === 'IN' ? 'OUT' : 'IN';
-        setStatus(nextStatus);
-        setLiveStatus(nextStatus === 'IN' ? 'Check IN' : 'Check OUT');
         postLiveLocation({
           latitude: employeeLocation.latitude,
           longitude: employeeLocation.longitude,
           accuracy: accuracyMeters ?? 0,
-          status: nextStatus === 'IN' ? 'Check IN' : 'Check OUT',
+          status: status === 'OUT' ? 'Check IN' : 'Check OUT',
         }).catch(() => undefined);
         fetchRecentLogs();
-        const punchType = nextStatus === 'IN' ? 'Punch In' : 'Punch Out';
+        fetchStatusAndName();
+        const punchType = status === 'OUT' ? 'Punch In' : 'Punch Out';
         Alert.alert(punchType + ' Successful', response.message);
       } else {
         throw new Error(response.message || 'Failed to mark attendance.');
