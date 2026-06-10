@@ -48,7 +48,7 @@ export const LiveLocationProvider = ({ children }: { children: ReactNode }) => {
     const checkSession = async () => {
       const session = await getAuthSession();
       if (isMounted) {
-        setIsLoggedIn(Boolean(session?.token));
+        setIsLoggedIn(Boolean(session?.access_token));
       }
     };
 

@@ -96,10 +96,32 @@ export const getAttendanceStatus = async (empId?: number): Promise<AttendanceSta
     throw new Error('Employee ID is missing.');
   }
 
-  return await apiRequest<AttendanceStatusResponse>(API_ENDPOINTS.status(fkEmpId), {
+  const response = await apiRequest<{
+    success: boolean;
+    data?: {
+      status: string;
+      lastPunchTime: string | null;
+      lastAddress: string | null;
+      empCode?: number;
+      nextSuggestedPunch?: string;
+      shift?: any;
+      liveLocation?: any;
+    };
+  }>(API_ENDPOINTS.status(fkEmpId), {
     method: 'GET',
     token: session.access_token,
   });
+
+  return {
+    success: response.success,
+    status: response.data?.status ?? 'Not Checked In',
+    lastPunchTime: response.data?.lastPunchTime ?? null,
+    lastAddress: response.data?.lastAddress ?? null,
+    empCode: response.data?.empCode,
+    nextSuggestedPunch: response.data?.nextSuggestedPunch,
+    shift: response.data?.shift,
+    liveLocation: response.data?.liveLocation,
+  };
 };
 
 export type AttendanceConfigResponse = {
@@ -328,8 +350,32 @@ export const getAttendanceHistory = async (): Promise<AttendanceHistoryResponse>
     throw new Error('Authentication required. Please log in again.');
   }
 
-  return await apiRequest<AttendanceHistoryResponse>(API_ENDPOINTS.history, {
+  const response = await apiRequest<{
+    success: boolean;
+    data: any[];
+  }>(API_ENDPOINTS.history, {
     method: 'GET',
     token: session.access_token,
   });
+
+  const mappedData = (response.data || []).map((day: any) => ({
+    date: day.date,
+    totalWork: day.totalWork || '00h 00m',
+    totalBreak: day.totalBreak || '00h 00m',
+    records: (day.records || []).map((rec: any) => ({
+      EmpCode: rec.empCode,
+      EmpName: rec.empName,
+      Punch: rec.punch,
+      PunchDatetime: rec.punchDatetime,
+      Latitude: rec.latitude ? Number(rec.latitude) : 0,
+      Longitude: rec.longitude ? Number(rec.longitude) : 0,
+      Address: rec.address,
+      Device: rec.device,
+    })),
+  }));
+
+  return {
+    success: response.success,
+    data: mappedData,
+  };
 };
