@@ -12,6 +12,14 @@ export type EmployeeProfile = {
   phone: string | null;
   profileImageUrl: string | null;
   empCode: string | null;
+  // Additional fields from sal_employee
+  doj: string | null;
+  dob: string | null;
+  bloodGroup: string | null;
+  aadhar: string | null;
+  panNo: string | null;
+  permanentAddress: string | null;
+  presentAddress: string | null;
 };
 
 type ProfileResponse = {
@@ -37,6 +45,14 @@ export const getProfileFromAuthSession = (session: AuthSession): EmployeeProfile
   phone: session.user.Phone ?? session.user.Mobile,
   profileImageUrl: session.user.ProfileImage,
   empCode: session.user.EmpCode || null,
+  // Additional fields from sal_employee (not available in auth session)
+  doj: null,
+  dob: null,
+  bloodGroup: null,
+  aadhar: null,
+  panNo: null,
+  permanentAddress: null,
+  presentAddress: null,
 });
 
 export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
@@ -52,30 +68,26 @@ export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
     throw new Error('Employee ID is missing from the login session.');
   }
 
-  try {
-    const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
-      method: 'GET',
-      token: session.access_token,
-    });
+  const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
+    method: 'GET',
+    token: session.access_token,
+  });
 
-    const profile = response?.data?.profile || response?.profile;
+  const profile = response?.data?.profile || response?.profile;
 
-    if (!profile) {
-      return getProfileFromAuthSession(session);
-    }
-
-    // Sync to local session
-    session.user.UserName = profile.userName;
-    session.user.Email = profile.email;
-    session.user.Phone = profile.phone;
-    session.user.ProfileImage = profile.profileImageUrl;
-    session.user.EmpCode = profile.empCode;
-    await saveAuthSession(session);
-
-    return profile;
-  } catch {
-    return getProfileFromAuthSession(session);
+  if (!profile) {
+    throw new Error('Unable to fetch employee profile from server.');
   }
+
+  // Sync to local session
+  session.user.UserName = profile.userName;
+  session.user.Email = profile.email;
+  session.user.Phone = profile.phone;
+  session.user.ProfileImage = profile.profileImageUrl;
+  session.user.EmpCode = profile.empCode;
+  await saveAuthSession(session);
+
+  return profile;
 };
 
 export const updateEmployeeProfile = async (

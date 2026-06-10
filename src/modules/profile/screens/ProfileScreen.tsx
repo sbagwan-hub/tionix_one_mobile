@@ -162,6 +162,24 @@ const ProfileScreen = ({ navigation }: any) => {
   const displayName = profile?.userName || 'Employee';
   const employeeCode = profile?.empCode || (profile?.fkEmpId ? `EMP-${profile.fkEmpId}` : 'EMP');
   const contactDetails = [profile?.email, profile?.phone].filter(Boolean).join(' | ');
+  
+  // Format dates for display
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return null;
+    }
+  };
+  
+  const dobDisplay = formatDate(profile?.dob ?? null);
+  const dojDisplay = formatDate(profile?.doj ?? null);
+  
   const initials = useMemo(
     () =>
       displayName
@@ -289,6 +307,89 @@ const ProfileScreen = ({ navigation }: any) => {
               </View>
             </View>
           </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Employee Details</Text>
+          <AppCard style={styles.detailsCard}>
+            {dobDisplay && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Date of Birth</Text>
+                  <Text style={styles.detailValue}>{dobDisplay}</Text>
+                </View>
+              </View>
+            )}
+            {dojDisplay && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="briefcase-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Date of Joining</Text>
+                  <Text style={styles.detailValue}>{dojDisplay}</Text>
+                </View>
+              </View>
+            )}
+            {profile?.bloodGroup && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="water-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Blood Group</Text>
+                  <Text style={styles.detailValue}>{profile.bloodGroup}</Text>
+                </View>
+              </View>
+            )}
+            {profile?.aadhar && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="card-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Aadhar Number</Text>
+                  <Text style={styles.detailValue}>{profile.aadhar}</Text>
+                </View>
+              </View>
+            )}
+            {profile?.panNo && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="document-text-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>PAN Number</Text>
+                  <Text style={styles.detailValue}>{profile.panNo}</Text>
+                </View>
+              </View>
+            )}
+            {profile?.permanentAddress && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="home-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Permanent Address</Text>
+                  <Text style={styles.detailValue}>{profile.permanentAddress}</Text>
+                </View>
+              </View>
+            )}
+            {profile?.presentAddress && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconWrapper}>
+                  <Ionicons name="location-outline" size={moderateScale(16)} color={Colors.primary} />
+                </View>
+                <View style={styles.detailTextContainer}>
+                  <Text style={styles.detailLabel}>Present Address</Text>
+                  <Text style={styles.detailValue}>{profile.presentAddress}</Text>
+                </View>
+              </View>
+            )}
+          </AppCard>
         </View>
 
         <View style={styles.sectionContainer}>
@@ -729,6 +830,45 @@ const styles = StyleSheet.create({
     ...Typography.heading,
     fontSize: moderateScale(16),
     color: Colors.white,
+  },
+  detailsCard: {
+    padding: 0,
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Theme.shadow.sm,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+  },
+  detailIconWrapper: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: Theme.borderRadius.md,
+    backgroundColor: 'rgba(254, 0, 0, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: moderateScale(12),
+  },
+  detailTextContainer: {
+    flex: 1,
+  },
+  detailLabel: {
+    ...Typography.label,
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: moderateScale(2),
+  },
+  detailValue: {
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
   },
 });
 
