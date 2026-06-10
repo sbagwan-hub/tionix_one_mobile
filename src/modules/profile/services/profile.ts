@@ -11,11 +11,15 @@ export type EmployeeProfile = {
   email: string | null;
   phone: string | null;
   profileImageUrl: string | null;
+  empCode: string | null;
 };
 
 type ProfileResponse = {
   success: boolean;
-  profile: EmployeeProfile;
+  profile?: EmployeeProfile;
+  data?: {
+    profile?: EmployeeProfile;
+  };
 };
 
 export type UpdateEmployeeProfilePayload = Partial<{
@@ -32,6 +36,7 @@ export const getProfileFromAuthSession = (session: AuthSession): EmployeeProfile
   email: session.user.Email,
   phone: session.user.Phone ?? session.user.Mobile,
   profileImageUrl: session.user.ProfileImage,
+  empCode: session.user.EmpCode || null,
 });
 
 export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
@@ -53,18 +58,21 @@ export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
       token: session.access_token,
     });
 
-    if (!response.success || !response.profile) {
+    const profile = response?.data?.profile || response?.profile;
+
+    if (!profile) {
       return getProfileFromAuthSession(session);
     }
 
     // Sync to local session
-    session.user.UserName = response.profile.userName;
-    session.user.Email = response.profile.email;
-    session.user.Phone = response.profile.phone;
-    session.user.ProfileImage = response.profile.profileImageUrl;
+    session.user.UserName = profile.userName;
+    session.user.Email = profile.email;
+    session.user.Phone = profile.phone;
+    session.user.ProfileImage = profile.profileImageUrl;
+    session.user.EmpCode = profile.empCode;
     await saveAuthSession(session);
 
-    return response.profile;
+    return profile;
   } catch {
     return getProfileFromAuthSession(session);
   }
@@ -91,18 +99,21 @@ export const updateEmployeeProfile = async (
     body: payload,
   });
 
-  if (!response.success || !response.profile) {
+  const profile = response?.data?.profile || response?.profile;
+
+  if (!profile) {
     throw new Error('Unable to update employee profile.');
   }
 
   // Sync to local session
-  session.user.UserName = response.profile.userName;
-  session.user.Email = response.profile.email;
-  session.user.Phone = response.profile.phone;
-  session.user.ProfileImage = response.profile.profileImageUrl;
+  session.user.UserName = profile.userName;
+  session.user.Email = profile.email;
+  session.user.Phone = profile.phone;
+  session.user.ProfileImage = profile.profileImageUrl;
+  session.user.EmpCode = profile.empCode;
   await saveAuthSession(session);
 
-  return response.profile;
+  return profile;
 };
 
 export const uploadProfileImage = async (
@@ -133,16 +144,19 @@ export const uploadProfileImage = async (
     body: formData,
   });
 
-  if (!response.success || !response.profile) {
+  const profile = response?.data?.profile || response?.profile;
+
+  if (!profile) {
     throw new Error('Unable to upload profile image.');
   }
 
   // Sync to local session
-  session.user.UserName = response.profile.userName;
-  session.user.Email = response.profile.email;
-  session.user.Phone = response.profile.phone;
-  session.user.ProfileImage = response.profile.profileImageUrl;
+  session.user.UserName = profile.userName;
+  session.user.Email = profile.email;
+  session.user.Phone = profile.phone;
+  session.user.ProfileImage = profile.profileImageUrl;
+  session.user.EmpCode = profile.empCode;
   await saveAuthSession(session);
 
-  return response.profile;
+  return profile;
 };

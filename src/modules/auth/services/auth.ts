@@ -29,6 +29,7 @@ export const normalizeAuthUser = (raw: Record<string, unknown>): AuthUser => {
   const geofencePoint = raw.geofence_point ?? raw.GeofencePoint;
   const attendanceMode = raw.attendance_mode ?? raw.AttendanceMode;
   const fkLocationId = raw.fk_location_id ?? raw.fkLocationId;
+  const empCode = raw.emp_code ?? raw.empCode ?? raw.EmpCode;
 
   return {
     pkUserId: String(pkUserId ?? ''),
@@ -54,6 +55,7 @@ export const normalizeAuthUser = (raw: Record<string, unknown>): AuthUser => {
       fkLocationId == null || fkLocationId === ''
         ? null
         : (fkLocationId as string | number),
+    EmpCode: empCode == null ? null : String(empCode),
   };
 };
 

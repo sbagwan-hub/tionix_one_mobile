@@ -322,7 +322,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
             <Text style={styles.name} numberOfLines={1}>{userName || 'Employee'}</Text>
             <View style={styles.employeeBadge}>
               <Text style={styles.employeeId}>
-                {profile?.fkEmpId ? `ID: ${profile.fkEmpId}` : 'Update profile'}
+                {profile?.empCode ? `ID: ${profile.empCode}` : (profile?.fkEmpId ? `ID: ${profile.fkEmpId}` : 'Update profile')}
               </Text>
             </View>
           </View>
@@ -401,7 +401,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
 
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Account Info</Text>
-          <View style={styles.infoPill}>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
             <View style={styles.infoPillIcon}>
               <Ionicons name="id-card-outline" size={moderateScale(22)} color={Colors.primary} />
             </View>
@@ -410,6 +410,17 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
               <Text style={styles.infoPillValue}>{profile?.pkUserId || '-'}</Text>
             </View>
           </View>
+          {profile?.empCode ? (
+            <View style={styles.infoPill}>
+              <View style={styles.infoPillIcon}>
+                <Ionicons name="barcode-outline" size={moderateScale(22)} color={Colors.primary} />
+              </View>
+              <View style={styles.pillInputWrapper}>
+                <Text style={styles.pillLabel}>Employee Code</Text>
+                <Text style={styles.infoPillValue}>{profile.empCode}</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {errorMessage ? (

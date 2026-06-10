@@ -19,6 +19,7 @@ export type AuthUser = {
   GeofencePoint?: string | null;
   AttendanceMode?: string;
   fkLocationId?: string | number | null;
+  EmpCode?: string | null;
 };
 
 export type LoginResponse = {

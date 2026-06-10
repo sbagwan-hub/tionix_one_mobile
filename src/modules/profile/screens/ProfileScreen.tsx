@@ -160,7 +160,7 @@ const ProfileScreen = ({ navigation }: any) => {
   );
 
   const displayName = profile?.userName || 'Employee';
-  const employeeCode = profile?.fkEmpId ? `EMP-${profile.fkEmpId}` : 'EMP';
+  const employeeCode = profile?.empCode || (profile?.fkEmpId ? `EMP-${profile.fkEmpId}` : 'EMP');
   const contactDetails = [profile?.email, profile?.phone].filter(Boolean).join(' | ');
   const initials = useMemo(
     () =>
