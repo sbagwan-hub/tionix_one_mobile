@@ -209,7 +209,7 @@ const AttendanceScreen = () => {
 
         // Add predefined test locations if they are not already returned by API
         const predefined = [
-          { pkGeoId: 101, OfficeName: 'Kamdenu', Latitude: kamdenuLat, Longitude: kamdenuLng, RadiusMeters: 25, IsActive: false },
+          { pkGeoId: 101, OfficeName: 'Texto MBP', Latitude: textoLat, Longitude: textoLng, RadiusMeters: 25, IsActive: false },
           { pkGeoId: 102, OfficeName: 'Koparkhairne', Latitude: koparkhairneLat, Longitude: koparkhairneLng, RadiusMeters: 25, IsActive: false },
           { pkGeoId: 103, OfficeName: 'Texto', Latitude: textoLat, Longitude: textoLng, RadiusMeters: 25, IsActive: false },
         ];
