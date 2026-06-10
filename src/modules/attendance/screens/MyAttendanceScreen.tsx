@@ -85,7 +85,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   const presentCount = useMemo(() => {
     return history.filter(day => {
       const status = getDayStatus(day);
-      return status === 'Present';
+      return status === 'Present' || status === 'Late';
     }).length;
   }, [history, getDayStatus]);
 
@@ -173,7 +173,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return history.filter(day => {
       const status = getDayStatus(day);
       if (activeFilter === 'ALL') return true;
-      if (activeFilter === 'PRESENT') return status === 'Present';
+      if (activeFilter === 'PRESENT') return status === 'Present' || status === 'Late';
       if (activeFilter === 'LATE') return status === 'Late';
       return true;
     });

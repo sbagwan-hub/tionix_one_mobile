@@ -136,9 +136,8 @@ const ProfileScreen = ({ navigation }: any) => {
                 const isLate = hours > 9 || (hours === 9 && minutes > 15);
                 if (isLate) {
                   lCount += 1;
-                } else {
-                  pCount += 1;
                 }
+                pCount += 1;
               }
             });
             if (isActive) {
