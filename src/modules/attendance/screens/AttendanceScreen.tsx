@@ -764,7 +764,12 @@ const AttendanceScreen = () => {
                 </Text>
                 {status === 'IN' && todayInTime !== '--:--' && (
                   <Text style={styles.punchTimeLabel}>
-                    {todayInTime}
+                    In: {todayInTime}
+                  </Text>
+                )}
+                {status === 'OUT' && todayOutTime !== '--:--' && (
+                  <Text style={styles.punchTimeLabel}>
+                    Out: {todayOutTime}
                   </Text>
                 )}
               </View>
