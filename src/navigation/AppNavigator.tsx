@@ -78,6 +78,20 @@ const MainTabs = () => {
         }}
       />
       <Tab.Screen
+        name="Loans"
+        component={MyLoansScreen}
+        options={{
+          tabBarLabel: 'Loans',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'cash' : 'cash-outline'}
+              size={moderateScale(22)}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
