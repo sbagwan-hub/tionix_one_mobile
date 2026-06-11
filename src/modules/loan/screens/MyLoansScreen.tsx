@@ -17,6 +17,7 @@ import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { getLoans, NormalizedLoan } from '../services/loan';
+import { useFocusEffect } from '@react-navigation/native';
 
 const statusTone = {
   Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
@@ -68,9 +69,11 @@ const MyLoansScreen = ({ navigation }: any) => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchLoans();
-  }, [fetchLoans]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLoans();
+    }, [fetchLoans])
+  );
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 

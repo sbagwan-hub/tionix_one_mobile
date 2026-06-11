@@ -205,12 +205,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
         text2: 'Loan Request submitted successfully.',
       });
 
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs' }, { name: 'MyLeave' }], // Go back
-      });
-      // Navigate to history list
-      navigation.replace('MyAttendance'); // Trigger screen refresh back to main tabs
+      navigation.goBack();
     } catch (err: any) {
       Toast.show({
         type: 'error',
