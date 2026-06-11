@@ -454,7 +454,7 @@ const AttendanceScreen = () => {
 
   const isInRadius = distanceMeters !== null && distanceMeters <= officeRadius;
   const canPunch = isWithinRange && isTracking && !isVerifying;
-  const isGlowing = isInRadius;
+  const isGlowing = isInRadius && status === 'OUT';
 
   const buttonColors = useMemo(() => {
     if (status === 'IN') {
