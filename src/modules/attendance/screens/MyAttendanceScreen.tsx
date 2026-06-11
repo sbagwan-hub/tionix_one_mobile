@@ -40,7 +40,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT'>('ALL');
 
   const fetchHistory = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -82,26 +82,72 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return (hours > 9 || (hours === 9 && minutes > 15)) ? 'Late' : 'Present';
   }, []);
 
+  const completeHistory = useMemo(() => {
+    if (history.length === 0) return [];
+
+    const historyMap = new Map<string, AttendanceHistoryDay>();
+    history.forEach(day => {
+      historyMap.set(day.date, day);
+    });
+
+    const resultList: AttendanceHistoryDay[] = [];
+    const today = new Date();
+    const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    let oldestDate = new Date(startDate);
+    history.forEach(day => {
+      const d = new Date(day.date);
+      if (d < oldestDate) oldestDate = new Date(d);
+    });
+
+    const currentDateIter = new Date(oldestDate);
+    while (currentDateIter <= today) {
+      const year = currentDateIter.getFullYear();
+      const month = String(currentDateIter.getMonth() + 1).padStart(2, '0');
+      const dateVal = String(currentDateIter.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${dateVal}`;
+
+      const dayOfWeek = currentDateIter.getDay();
+
+      if (historyMap.has(dateStr)) {
+        resultList.push(historyMap.get(dateStr)!);
+      } else {
+        if (dayOfWeek !== 0) {
+          resultList.push({
+            date: dateStr,
+            totalWork: '00h 00m',
+            totalBreak: '00h 00m',
+            records: [],
+          });
+        }
+      }
+
+      currentDateIter.setDate(currentDateIter.getDate() + 1);
+    }
+
+    return resultList.reverse();
+  }, [history]);
+
   const presentCount = useMemo(() => {
-    return history.filter(day => {
+    return completeHistory.filter(day => {
       const status = getDayStatus(day);
       return status === 'Present' || status === 'Late';
     }).length;
-  }, [history, getDayStatus]);
+  }, [completeHistory, getDayStatus]);
 
   const lateCount = useMemo(() => {
-    return history.filter(day => {
+    return completeHistory.filter(day => {
       const status = getDayStatus(day);
       return status === 'Late';
     }).length;
-  }, [history, getDayStatus]);
+  }, [completeHistory, getDayStatus]);
 
   const absentCount = useMemo(() => {
-    return history.filter(day => {
+    return completeHistory.filter(day => {
       const status = getDayStatus(day);
       return status === 'Absent';
     }).length;
-  }, [history, getDayStatus]);
+  }, [completeHistory, getDayStatus]);
 
   const summaryCards = useMemo(() => [
     { label: 'Present', value: String(presentCount).padStart(2, '0'), icon: 'checkmark-circle-outline', tone: Colors.success },
@@ -134,12 +180,29 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return `${avgHours}h ${String(avgMinsRemaining).padStart(2, '0')}m`;
   }, [history]);
 
+  const totalWorkHours = useMemo(() => {
+    let totalMinutes = 0;
+
+    history.forEach(day => {
+      const match = day.totalWork.match(/(\d+)h\s+(\d+)m/);
+      if (match) {
+        const hours = parseInt(match[1], 10);
+        const mins = parseInt(match[2], 10);
+        totalMinutes += hours * 60 + mins;
+      }
+    });
+
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hours}h ${String(mins).padStart(2, '0')}m`;
+  }, [history]);
+
   const attendanceRate = useMemo(() => {
-    const totalWorkingDays = history.length;
+    const totalWorkingDays = completeHistory.length;
     if (totalWorkingDays === 0) return '0%';
     const rate = ((presentCount + lateCount) / totalWorkingDays) * 100;
     return `${rate.toFixed(1)}%`;
-  }, [history, presentCount, lateCount]);
+  }, [completeHistory, presentCount, lateCount]);
 
   const averageWorkHoursDecimal = useMemo(() => {
     let totalMinutes = 0;
@@ -170,14 +233,15 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   }, [averageWorkHoursDecimal]);
 
   const filteredHistory = useMemo(() => {
-    return history.filter(day => {
+    return completeHistory.filter(day => {
       const status = getDayStatus(day);
       if (activeFilter === 'ALL') return true;
       if (activeFilter === 'PRESENT') return status === 'Present' || status === 'Late';
       if (activeFilter === 'LATE') return status === 'Late';
+      if (activeFilter === 'ABSENT') return status === 'Absent';
       return true;
     });
-  }, [history, activeFilter, getDayStatus]);
+  }, [completeHistory, activeFilter, getDayStatus]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -271,7 +335,10 @@ const MyAttendanceScreen = ({ navigation }: any) => {
                 <Ionicons name="analytics-outline" size={moderateScale(20)} color={Colors.primary} />
                 <Text style={styles.insightCardTitle}>Analytics Overview</Text>
               </View>
-              <Text style={styles.avgHoursLabel}>Avg: {averageWorkHours}</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.avgHoursLabel}>Avg: {averageWorkHours}</Text>
+                <Text style={{ fontSize: moderateScale(10), color: Colors.textSecondary, fontWeight: '600', marginTop: 2 }}>Total: {totalWorkHours}</Text>
+              </View>
             </View>
 
             <View style={styles.statsPanel}>
@@ -318,7 +385,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
           </AppCard>
 
           <View style={styles.filterTabsContainer}>
-            {(['ALL', 'PRESENT', 'LATE'] as const).map(filter => {
+            {(['ALL', 'PRESENT', 'LATE', 'ABSENT'] as const).map(filter => {
               const isActive = activeFilter === filter;
               return (
                 <TouchableOpacity
@@ -328,7 +395,7 @@ const MyAttendanceScreen = ({ navigation }: any) => {
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-                    {filter === 'ALL' ? 'All' : filter === 'PRESENT' ? 'Present' : 'Late'}
+                    {filter === 'ALL' ? 'All' : filter === 'PRESENT' ? 'Present' : filter === 'LATE' ? 'Late' : 'Absent'}
                   </Text>
                 </TouchableOpacity>
               );
@@ -349,6 +416,20 @@ const MyAttendanceScreen = ({ navigation }: any) => {
             filteredHistory.map((log, index) => {
               const statusVal = getDayStatus(log);
               const isLate = statusVal === 'Late';
+              const isAbsent = statusVal === 'Absent';
+              
+              const stripeColor = isAbsent 
+                ? Colors.error 
+                : (isLate ? Colors.warning : Colors.success);
+              
+              const pillBg = isAbsent 
+                ? 'rgba(239, 68, 68, 0.08)' 
+                : (isLate ? 'rgba(255, 179, 0, 0.08)' : 'rgba(16, 185, 129, 0.08)');
+              
+              const pillText = isAbsent 
+                ? Colors.error 
+                : (isLate ? Colors.warningDark : Colors.successDark);
+
               const { inPunch, outPunch } = getDailyPunches(log);
               const inTime = inPunch ? formatTime(inPunch.PunchDatetime) : '--:--';
               const outTime = outPunch ? formatTime(outPunch.PunchDatetime) : '--:--';
@@ -356,14 +437,14 @@ const MyAttendanceScreen = ({ navigation }: any) => {
               return (
                 <AppCard key={index} style={styles.logCard}>
                   {/* Left edge colored indicator stripe */}
-                  <View style={[styles.logAccentBar, { backgroundColor: isLate ? Colors.warning : Colors.success }]} />
+                  <View style={[styles.logAccentBar, { backgroundColor: stripeColor }]} />
                   
                   <View style={styles.logContainer}>
                     {/* Top Row: Date and Status Badge */}
                     <View style={styles.logTopRow}>
                       <Text style={styles.logDateText}>{formatDate(log.date)}</Text>
-                      <View style={[styles.statusPill, { backgroundColor: isLate ? 'rgba(255, 179, 0, 0.08)' : 'rgba(16, 185, 129, 0.08)' }]}>
-                        <Text style={[styles.logStatus, { color: isLate ? Colors.warningDark : Colors.successDark }]}>
+                      <View style={[styles.statusPill, { backgroundColor: pillBg }]}>
+                        <Text style={[styles.logStatus, { color: pillText }]}>
                           {statusVal}
                         </Text>
                       </View>

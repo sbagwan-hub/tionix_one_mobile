@@ -561,6 +561,10 @@ const AttendanceScreen = () => {
       }
 
       if (response.success) {
+        const nextStatus = status === 'OUT' ? 'IN' : 'OUT';
+        setStatus(nextStatus);
+        setLiveStatus(nextStatus === 'IN' ? 'Check IN' : 'Check OUT');
+
         postLiveLocation({
           latitude: employeeLocation.latitude,
           longitude: employeeLocation.longitude,
@@ -776,23 +780,79 @@ const AttendanceScreen = () => {
         </View>
 
         <View style={styles.statsRow}>
-          <AppCard style={styles.statCard}>
-            <View style={styles.statIconFrame}>
-              <Ionicons name="time" size={moderateScale(18)} color={Colors.primary} />
+          <AppCard
+            style={StyleSheet.flatten([
+              styles.statCard,
+              todayInTime !== '--:--' && {
+                backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                borderColor: 'rgba(16, 185, 129, 0.15)',
+                borderWidth: 1,
+              },
+            ])}
+          >
+            <View
+              style={[
+                styles.statIconFrame,
+                {
+                  backgroundColor:
+                    todayInTime !== '--:--' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 77, 28, 0.08)',
+                },
+              ]}
+            >
+              <Ionicons
+                name="log-in-outline"
+                size={moderateScale(18)}
+                color={todayInTime !== '--:--' ? Colors.success : Colors.primary}
+              />
             </View>
             <View style={styles.statTextContainer}>
               <Text style={styles.statLabel}>PUNCH IN</Text>
-              <Text style={styles.statValue}>{todayInTime}</Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  todayInTime !== '--:--' && { color: Colors.successDark, fontWeight: '700' },
+                ]}
+              >
+                {todayInTime}
+              </Text>
             </View>
           </AppCard>
 
-          <AppCard style={styles.statCard}>
-            <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.08)' }]}>
-              <Ionicons name="timer" size={moderateScale(18)} color={Colors.accent} />
+          <AppCard
+            style={StyleSheet.flatten([
+              styles.statCard,
+              todayOutTime !== '--:--' && {
+                backgroundColor: 'rgba(255, 77, 28, 0.05)',
+                borderColor: 'rgba(255, 77, 28, 0.15)',
+                borderWidth: 1,
+              },
+            ])}
+          >
+            <View
+              style={[
+                styles.statIconFrame,
+                {
+                  backgroundColor:
+                    todayOutTime !== '--:--' ? 'rgba(255, 77, 28, 0.12)' : 'rgba(255, 179, 0, 0.08)',
+                },
+              ]}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={moderateScale(18)}
+                color={todayOutTime !== '--:--' ? Colors.primary : Colors.accent}
+              />
             </View>
             <View style={styles.statTextContainer}>
               <Text style={styles.statLabel}>PUNCH OUT</Text>
-              <Text style={styles.statValue}>{todayOutTime}</Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  todayOutTime !== '--:--' && { color: Colors.primaryDark, fontWeight: '700' },
+                ]}
+              >
+                {todayOutTime}
+              </Text>
             </View>
           </AppCard>
         </View>
