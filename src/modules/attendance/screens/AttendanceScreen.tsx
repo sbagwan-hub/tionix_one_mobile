@@ -115,8 +115,8 @@ const kamdenuLng = 73.01687580932347;
 const koparkhairneLat = 19.102727966839172;
 const koparkhairneLng = 73.00876110747178;
 
-const textoLat = 19.111448929845803;
-const textoLng = 73.0154910366839;
+const textoLat = 19.1110101;
+const textoLng = 73.0155262;
 
 const getPreciseCoordinates = (officeName: string, defaultLat: number, defaultLng: number) => {
   const name = officeName.toLowerCase();

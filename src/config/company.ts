@@ -5,8 +5,8 @@ export const COMPANY = {
     id: 103,
     name: 'Texto',
     address: 'Texto, Navi Mumbai',
-    latitude: 19.111448929845803,
-    longitude: 73.0154910366839,
+    latitude: 19.1110101,
+    longitude: 73.0155262,
     radiusMeters: 25,
   },
   defaultUser: {
