@@ -248,22 +248,6 @@ const MyLoansScreen = ({ navigation }: any) => {
               })
             )}
           </ScrollView>
-
-          {/* Floating Action Button (FAB) */}
-          <TouchableOpacity
-            style={[styles.fab, { bottom: moderateScale(20) + insets.bottom }]}
-            onPress={openApplyLoan}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={Colors.primaryGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.fabGradient}
-            >
-              <Ionicons name="add" size={moderateScale(28)} color={Colors.white} />
-            </LinearGradient>
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -557,22 +541,6 @@ const styles = StyleSheet.create({
     ...Typography.subheading,
     color: Colors.primary,
     fontSize: moderateScale(13),
-  },
-  fab: {
-    position: 'absolute',
-    right: moderateScale(20),
-    width: moderateScale(56),
-    height: moderateScale(56),
-    borderRadius: moderateScale(28),
-    ...Theme.shadow.floating,
-    elevation: 8,
-  },
-  fabGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: moderateScale(28),
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 
