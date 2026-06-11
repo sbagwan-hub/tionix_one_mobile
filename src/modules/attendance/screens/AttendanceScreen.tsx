@@ -726,7 +726,7 @@ const AttendanceScreen = () => {
                   style={[
                     styles.punchPulse,
                     {
-                      backgroundColor: status === 'IN' ? Colors.secondary : Colors.primary,
+                      backgroundColor: Colors.primary,
                       transform: [{ scale: pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
                       opacity: pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
                     },
@@ -736,7 +736,7 @@ const AttendanceScreen = () => {
                   style={[
                     styles.punchPulse,
                     {
-                      backgroundColor: status === 'IN' ? Colors.secondary : Colors.primary,
+                      backgroundColor: Colors.primary,
                       transform: [{ scale: pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
                       opacity: pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
                     },
