@@ -37,7 +37,7 @@ export const punchIn = async (
   }
 
   const payload = {
-    empCode: session.user.UserName,
+    empCode: String(session.user.fkEmpId || session.user.UserName),
     latitude,
     longitude,
   };
@@ -60,7 +60,7 @@ export const punchOut = async (
   }
 
   const payload = {
-    empCode: session.user.UserName,
+    empCode: String(session.user.fkEmpId || session.user.UserName),
     latitude,
     longitude,
   };

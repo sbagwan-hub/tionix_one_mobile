@@ -14,6 +14,8 @@ import {
   Outfit_800ExtraBold,
   Outfit_900Black,
 } from '@expo-google-fonts/outfit';
+import { setSessionExpiredHandler } from './src/services/sessionManager';
+import { clearAuthSession } from './src/modules/auth/services/auth';
 
 function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -29,6 +31,18 @@ function App() {
     if (Platform.OS === 'ios') {
       Font.loadAsync({ Ionicons: ioniconsFont }).catch(console.warn);
     }
+
+    // Register session expired handler
+    setSessionExpiredHandler(async () => {
+      await clearAuthSession();
+      Toast.show({
+        type: 'error',
+        text1: 'Session Expired',
+        text2: 'Please log in again to continue.',
+        position: 'top',
+        topOffset: 60,
+      });
+    });
   }, []);
 
   if (!fontsLoaded && !fontError) {
