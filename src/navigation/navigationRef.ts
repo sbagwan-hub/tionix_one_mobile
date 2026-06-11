@@ -13,6 +13,9 @@ export type RootStackParamList = {
   ApplyLeave: undefined;
   AccountSettings: undefined;
   LeaveDetails: { leaveItem: LeaveRequest };
+  MyLoans: undefined;
+  ApplyLoan: undefined;
+  LoanDetails: { loanId: string };
 };
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();

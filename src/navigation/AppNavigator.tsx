@@ -19,6 +19,9 @@ import LeaveDetailsScreen from '../modules/leave/screens/LeaveDetailsScreen';
 import AccountSettingsScreen from '../modules/profile/screens/AccountSettingsScreen';
 import ApplyLeaveScreen from '../modules/leave/screens/ApplyLeaveScreen';
 import ForgotPasswordScreen from '../modules/auth/screens/ForgotPasswordScreen';
+import MyLoansScreen from '../modules/loan/screens/MyLoansScreen';
+import ApplyLoanScreen from '../modules/loan/screens/ApplyLoanScreen';
+import LoanDetailsScreen from '../modules/loan/screens/LoanDetailsScreen';
 import { LiveLocationProvider } from '../modules/attendance/context/LiveLocationContext';
 import { clearAuthSession, getAuthSession } from '../modules/auth/services/auth';
 import { setSessionExpiredHandler } from '../services/sessionManager';
@@ -135,6 +138,9 @@ const AppNavigator = () => {
         <Stack.Screen name="ApplyLeave" component={ApplyLeaveScreen} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="LeaveDetails" component={LeaveDetailsScreen} />
+        <Stack.Screen name="MyLoans" component={MyLoansScreen} />
+        <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
+        <Stack.Screen name="LoanDetails" component={LoanDetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

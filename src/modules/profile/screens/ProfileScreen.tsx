@@ -60,6 +60,13 @@ const menuItems = [
     route: 'MyLeave',
   },
   {
+    id: '3b',
+    title: 'Loans & Advances',
+    subtitle: 'Request advances and check EMI schedules',
+    icon: 'cash-outline',
+    route: 'MyLoans',
+  },
+  {
     id: '4',
     title: 'Account settings',
     subtitle: 'Security and preferences',
