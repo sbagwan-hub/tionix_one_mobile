@@ -93,6 +93,44 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
 
   const tone = statusTone[status] || statusTone.Pending;
 
+  // Repayment summary calculations
+  const summary = useMemo(() => {
+    if (!loan || !loan.schedule) return null;
+    const totalPrincipal = parseFloat(loan.loan_amount) || 0;
+    let totalInterest = 0;
+    let totalReturnAmount = 0;
+    let totalPendingAmount = 0;
+    let totalPaidAmount = 0;
+    let pendingCount = 0;
+    let paidCount = 0;
+
+    for (const inst of loan.schedule) {
+      const interest = parseFloat(inst.interest_amount) || 0;
+      const payable = parseFloat(inst.total_payable) || 0;
+      totalInterest += interest;
+      totalReturnAmount += payable;
+
+      if (inst.status === 'Pending' || !inst.status) {
+        totalPendingAmount += payable;
+        pendingCount++;
+      } else {
+        totalPaidAmount += payable;
+        paidCount++;
+      }
+    }
+
+    return {
+      totalPrincipal,
+      totalInterest,
+      totalReturnAmount,
+      totalPendingAmount,
+      totalPaidAmount,
+      pendingCount,
+      paidCount,
+    };
+  }, [loan]);
+
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -208,6 +246,48 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
     </AppCard>
   );
 
+  // Repayment Summary Card
+  const RepaymentSummaryCard = () => {
+    if (!summary) return null;
+    return (
+      <AppCard style={styles.summaryCard}>
+        <Text style={styles.summaryHeading}>Repayment Summary</Text>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Return Amount</Text>
+              <Text style={[styles.summaryValue, { color: Colors.primary }]}>
+                {formatCurrency(summary.totalReturnAmount)}
+              </Text>
+            </View>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Interest</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(summary.totalInterest)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Paid</Text>
+              <Text style={[styles.summaryValue, { color: Colors.success }]}>
+                {formatCurrency(summary.totalPaidAmount)}
+              </Text>
+              <Text style={styles.summarySubLabel}>{summary.paidCount} Paid</Text>
+            </View>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Outstanding</Text>
+              <Text style={[styles.summaryValue, { color: Colors.warning }]}>
+                {formatCurrency(summary.totalPendingAmount)}
+              </Text>
+              <Text style={styles.summarySubLabel}>{summary.pendingCount} Pending</Text>
+            </View>
+          </View>
+        </View>
+      </AppCard>
+    );
+  };
+
   // Amortization Schedule Card List
   const AmortizationList = () => (
     <View style={styles.scheduleListContainer}>
@@ -295,6 +375,7 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
         <View style={styles.tabletLayout}>
           <ScrollView style={styles.tabletLeftCol} showsVerticalScrollIndicator={false}>
             <LoanMetaCard />
+            <RepaymentSummaryCard />
           </ScrollView>
           <ScrollView style={styles.tabletRightCol} showsVerticalScrollIndicator={false}>
             <AmortizationList />
@@ -307,6 +388,7 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + moderateScale(40) }]}
         >
           <LoanMetaCard />
+          <RepaymentSummaryCard />
           <AmortizationList />
         </ScrollView>
       )}
@@ -582,6 +664,50 @@ const styles = StyleSheet.create({
   },
   tabletRightCol: {
     flex: 6,
+  },
+  summaryCard: {
+    padding: Theme.spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0,
+    ...Theme.shadow.md,
+    marginTop: Theme.spacing.md,
+  },
+  summaryHeading: {
+    ...Typography.heading,
+    fontSize: moderateScale(15),
+    color: Colors.text,
+    marginBottom: Theme.spacing.md,
+  },
+  summaryGrid: {
+    gap: Theme.spacing.md,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryCol: {
+    flex: 1,
+  },
+  summaryLabel: {
+    ...Typography.caption,
+    fontSize: moderateScale(11),
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  summaryValue: {
+    ...Typography.body,
+    fontSize: moderateScale(16),
+    fontFamily: 'Outfit_700Bold',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  summarySubLabel: {
+    ...Typography.caption,
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    marginTop: 1,
   },
 });
 
