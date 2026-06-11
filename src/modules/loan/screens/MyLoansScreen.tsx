@@ -172,6 +172,27 @@ const MyLoansScreen = ({ navigation }: any) => {
               />
             }
           >
+            {/* Apply Loan Premium Card */}
+            <TouchableOpacity style={styles.applyCard} onPress={openApplyLoan} activeOpacity={0.88}>
+              <LinearGradient
+                colors={Colors.primaryGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.applyGradient}
+              >
+                <View style={styles.applyLeft}>
+                  <View style={styles.applyIconWrap}>
+                    <Ionicons name="add-circle-outline" size={moderateScale(26)} color={Colors.white} />
+                  </View>
+                  <View style={styles.applyCopy}>
+                    <Text style={styles.applyTitle}>Apply for loan</Text>
+                    <Text style={styles.applySubtitle}>Submit a new loan or advance request</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={moderateScale(20)} color="rgba(255,255,255,0.9)" />
+              </LinearGradient>
+            </TouchableOpacity>
+
             {/* Approved Total Amount Insight */}
             <AppCard style={styles.insightCard}>
               <View style={styles.insightIcon}>
@@ -199,9 +220,6 @@ const MyLoansScreen = ({ navigation }: any) => {
             {/* List Section Header */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Loan Applications</Text>
-              <TouchableOpacity onPress={openApplyLoan} activeOpacity={0.85}>
-                <Text style={styles.sectionAction}>Apply Loan</Text>
-              </TouchableOpacity>
             </View>
 
             {loans.length === 0 ? (
@@ -260,7 +278,7 @@ const MyLoansScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background,
   },
   bannerContainer: {
     position: 'absolute',
@@ -544,6 +562,47 @@ const styles = StyleSheet.create({
     ...Typography.subheading,
     color: Colors.primary,
     fontSize: moderateScale(13),
+  },
+  applyCard: {
+    borderRadius: Theme.borderRadius.xxl,
+    overflow: 'hidden',
+    ...Theme.shadow.floating,
+    shadowOpacity: 0.12,
+  },
+  applyGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(18),
+  },
+  applyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
+    flex: 1,
+  },
+  applyIconWrap: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: Theme.borderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyCopy: {
+    flex: 1,
+  },
+  applyTitle: {
+    ...Typography.heading,
+    color: Colors.white,
+    fontSize: moderateScale(16),
+    marginBottom: 2,
+  },
+  applySubtitle: {
+    ...Typography.body,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: moderateScale(12),
   },
 });
 
