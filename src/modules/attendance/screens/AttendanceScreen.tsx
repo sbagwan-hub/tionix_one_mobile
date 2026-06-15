@@ -10,6 +10,7 @@ import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import AppCard from '../../../components/AppCard';
+import PremiumNotificationBell from '../../../components/PremiumNotificationBell';
 import { showLocationAlert } from '../hooks/useOfficeDistance';
 import { useLiveLocation } from '../context/LiveLocationContext';
 import { verifyAttendanceBiometric } from '../../../services/biometrics';
@@ -791,26 +792,12 @@ const AttendanceScreen = () => {
             <Text style={styles.greeting}>GOOD MORNING</Text>
             <Text style={styles.name}>{employeeName}</Text>
           </View>
-          <View style={[styles.statusPill, isWithinRange && styles.statusPillActive]}>
-            <View
-              style={[
-                styles.statusDot,
-                {
-                  backgroundColor: isWithinRange
-                    ? Colors.success
-                    : locationError
-                      ? Colors.error
-                      : Colors.warning,
-                },
-              ]}
+          <View style={styles.headerRight}>
+            <PremiumNotificationBell 
+              unreadCount={3}
+              onPress={() => navigation.navigate('Notifications')}
+              size={50}
             />
-            <Text style={[styles.statusText, isWithinRange && styles.statusTextActive]}>
-              {locationError
-                ? 'GPS Error'
-                : employeeLocation
-                  ? 'Ready'
-                  : 'Locating'}
-            </Text>
           </View>
         </View>
       </SafeAreaView>
@@ -1179,6 +1166,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(12),
   },
   greeting: {
     ...Typography.label,

@@ -64,7 +64,7 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   const [returnMinute, setReturnMinute] = useState('00');
   const [returnAmPm, setReturnAmPm] = useState('AM');
 
-  const [breakTime, setBreakTime] = useState('60');
+  const [calculatedBreakDuration, setCalculatedBreakDuration] = useState(0);
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,6 +123,26 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   }, []);
 
   const handleSelectDate = useCallback((dateString: string) => {
+    // Check if the selected date is in the past
+    const today = new Date();
+    const todayStr = toDateInput(today);
+    const selectedDateObj = new Date(dateString);
+    
+    // Reset time portion for accurate date comparison
+    today.setHours(0, 0, 0, 0);
+    selectedDateObj.setHours(0, 0, 0, 0);
+    
+    if (selectedDateObj < today) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Date',
+        text2: 'Cannot select past date. Please choose today or a future date.',
+        position: 'top',
+        topOffset: 60,
+      });
+      return;
+    }
+    
     setSelectedDate(dateString);
     setIsCalendarOpen(false);
   }, []);
@@ -196,6 +216,76 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   };
 
   const confirmTime = () => {
+    // Parse the selected time
+    const parseHour = (hStr: string, ampm: string) => {
+      let h = parseInt(hStr, 10);
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h;
+    };
+
+    const selectedHour = parseHour(tempHour, tempAmPm);
+    const selectedMinute = parseInt(tempMinute, 10);
+
+    // Create a Date object for the selected time on the selected date
+    const selectedDateTime = new Date(`${selectedDate}T${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}:00`);
+
+    // Get current time
+    const now = new Date();
+
+    // Check if the selected date is today
+    const today = new Date();
+    const isToday = selectedDate === toDateInput(today);
+
+    // If selecting time for today, ensure it's not in the past
+    if (isToday) {
+      if (selectedDateTime <= now) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Time',
+          text2: 'Cannot select past time. Please choose a future time.',
+          position: 'top',
+          topOffset: 60,
+        });
+        return;
+      }
+    }
+
+    // If it's return time, ensure it's after leaving time
+    if (timePickerTarget === 'return') {
+      const leavingHour24 = parseHour(leavingHour, leavingAmPm);
+      const leavingDateTime = new Date(`${selectedDate}T${String(leavingHour24).padStart(2, '0')}:${leavingMinute}:00`);
+      
+      if (selectedDateTime <= leavingDateTime) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Time',
+          text2: 'Return time must be after leaving time.',
+          position: 'top',
+          topOffset: 60,
+        });
+        return;
+      }
+    }
+
+    // If it's leaving time, ensure return time is still valid
+    if (timePickerTarget === 'leaving') {
+      const returnHour24 = parseHour(returnHour, returnAmPm);
+      const returnDateTime = new Date(`${selectedDate}T${String(returnHour24).padStart(2, '0')}:${returnMinute}:00`);
+      
+      if (selectedDateTime >= returnDateTime) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Time',
+          text2: 'Leaving time must be before return time.',
+          position: 'top',
+          topOffset: 60,
+        });
+        return;
+      }
+    }
+
+    // All validations passed, update the time
     if (timePickerTarget === 'leaving') {
       setLeavingHour(tempHour);
       setLeavingMinute(tempMinute);
@@ -230,13 +320,15 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   useEffect(() => {
     const { lDate, rDate } = getTimesAsDates();
     if (!isNaN(lDate.getTime()) && !isNaN(rDate.getTime())) {
-      const diffMs = rDate.getTime() - lDate.getTime();
-      if (diffMs > 0) {
-        const diffMins = Math.floor(diffMs / 60000);
-        setBreakTime(String(diffMins));
-      } else {
-        setBreakTime('0');
+      let diffMs = rDate.getTime() - lDate.getTime();
+      
+      // Handle cross-day scenario (e.g., 11:30 PM to 1:30 AM next day)
+      if (diffMs < 0) {
+        diffMs += (24 * 60 * 60 * 1000);
       }
+      
+      const diffMins = Math.floor(diffMs / 60000);
+      setCalculatedBreakDuration(diffMins);
     }
   }, [getTimesAsDates]);
 
@@ -275,7 +367,6 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
       await applyForPersonalWork({
         leaving_time: lDate.toISOString(),
         return_time: rDate.toISOString(),
-        break_time: Number(breakTime),
         reason: reason.trim(),
         remarks: remarks.trim(),
       });
@@ -287,10 +378,29 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
       });
       navigation.goBack();
     } catch (err: any) {
+      console.error('Personal work submission error:', err);
+      
+      // Handle different error types with user-friendly messages
+      let errorMessage = 'Failed to submit request. Please try again.';
+      
+      if (err.message) {
+        if (err.message.includes('Leaving time must be before return time')) {
+          errorMessage = 'Return time must be after leaving time.';
+        } else if (err.message.includes('shift') || err.message.includes('Shift')) {
+          errorMessage = 'Break time must be within your shift hours.';
+        } else if (err.message.includes('authorization') || err.message.includes('authorized')) {
+          errorMessage = 'You are not authorized to submit this request.';
+        } else if (err.message.includes('network') || err.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       Toast.show({
         type: 'error',
         text1: 'Submission Failed',
-        text2: err.message || 'Server error occurred.',
+        text2: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -376,14 +486,12 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Break Duration (minutes)</Text>
-            <TextInput
-              style={styles.textInput}
-              keyboardType="number-pad"
-              value={breakTime}
-              onChangeText={setBreakTime}
-              placeholder="Duration in mins"
-            />
+            <View style={styles.durationDisplay}>
+              <Ionicons name="time-outline" size={20} color={Colors.primary} />
+              <Text style={styles.durationLabel}>Break Duration:</Text>
+              <Text style={styles.durationValue}>{calculatedBreakDuration} minutes</Text>
+            </View>
+
           </FormCard>
 
           {/* 3. Reason Selection Card */}
@@ -753,6 +861,26 @@ const styles = StyleSheet.create({
   timingSpacer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  durationDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Theme.borderRadius.md,
+    padding: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
+  },
+  durationLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    marginLeft: Theme.spacing.sm,
+  },
+  durationValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginLeft: 'auto',
   },
   inputLabel: {
     fontFamily: 'Outfit_600SemiBold',

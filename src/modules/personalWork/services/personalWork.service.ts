@@ -38,7 +38,6 @@ const PERSONAL_WORK_ENDPOINTS = {
 export async function applyForPersonalWork(payload: {
   leaving_time: string;
   return_time: string;
-  break_time: number;
   reason: string;
   remarks?: string;
 }): Promise<PersonalWorkResponse> {
@@ -56,11 +55,9 @@ export async function applyForPersonalWork(payload: {
         fk_emp_id: Number(session.user.fkEmpId),
         leaving_time: payload.leaving_time,
         return_time: payload.return_time,
-        break_time: payload.break_time,
         reason: payload.reason,
         remarks: payload.remarks || '',
       },
-      token: session?.access_token,
     }
   );
 
@@ -85,7 +82,6 @@ export async function getPersonalWorkHistory(
     `${PERSONAL_WORK_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
-      token: session?.access_token,
     }
   );
 
@@ -98,7 +94,6 @@ export async function deletePersonalWorkRequest(id: number): Promise<boolean> {
     PERSONAL_WORK_ENDPOINTS.DELETE(id),
     {
       method: 'DELETE',
-      token: session?.access_token,
     }
   );
 
@@ -111,7 +106,6 @@ export async function getPersonalWorkDetails(id: number): Promise<PersonalWorkRe
     PERSONAL_WORK_ENDPOINTS.GET_BY_ID(id),
     {
       method: 'GET',
-      token: session?.access_token,
     }
   );
 

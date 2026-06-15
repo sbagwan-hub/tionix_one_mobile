@@ -180,7 +180,6 @@ export async function getLeaveHistory(
     `${LEAVE_REQUEST_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
-      token: session?.access_token,
     }
   );
 

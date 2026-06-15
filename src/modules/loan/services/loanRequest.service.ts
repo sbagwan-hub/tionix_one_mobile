@@ -212,7 +212,6 @@ export async function getLoanHistory(
     `${LOAN_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
-      token: session?.access_token,
     }
   );
 

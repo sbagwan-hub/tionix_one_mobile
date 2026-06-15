@@ -70,7 +70,6 @@ export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {
 
   const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
     method: 'GET',
-    token: session.access_token,
   });
 
   const profile = response?.data?.profile || response?.profile;
@@ -107,7 +106,6 @@ export const updateEmployeeProfile = async (
 
   const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profile(fkEmpId), {
     method: 'PUT',
-    token: session.access_token,
     body: payload,
   });
 
@@ -152,7 +150,6 @@ export const uploadProfileImage = async (
 
   const response = await apiRequest<ProfileResponse>(API_ENDPOINTS.profileImage, {
     method: 'POST',
-    token: session.access_token,
     body: formData,
   });
 

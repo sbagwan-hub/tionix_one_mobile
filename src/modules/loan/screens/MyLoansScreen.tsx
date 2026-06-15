@@ -133,7 +133,6 @@ const MyLoansScreen = ({ navigation }: any) => {
             <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Loans & Advances</Text>
-          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.headerContent}>

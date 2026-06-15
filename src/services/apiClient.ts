@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../config/api';
 import { logApiError, logApiRequest, logApiResponse } from './logger';
 import { isUnauthorizedError, notifySessionExpired } from './sessionManager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ApiRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -8,6 +9,7 @@ type ApiRequestOptions = {
   headers?: Record<string, string>;
   token?: string;
   quiet?: boolean;
+  skipAuth?: boolean;
 };
 
 export class ApiError extends Error {
@@ -61,9 +63,23 @@ const ensureBaseUrl = () => {
 
 const REQUEST_TIMEOUT_MS = 10000;
 
+const getAuthToken = async (skipAuth?: boolean): Promise<string | null> => {
+  if (skipAuth) {
+    return null;
+  }
+  
+  try {
+    const token = await AsyncStorage.getItem('@attendance/access-token');
+    return token;
+  } catch (error) {
+    console.error('[apiClient] Error retrieving auth token:', error);
+    return null;
+  }
+};
+
 export const apiRequest = async <T>(
   path: string,
-  { method = 'GET', body, headers = {}, token, quiet = false }: ApiRequestOptions = {},
+  { method = 'GET', body, headers = {}, token, quiet = false, skipAuth = false }: ApiRequestOptions = {},
 ): Promise<T> => {
   ensureBaseUrl();
 
@@ -77,8 +93,10 @@ export const apiRequest = async <T>(
     requestHeaders['Content-Type'] = 'application/json';
   }
 
-  if (token) {
-    requestHeaders.Authorization = `Bearer ${token}`;
+  // Auto-attach auth token if not explicitly provided and not skipped
+  const authToken = token ?? await getAuthToken(skipAuth);
+  if (authToken) {
+    requestHeaders.Authorization = `Bearer ${authToken}`;
   }
 
   logApiRequest(method, url, body);
@@ -111,7 +129,7 @@ export const apiRequest = async <T>(
         logApiError(url, message, responseBody);
       }
 
-      if (token && isUnauthorizedError(response.status, message)) {
+      if (authToken && isUnauthorizedError(response.status, message)) {
         void notifySessionExpired();
       }
 

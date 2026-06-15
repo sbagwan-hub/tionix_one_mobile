@@ -25,6 +25,7 @@ import ForgotPasswordScreen from '../modules/auth/screens/ForgotPasswordScreen';
 import MyLoansScreen from '../modules/loan/screens/MyLoansScreen';
 import ApplyLoanScreen from '../modules/loan/screens/ApplyLoanScreen';
 import LoanDetailsScreen from '../modules/loan/screens/LoanDetailsScreen';
+import NotificationScreen from '../modules/notifications/screens/NotificationScreen';
 import { LiveLocationProvider } from '../modules/attendance/context/LiveLocationContext';
 import { clearAuthSession, getAuthSession } from '../modules/auth/services/auth';
 import { setSessionExpiredHandler } from '../services/sessionManager';
@@ -161,6 +162,7 @@ const AppNavigator = () => {
         <Stack.Screen name="MyLoans" component={MyLoansScreen} />
         <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
         <Stack.Screen name="LoanDetails" component={LoanDetailsScreen} />
+        <Stack.Screen name="Notifications" component={NotificationScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

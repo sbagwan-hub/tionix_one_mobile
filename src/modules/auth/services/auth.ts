@@ -145,7 +145,7 @@ export const logout = async (): Promise<void> => {
       await apiRequest(API_ENDPOINTS.logout, {
         method: 'POST',
         body: { refreshToken: session.refresh_token },
-        token: session.access_token,
+        skipAuth: true,
       });
     }
   } catch (error) {
