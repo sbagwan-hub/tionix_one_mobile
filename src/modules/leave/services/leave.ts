@@ -290,7 +290,7 @@ export const getLeaveHistory = async (): Promise<LeaveRequest[]> => {
     const response = await getLeaveHistoryApi(1, 50);
     
     // Map API response to LeaveRequest format
-    const remoteHistory = (response.data || []).map((row: any, index: number) => {
+    const remoteHistory = (response.data?.data || []).map((row: any, index: number) => {
       const startDate = row.from_date || row.startDate || '';
       const endDate = row.to_date || row.endDate || startDate;
       const start = new Date(startDate);

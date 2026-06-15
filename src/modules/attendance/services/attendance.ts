@@ -72,6 +72,56 @@ export const punchOut = async (
   });
 };
 
+export const punchBreak = async (
+  latitude: number,
+  longitude: number,
+  remark?: string,
+): Promise<AttendanceResponse> => {
+  const session = await getAuthSession();
+
+  if (!session?.access_token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+
+  const payload = {
+    empCode: String(session.user.fkEmpId || session.user.UserName),
+    latitude,
+    longitude,
+    status: 'Break',
+    remark,
+  };
+
+  return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
+    method: 'POST',
+    token: session.access_token,
+    body: payload,
+  });
+};
+
+export const punchResume = async (
+  latitude: number,
+  longitude: number,
+): Promise<AttendanceResponse> => {
+  const session = await getAuthSession();
+
+  if (!session?.access_token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+
+  const payload = {
+    empCode: String(session.user.fkEmpId || session.user.UserName),
+    latitude,
+    longitude,
+    status: 'Resume',
+  };
+
+  return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
+    method: 'POST',
+    token: session.access_token,
+    body: payload,
+  });
+};
+
 export type AttendanceStatusResponse = {
   success: boolean;
   status: string;
@@ -81,6 +131,8 @@ export type AttendanceStatusResponse = {
   nextSuggestedPunch?: string;
   shift?: any;
   liveLocation?: any;
+  todayWork?: string;
+  todayBreak?: string;
 };
 
 export const getAttendanceStatus = async (empId?: number): Promise<AttendanceStatusResponse> => {
@@ -106,6 +158,8 @@ export const getAttendanceStatus = async (empId?: number): Promise<AttendanceSta
       nextSuggestedPunch?: string;
       shift?: any;
       liveLocation?: any;
+      todayWork?: string;
+      todayBreak?: string;
     };
   }>(API_ENDPOINTS.status(fkEmpId), {
     method: 'GET',
@@ -121,6 +175,8 @@ export const getAttendanceStatus = async (empId?: number): Promise<AttendanceSta
     nextSuggestedPunch: response.data?.nextSuggestedPunch,
     shift: response.data?.shift,
     liveLocation: response.data?.liveLocation,
+    todayWork: response.data?.todayWork,
+    todayBreak: response.data?.todayBreak,
   };
 };
 
@@ -365,8 +421,9 @@ export const getAttendanceHistory = async (): Promise<AttendanceHistoryResponse>
     records: (day.records || []).map((rec: any) => ({
       EmpCode: rec.empCode,
       EmpName: rec.empName,
-      Punch: rec.punch,
-      PunchDatetime: rec.punchDatetime,
+      Punch: rec.Punch || rec.punch,
+      PunchDatetime: rec.PunchDatetime || rec.punchDatetime,
+      PunchTime: rec.PunchTime || rec.punchTime,
       Latitude: rec.latitude ? Number(rec.latitude) : 0,
       Longitude: rec.longitude ? Number(rec.longitude) : 0,
       Address: rec.address,

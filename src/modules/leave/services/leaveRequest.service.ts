@@ -172,7 +172,7 @@ export async function getLeaveHistory(
     from_req_date: currentFY.from,
     to_req_date: currentFY.to,
     own_record: 'true',
-    fk_set_id: session?.user?.pkUserId || '',
+    fk_emp_id: String(session?.user?.fkEmpId || ''),
     page: String(page),
     page_size: String(pageSize),
   });

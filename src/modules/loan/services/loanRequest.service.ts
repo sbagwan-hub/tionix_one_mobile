@@ -203,9 +203,9 @@ export async function getLoanHistory(
     page_size: String(pageSize),
   });
 
-  if (ownRecord && session?.user?.pkUserId) {
+  if (ownRecord && session?.user?.fkEmpId) {
     params.append('own_record', 'true');
-    params.append('fk_set_id', String(session.user.pkUserId));
+    params.append('fk_emp_id', String(session.user.fkEmpId));
   }
 
   const response = await apiRequest<{ success: boolean; data: { data: LoanResponseItem[] } }>(

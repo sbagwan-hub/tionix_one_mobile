@@ -18,6 +18,9 @@ import MyLeaveScreen from '../modules/leave/screens/MyLeaveScreen';
 import LeaveDetailsScreen from '../modules/leave/screens/LeaveDetailsScreen';
 import AccountSettingsScreen from '../modules/profile/screens/AccountSettingsScreen';
 import ApplyLeaveScreen from '../modules/leave/screens/ApplyLeaveScreen';
+import MyPersonalWorkScreen from '../modules/personalWork/screens/MyPersonalWorkScreen';
+import ApplyPersonalWorkScreen from '../modules/personalWork/screens/ApplyPersonalWorkScreen';
+import PersonalWorkDetailsScreen from '../modules/personalWork/screens/PersonalWorkDetailsScreen';
 import ForgotPasswordScreen from '../modules/auth/screens/ForgotPasswordScreen';
 import MyLoansScreen from '../modules/loan/screens/MyLoansScreen';
 import ApplyLoanScreen from '../modules/loan/screens/ApplyLoanScreen';
@@ -152,6 +155,9 @@ const AppNavigator = () => {
         <Stack.Screen name="ApplyLeave" component={ApplyLeaveScreen} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="LeaveDetails" component={LeaveDetailsScreen} />
+        <Stack.Screen name="MyPersonalWork" component={MyPersonalWorkScreen} />
+        <Stack.Screen name="ApplyPersonalWork" component={ApplyPersonalWorkScreen} />
+        <Stack.Screen name="PersonalWorkDetails" component={PersonalWorkDetailsScreen} />
         <Stack.Screen name="MyLoans" component={MyLoansScreen} />
         <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
         <Stack.Screen name="LoanDetails" component={LoanDetailsScreen} />

@@ -67,6 +67,13 @@ const menuItems = [
     route: 'MyLoans',
   },
   {
+    id: '3c',
+    title: 'Personal work',
+    subtitle: 'Short leave history and request status',
+    icon: 'time-outline',
+    route: 'MyPersonalWork',
+  },
+  {
     id: '4',
     title: 'Account settings',
     subtitle: 'Security and preferences',

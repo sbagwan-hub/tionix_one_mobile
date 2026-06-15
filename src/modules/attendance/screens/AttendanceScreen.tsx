@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert, Platform, Animated, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert, Platform, Animated, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +16,8 @@ import { verifyAttendanceBiometric } from '../../../services/biometrics';
 import {
   punchIn,
   punchOut,
+  punchBreak,
+  punchResume,
   postLiveLocation,
   getAttendanceStatus,
   getAttendanceConfig,
@@ -142,7 +144,7 @@ const AttendanceScreen = () => {
     month: 'long',
     day: 'numeric',
   });
-  const [status, setStatus] = useState<'IN' | 'OUT'>('OUT');
+  const [status, setStatus] = useState<'IN' | 'OUT' | 'BREAK'>('OUT');
   const [isVerifying, setIsVerifying] = useState(false);
   const [employeeAddress, setEmployeeAddress] = useState<string | null>('Locating...');
   const [officeAddress, setOfficeAddress] = useState<string | null>(COMPANY.office.address);
@@ -150,6 +152,9 @@ const AttendanceScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [todayInTime, setTodayInTime] = useState<string>('--:--');
   const [todayOutTime, setTodayOutTime] = useState<string>('--:--');
+  const [todayBreakTime, setTodayBreakTime] = useState<string>('--:--');
+  const [isBreakModalVisible, setIsBreakModalVisible] = useState(false);
+  const [breakReason, setBreakReason] = useState('');
 
   // Dynamic geofencing configuration states
   const [officeLocation, setOfficeLocation] = useState<{
@@ -262,6 +267,8 @@ const AttendanceScreen = () => {
   const fetchRecentLogs = useCallback(async () => {
     try {
       const response = await getAttendanceHistory();
+      console.log('[fetchRecentLogs] Response:', JSON.stringify(response, null, 2));
+      
       if (response.success && Array.isArray(response.data) && response.data.length > 0) {
         setRecentLogs(mapHistoryToRecentLogs(response.data));
 
@@ -272,10 +279,16 @@ const AttendanceScreen = () => {
         const day = String(localDate.getDate()).padStart(2, '0');
         const todayStr = `${year}-${month}-${day}`;
 
+        console.log('[fetchRecentLogs] Today string:', todayStr);
         const todayData = response.data.find((item: any) => item.date === todayStr);
+        console.log('[fetchRecentLogs] Today data:', todayData);
+        
         if (todayData && Array.isArray(todayData.records)) {
           const inRecord = todayData.records.find((r: any) => r.Punch === 'Check IN');
           const outRecord = [...todayData.records].reverse().find((r: any) => r.Punch === 'Check OUT');
+
+          console.log('[fetchRecentLogs] In record:', inRecord);
+          console.log('[fetchRecentLogs] Out record:', outRecord);
 
           if (inRecord) {
             setTodayInTime(formatLogTime(inRecord.PunchDatetime));
@@ -297,7 +310,8 @@ const AttendanceScreen = () => {
         setTodayInTime('--:--');
         setTodayOutTime('--:--');
       }
-    } catch {
+    } catch (error) {
+      console.log('[fetchRecentLogs] Error:', error);
       setRecentLogs([]);
       setTodayInTime('--:--');
       setTodayOutTime('--:--');
@@ -314,23 +328,29 @@ const AttendanceScreen = () => {
 
       const response = await getAttendanceStatus(session?.user?.fkEmpId);
       if (response && response.success) {
-        let checkedIn = false;
+        let currentPunchStatus: 'IN' | 'OUT' | 'BREAK' = 'OUT';
 
-        if (response.nextSuggestedPunch) {
-          checkedIn = response.nextSuggestedPunch.toUpperCase() === 'CHECK OUT';
-        } else if (response.status) {
-          const statusText = response.status.toLowerCase();
-          checkedIn =
-            (statusText.includes('checked in') ||
-              statusText.includes('punch in') ||
-              statusText.includes('check in') ||
-              statusText === 'in' ||
-              statusText === 'present') &&
-            !statusText.includes('not checked in');
+        if (response.status) {
+          const statusText = response.status.toLowerCase().trim();
+          if (statusText.includes('break')) {
+            currentPunchStatus = 'BREAK';
+          } else if (
+            statusText.includes('checked in') ||
+            statusText.includes('punch in') ||
+            statusText.includes('check in') ||
+            statusText === 'in' ||
+            statusText === 'present' ||
+            statusText === 'resume'
+          ) {
+            currentPunchStatus = 'IN';
+          } else {
+            currentPunchStatus = 'OUT';
+          }
         }
 
-        setStatus(checkedIn ? 'IN' : 'OUT');
-        setLiveStatus(checkedIn ? 'Check IN' : 'Check OUT');
+        setStatus(currentPunchStatus);
+        setLiveStatus(currentPunchStatus === 'BREAK' ? 'Break' : currentPunchStatus === 'IN' ? 'Check IN' : 'Check OUT');
+        setTodayBreakTime(response.todayBreak || '00h 00m');
       }
 
       await fetchRecentLogs();
@@ -457,7 +477,7 @@ const AttendanceScreen = () => {
   const isGlowing = isInRadius && status === 'OUT';
 
   const buttonColors = useMemo(() => {
-    if (status === 'IN') {
+    if (status === 'IN' || status === 'BREAK') {
       return Colors.successGradient;
     }
     if (isInRadius) {
@@ -593,6 +613,14 @@ const AttendanceScreen = () => {
         return;
       }
 
+      // Handle missing Check IN error - show alert and keep current status
+      if (message.includes('must Check IN before Check OUT') || message.includes('MISSING_CHECK_IN')) {
+        setStatus('OUT');
+        setLiveStatus('Check OUT');
+        setIsVerifying(false);
+        return;
+      }
+
       // Determine an accurate alert title
       const isBiometricError =
         message.toLowerCase().includes('biometric') ||
@@ -602,6 +630,118 @@ const AttendanceScreen = () => {
 
       const title = isBiometricError ? 'Verification required' : 'Punch Error';
       Alert.alert(title, message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleBreakToggle = async () => {
+    if (!isWithinRange) {
+      showLocationAlert(
+        'Please wait while we fetch your location to mark break.',
+      );
+      return;
+    }
+
+    if (status === 'IN') {
+      setBreakReason('');
+      setIsBreakModalVisible(true);
+      return;
+    }
+
+    setIsVerifying(true);
+
+    try {
+      const verified = await verifyAttendanceBiometric();
+
+      if (!verified) {
+        return;
+      }
+
+      if (!employeeLocation) {
+        throw new Error('Unable to determine your location. Please check your GPS.');
+      }
+
+      const response = await punchResume(
+        employeeLocation.latitude,
+        employeeLocation.longitude,
+      );
+
+      if (response.success) {
+        setStatus('IN');
+        setLiveStatus('Resume');
+
+        postLiveLocation({
+          latitude: employeeLocation.latitude,
+          longitude: employeeLocation.longitude,
+          accuracy: accuracyMeters ?? 0,
+          status: 'Resume',
+        }).catch(() => undefined);
+        fetchRecentLogs();
+        fetchStatusAndName();
+        Alert.alert('Resume Successful', response.message);
+      } else {
+        throw new Error(response.message || 'Failed to record break punch.');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Biometric verification failed. Please try again.';
+      Alert.alert('Punch Error', message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const submitBreak = async () => {
+    if (!breakReason.trim()) {
+      Alert.alert('Validation Error', 'Please enter a reason for the break.');
+      return;
+    }
+
+    setIsBreakModalVisible(false);
+    setIsVerifying(true);
+
+    try {
+      const verified = await verifyAttendanceBiometric();
+
+      if (!verified) {
+        return;
+      }
+
+      if (!employeeLocation) {
+        throw new Error('Unable to determine your location. Please check your GPS.');
+      }
+
+      const response = await punchBreak(
+        employeeLocation.latitude,
+        employeeLocation.longitude,
+        breakReason.trim(),
+      );
+
+      if (response.success) {
+        setStatus('BREAK');
+        setLiveStatus('Break');
+
+        postLiveLocation({
+          latitude: employeeLocation.latitude,
+          longitude: employeeLocation.longitude,
+          accuracy: accuracyMeters ?? 0,
+          status: 'Break',
+        }).catch(() => undefined);
+        fetchRecentLogs();
+        fetchStatusAndName();
+        Alert.alert('Break Successful', response.message);
+      } else {
+        throw new Error(response.message || 'Failed to record break punch.');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Biometric verification failed. Please try again.';
+      Alert.alert('Punch Error', message);
     } finally {
       setIsVerifying(false);
     }
@@ -751,7 +891,7 @@ const AttendanceScreen = () => {
               disabled={!canPunch}
               style={StyleSheet.flatten([
                 styles.punchButton,
-                status === 'IN' && styles.punchButtonOut,
+                status !== 'OUT' && styles.punchButtonOut,
                 !canPunch && styles.punchButtonDisabled,
               ])}
             >
@@ -764,7 +904,7 @@ const AttendanceScreen = () => {
                 <Text style={[styles.punchLabel, !canPunch && { color: Colors.textMuted }]}>
                   {buttonLabel}
                 </Text>
-                {status === 'IN' && todayInTime !== '--:--' && (
+                {status !== 'OUT' && todayInTime !== '--:--' && (
                   <Text style={styles.punchTimeLabel}>
                     In: {todayInTime}
                   </Text>
@@ -777,6 +917,27 @@ const AttendanceScreen = () => {
               </View>
             </TouchableOpacity>
           </View>
+
+          {status !== 'OUT' && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleBreakToggle}
+              disabled={isVerifying}
+              style={[
+                styles.breakButton,
+                status === 'BREAK' && styles.breakButtonActive
+              ]}
+            >
+              <Ionicons
+                name={status === 'BREAK' ? 'play-outline' : 'cafe-outline'}
+                size={moderateScale(18)}
+                color={Colors.white}
+              />
+              <Text style={styles.breakButtonText}>
+                {status === 'BREAK' ? 'Resume Work' : 'Start Break'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.statsRow}>
@@ -801,7 +962,7 @@ const AttendanceScreen = () => {
             >
               <Ionicons
                 name="log-in-outline"
-                size={moderateScale(18)}
+                size={moderateScale(14)}
                 color={todayInTime !== '--:--' ? Colors.success : Colors.primary}
               />
             </View>
@@ -814,6 +975,46 @@ const AttendanceScreen = () => {
                 ]}
               >
                 {todayInTime}
+              </Text>
+            </View>
+          </AppCard>
+
+          <AppCard
+            style={StyleSheet.flatten([
+              styles.statCard,
+              todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && {
+                backgroundColor: 'rgba(255, 179, 0, 0.05)',
+                borderColor: 'rgba(255, 179, 0, 0.15)',
+                borderWidth: 1,
+              },
+            ])}
+          >
+            <View
+              style={[
+                styles.statIconFrame,
+                {
+                  backgroundColor:
+                    todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--'
+                      ? 'rgba(255, 179, 0, 0.12)'
+                      : 'rgba(255, 179, 0, 0.08)',
+                },
+              ]}
+            >
+              <Ionicons
+                name="cafe-outline"
+                size={moderateScale(14)}
+                color={Colors.accent}
+              />
+            </View>
+            <View style={styles.statTextContainer}>
+              <Text style={styles.statLabel}>BREAK TIME</Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && { color: Colors.accentDark || Colors.accent, fontWeight: '700' },
+                ]}
+              >
+                {todayBreakTime}
               </Text>
             </View>
           </AppCard>
@@ -839,7 +1040,7 @@ const AttendanceScreen = () => {
             >
               <Ionicons
                 name="log-out-outline"
-                size={moderateScale(18)}
+                size={moderateScale(14)}
                 color={todayOutTime !== '--:--' ? Colors.primary : Colors.accent}
               />
             </View>
@@ -888,6 +1089,46 @@ const AttendanceScreen = () => {
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={isBreakModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsBreakModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Start Break</Text>
+            <Text style={styles.modalSubtitle}>Please enter the reason for taking a break:</Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="e.g. Lunch, Tea break, Personal work"
+              placeholderTextColor={Colors.textMuted}
+              value={breakReason}
+              onChangeText={setBreakReason}
+              multiline={true}
+              numberOfLines={3}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setIsBreakModalVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={submitBreak}
+              >
+                <Text style={styles.modalButtonTextSubmit}>Submit Break</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1056,27 +1297,27 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: Theme.spacing.lg,
+    gap: Theme.spacing.xs,
   },
   statCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Theme.spacing.lg,
-    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: moderateScale(6),
     backgroundColor: Colors.white,
     borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.sm,
   },
   statIconFrame: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(8),
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(6),
     backgroundColor: 'rgba(255, 77, 28, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: moderateScale(12),
+    marginRight: moderateScale(6),
   },
   statTextContainer: {
     flex: 1,
@@ -1225,6 +1466,100 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(11),
     color: Colors.textMuted,
     marginTop: moderateScale(2),
+  },
+  breakButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(20),
+    borderRadius: Theme.borderRadius.pill,
+    gap: moderateScale(6),
+    marginTop: moderateScale(16),
+    alignSelf: 'center',
+    ...Theme.shadow.md,
+    shadowColor: Colors.accent,
+    shadowOpacity: 0.2,
+  },
+  breakButtonActive: {
+    backgroundColor: Colors.success,
+    shadowColor: Colors.success,
+  },
+  breakButtonText: {
+    ...Typography.heading,
+    fontSize: moderateScale(14),
+    color: Colors.white,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    padding: Theme.spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+    ...Theme.shadow.floating,
+  },
+  modalTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(18),
+    color: Colors.text,
+    marginBottom: Theme.spacing.xs,
+  },
+  modalSubtitle: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(13),
+    color: Colors.textSecondary,
+    marginBottom: Theme.spacing.md,
+  },
+  reasonInput: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Theme.borderRadius.md,
+    padding: Theme.spacing.sm,
+    height: 80,
+    textAlignVertical: 'top',
+    marginBottom: Theme.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+    justifyContent: 'flex-end',
+  },
+  modalButton: {
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(16),
+    borderRadius: Theme.borderRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalButtonSubmit: {
+    backgroundColor: Colors.primary,
+  },
+  modalButtonTextCancel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: Colors.textSecondary,
+  },
+  modalButtonTextSubmit: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: Colors.white,
   },
 });
 

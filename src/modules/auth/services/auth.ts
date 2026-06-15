@@ -89,6 +89,8 @@ const normalizeAuthSession = (value: unknown): AuthSession | null => {
 
 export const saveAuthSession = async (session: AuthSession) => {
   await AsyncStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  await AsyncStorage.setItem('@attendance/access-token', session.access_token);
+  await AsyncStorage.setItem('@attendance/refresh-token', session.refresh_token);
   if (session.user.fkEmpId) {
     await AsyncStorage.setItem('@attendance/fk-emp-id', session.user.fkEmpId.toString());
   }
@@ -107,6 +109,8 @@ export const getAuthSession = async (): Promise<AuthSession | null> => {
 
     if (!session) {
       await AsyncStorage.removeItem(AUTH_SESSION_KEY);
+      await AsyncStorage.removeItem('@attendance/access-token');
+      await AsyncStorage.removeItem('@attendance/refresh-token');
       await AsyncStorage.removeItem('@attendance/fk-emp-id');
       return null;
     }
@@ -120,6 +124,8 @@ export const getAuthSession = async (): Promise<AuthSession | null> => {
   } catch (error) {
     logApiError('auth-session', 'Failed to parse stored session', error);
     await AsyncStorage.removeItem(AUTH_SESSION_KEY);
+    await AsyncStorage.removeItem('@attendance/access-token');
+    await AsyncStorage.removeItem('@attendance/refresh-token');
     await AsyncStorage.removeItem('@attendance/fk-emp-id');
     return null;
   }
@@ -127,6 +133,8 @@ export const getAuthSession = async (): Promise<AuthSession | null> => {
 
 export const clearAuthSession = async () => {
   await AsyncStorage.removeItem(AUTH_SESSION_KEY);
+  await AsyncStorage.removeItem('@attendance/access-token');
+  await AsyncStorage.removeItem('@attendance/refresh-token');
   await AsyncStorage.removeItem('@attendance/fk-emp-id');
 };
 
