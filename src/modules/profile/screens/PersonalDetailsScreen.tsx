@@ -56,10 +56,20 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [avatarImageError, setAvatarImageError] = useState(false);
 
+  // New editable fields
+  const [dob, setDob] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [presentAddress, setPresentAddress] = useState('');
+  const [permanentAddress, setPermanentAddress] = useState('');
+
   // Focus states
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+  const [isDobFocused, setIsDobFocused] = useState(false);
+  const [isBloodGroupFocused, setIsBloodGroupFocused] = useState(false);
+  const [isPresentAddressFocused, setIsPresentAddressFocused] = useState(false);
+  const [isPermanentAddressFocused, setIsPermanentAddressFocused] = useState(false);
 
   const resetToLogin = useCallback(async () => {
     await clearAuthSession();
@@ -85,6 +95,20 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
         setEmail(employeeProfile.email || '');
         setPhone(employeeProfile.phone || '');
         setProfileImageUrl(employeeProfile.profileImageUrl || null);
+        
+        let formattedDob = '';
+        if (employeeProfile.dob) {
+          try {
+            formattedDob = new Date(employeeProfile.dob).toISOString().split('T')[0];
+          } catch {
+            formattedDob = employeeProfile.dob;
+          }
+        }
+        setDob(formattedDob);
+        setBloodGroup(employeeProfile.bloodGroup || '');
+        setPresentAddress(employeeProfile.presentAddress || '');
+        setPermanentAddress(employeeProfile.permanentAddress || '');
+
         setAvatarImageError(false);
         setErrorMessage(null);
       } catch (error) {
@@ -127,6 +151,19 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
     [userName],
   );
 
+  const dojDisplay = useMemo(() => {
+    if (!profile?.doj) return '-';
+    try {
+      return new Date(profile.doj).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return profile.doj;
+    }
+  }, [profile?.doj]);
+
   const handleSave = async () => {
     if (!userName.trim()) {
       setErrorMessage('Name is required.');
@@ -142,6 +179,10 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
         email: email.trim() || null,
         phone: phone.trim() || null,
         profileImageUrl,
+        dob: dob.trim() || null,
+        bloodGroup: bloodGroup.trim() || null,
+        permanentAddress: permanentAddress.trim() || null,
+        presentAddress: presentAddress.trim() || null,
       });
 
       setProfile(updatedProfile);
@@ -149,6 +190,20 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
       setEmail(updatedProfile.email || '');
       setPhone(updatedProfile.phone || '');
       setProfileImageUrl(updatedProfile.profileImageUrl || profileImageUrl);
+      
+      let formattedDob = '';
+      if (updatedProfile.dob) {
+        try {
+          formattedDob = new Date(updatedProfile.dob).toISOString().split('T')[0];
+        } catch {
+          formattedDob = updatedProfile.dob;
+        }
+      }
+      setDob(formattedDob);
+      setBloodGroup(updatedProfile.bloodGroup || '');
+      setPresentAddress(updatedProfile.presentAddress || '');
+      setPermanentAddress(updatedProfile.permanentAddress || '');
+
       setAvatarImageError(false);
       Alert.alert('Profile updated', 'Your personal details were saved successfully.');
     } catch (error) {
@@ -335,7 +390,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Personal Info</Text>
+          <Text style={styles.sectionTitle}>Personal Details</Text>
 
           {/* Floating Pill Inputs */}
           <View style={[styles.pillInputContainer, isNameFocused && styles.pillInputFocused]}>
@@ -397,10 +452,106 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
               />
             </View>
           </View>
+
+          <View style={[styles.pillInputContainer, isDobFocused && styles.pillInputFocused]}>
+            <View style={[styles.pillIcon, isDobFocused && styles.pillIconFocused]}>
+              <Ionicons name="calendar-outline" size={moderateScale(20)} color={isDobFocused ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Date of Birth (YYYY-MM-DD)</Text>
+              <TextInput
+                value={dob}
+                onChangeText={setDob}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={Colors.borderStrong}
+                style={styles.pillInput}
+                editable={!isLoading && !isSaving}
+                onFocus={() => setIsDobFocused(true)}
+                onBlur={() => setIsDobFocused(false)}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.pillInputContainer, isBloodGroupFocused && styles.pillInputFocused]}>
+            <View style={[styles.pillIcon, isBloodGroupFocused && styles.pillIconFocused]}>
+              <Ionicons name="water-outline" size={moderateScale(20)} color={isBloodGroupFocused ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Blood Group</Text>
+              <TextInput
+                value={bloodGroup}
+                onChangeText={setBloodGroup}
+                placeholder="Enter blood group"
+                placeholderTextColor={Colors.borderStrong}
+                style={styles.pillInput}
+                editable={!isLoading && !isSaving}
+                onFocus={() => setIsBloodGroupFocused(true)}
+                onBlur={() => setIsBloodGroupFocused(false)}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.infoPill, { marginBottom: 16 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="male-female-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Gender</Text>
+              <Text style={styles.infoPillValue}>{profile?.gender || '-'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.infoPill, { marginBottom: 16 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="heart-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Marital Status</Text>
+              <Text style={styles.infoPillValue}>{profile?.maritalStatus || '-'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.pillInputContainer, isPresentAddressFocused && styles.pillInputFocused]}>
+            <View style={[styles.pillIcon, isPresentAddressFocused && styles.pillIconFocused]}>
+              <Ionicons name="location-outline" size={moderateScale(20)} color={isPresentAddressFocused ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Present Address</Text>
+              <TextInput
+                value={presentAddress}
+                onChangeText={setPresentAddress}
+                placeholder="Enter present address"
+                placeholderTextColor={Colors.borderStrong}
+                style={styles.pillInput}
+                editable={!isLoading && !isSaving}
+                onFocus={() => setIsPresentAddressFocused(true)}
+                onBlur={() => setIsPresentAddressFocused(false)}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.pillInputContainer, isPermanentAddressFocused && styles.pillInputFocused]}>
+            <View style={[styles.pillIcon, isPermanentAddressFocused && styles.pillIconFocused]}>
+              <Ionicons name="home-outline" size={moderateScale(20)} color={isPermanentAddressFocused ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Permanent Address</Text>
+              <TextInput
+                value={permanentAddress}
+                onChangeText={setPermanentAddress}
+                placeholder="Enter permanent address"
+                placeholderTextColor={Colors.borderStrong}
+                style={styles.pillInput}
+                editable={!isLoading && !isSaving}
+                onFocus={() => setIsPermanentAddressFocused(true)}
+                onBlur={() => setIsPermanentAddressFocused(false)}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Account Info</Text>
+          <Text style={styles.sectionTitle}>Employee Details</Text>
           <View style={[styles.infoPill, { marginBottom: 12 }]}>
             <View style={styles.infoPillIcon}>
               <Ionicons name="id-card-outline" size={moderateScale(22)} color={Colors.primary} />
@@ -411,7 +562,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
             </View>
           </View>
           {profile?.empCode ? (
-            <View style={styles.infoPill}>
+            <View style={[styles.infoPill, { marginBottom: 12 }]}>
               <View style={styles.infoPillIcon}>
                 <Ionicons name="barcode-outline" size={moderateScale(22)} color={Colors.primary} />
               </View>
@@ -421,6 +572,64 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
               </View>
             </View>
           ) : null}
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="calendar-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Date of Joining</Text>
+              <Text style={styles.infoPillValue}>{dojDisplay}</Text>
+            </View>
+          </View>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="git-branch-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Employment Type</Text>
+              <Text style={styles.infoPillValue}>{profile?.employmentType || '-'}</Text>
+            </View>
+          </View>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="time-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Experience</Text>
+              <Text style={styles.infoPillValue}>{profile?.experience || '-'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Statutory & Bank Details</Text>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="cash-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>Bank Account No.</Text>
+              <Text style={styles.infoPillValue}>{profile?.accountNo || '-'}</Text>
+            </View>
+          </View>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="business-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>PF Number</Text>
+              <Text style={styles.infoPillValue}>{profile?.pfNo || '-'}</Text>
+            </View>
+          </View>
+          <View style={[styles.infoPill, { marginBottom: 12 }]}>
+            <View style={styles.infoPillIcon}>
+              <Ionicons name="shield-checkmark-outline" size={moderateScale(22)} color={Colors.primary} />
+            </View>
+            <View style={styles.pillInputWrapper}>
+              <Text style={styles.pillLabel}>ESIC Number</Text>
+              <Text style={styles.infoPillValue}>{profile?.esicNo || '-'}</Text>
+            </View>
+          </View>
         </View>
 
         {errorMessage ? (

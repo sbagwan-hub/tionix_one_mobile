@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,7 @@ import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { getLoanDetails, LoanDetailsResponse } from '../services/loanRequest.service';
+import { downloadReport } from '../../../utils/reportDownloader';
 
 const statusTone = {
   Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
@@ -77,6 +79,19 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
       ...prev,
       [instNo]: !prev[instNo],
     }));
+  };
+
+  const handleDownloadReport = async () => {
+    if (!loan) return;
+    if (status !== 'Approved') {
+      Alert.alert('Approval Pending', 'Your loan request is still pending HR approval. You can download the report once it is approved.');
+      return;
+    }
+    try {
+      await downloadReport(`/api/mobile/loan-requests/${loanId}/report`, `loan_${loan.loan_no}.pdf`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
   };
 
   // Status mapping
@@ -160,7 +175,9 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
           <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Loan Details</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadReport}>
+          <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -443,6 +460,16 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.xs,
   },
   backButton: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(10),
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  downloadButton: {
     width: moderateScale(40),
     height: moderateScale(40),
     borderRadius: moderateScale(10),

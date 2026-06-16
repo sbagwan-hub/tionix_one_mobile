@@ -8,8 +8,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
+import { downloadReport } from '../../../utils/reportDownloader';
+import Shimmer from '../../../components/Shimmer';
+import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AppCard from '../../../components/AppCard';
@@ -74,9 +79,11 @@ const MyLeaveScreen = ({ navigation }: any) => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistory();
+    }, [fetchHistory])
+  );
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
@@ -123,6 +130,20 @@ const MyLeaveScreen = ({ navigation }: any) => {
     navigation.navigate('ApplyLeave');
   };
 
+  const handleDownloadReport = async () => {
+    try {
+      const session = await getAuthSession();
+      const empId = session?.user?.fkEmpId;
+      if (!empId) {
+        Alert.alert('Error', 'Employee ID not found in session.');
+        return;
+      }
+      await downloadReport('/api/mobile/leave-requests/report', 'leave_report.pdf', empId);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -142,7 +163,9 @@ const MyLeaveScreen = ({ navigation }: any) => {
             <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Leave</Text>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
+            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerContent}>
@@ -152,10 +175,47 @@ const MyLeaveScreen = ({ navigation }: any) => {
       </SafeAreaView>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading leave history...</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
+          {/* Insight Card Shimmer */}
+          <AppCard style={styles.insightCard}>
+            <Shimmer width={moderateScale(48)} height={moderateScale(48)} borderRadius={moderateScale(10)} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Shimmer width="40%" height={12} borderRadius={3} />
+              <Shimmer width="60%" height={18} borderRadius={4} />
+            </View>
+          </AppCard>
+
+          {/* Summary Row Shimmer */}
+          <View style={styles.summaryRow}>
+            {[1, 2, 3].map(i => (
+              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center' }]}>
+                <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(10)} style={{ marginBottom: Theme.spacing.sm }} />
+                <Shimmer width="60%" height={moderateScale(22)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
+                <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
+              </View>
+            ))}
+          </View>
+
+          {/* Section Title Shimmer */}
+          <View style={styles.sectionHeader}>
+            <Shimmer width="40%" height={20} borderRadius={4} />
+          </View>
+
+          {/* Leave List Items Shimmer */}
+          {[1, 2, 3].map(i => (
+            <AppCard key={i} style={[styles.logCard, { padding: Theme.spacing.md, gap: Theme.spacing.sm, flexDirection: 'row', alignItems: 'center' }]}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Shimmer width="60%" height={16} borderRadius={4} />
+                <Shimmer width="40%" height={12} borderRadius={3} />
+                <Shimmer width="80%" height={10} borderRadius={2} />
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <Shimmer width={60} height={20} borderRadius={Theme.borderRadius.pill} />
+                <Shimmer width={30} height={14} borderRadius={3} />
+              </View>
+            </AppCard>
+          ))}
+        </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={moderateScale(48)} color={Colors.error} />

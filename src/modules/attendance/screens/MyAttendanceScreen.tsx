@@ -8,7 +8,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
+import { downloadReport } from '../../../utils/reportDownloader';
+import Shimmer from '../../../components/Shimmer';
+import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +45,20 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT'>('ALL');
+
+  const handleDownloadReport = async () => {
+    try {
+      const session = await getAuthSession();
+      const empId = session?.user?.fkEmpId;
+      if (!empId) {
+        Alert.alert('Error', 'Employee ID not found in session.');
+        return;
+      }
+      await downloadReport('/api/mobile/attendance/report', 'attendance_report.pdf', empId);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
+  };
 
   const fetchHistory = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -282,7 +300,9 @@ const MyAttendanceScreen = ({ navigation }: any) => {
             <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Attendance</Text>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
+            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerContent}>
@@ -292,10 +312,73 @@ const MyAttendanceScreen = ({ navigation }: any) => {
       </SafeAreaView>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading history...</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}>
+          {/* Summary Row Shimmer */}
+          <View style={styles.summaryRow}>
+            {[1, 2, 3].map(i => (
+              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center' }]}>
+                <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(10)} style={{ marginBottom: Theme.spacing.sm }} />
+                <Shimmer width="60%" height={moderateScale(22)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
+                <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
+              </View>
+            ))}
+          </View>
+
+          {/* Analytics Overview Shimmer */}
+          <AppCard style={[styles.insightCard, { padding: Theme.spacing.md }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Theme.spacing.md }}>
+              <Shimmer width="50%" height={20} borderRadius={4} />
+              <Shimmer width="25%" height={20} borderRadius={4} />
+            </View>
+            <View style={{ gap: Theme.spacing.md }}>
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Shimmer width="30%" height={12} borderRadius={3} />
+                  <Shimmer width="15%" height={12} borderRadius={3} />
+                </View>
+                <Shimmer width="100%" height={8} borderRadius={4} />
+              </View>
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Shimmer width="40%" height={12} borderRadius={3} />
+                  <Shimmer width="15%" height={12} borderRadius={3} />
+                </View>
+                <Shimmer width="100%" height={8} borderRadius={4} />
+              </View>
+            </View>
+          </AppCard>
+
+          {/* Daily Logs List Shimmer */}
+          <View style={styles.sectionHeader}>
+            <Shimmer width="30%" height={20} borderRadius={4} />
+          </View>
+
+          {[1, 2, 3].map(i => (
+            <AppCard key={i} style={[styles.logCard, { padding: Theme.spacing.md, gap: Theme.spacing.sm, flexDirection: 'column' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Shimmer width="40%" height={18} borderRadius={4} />
+                <Shimmer width="20%" height={20} borderRadius={10} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 20, marginVertical: 10 }}>
+                <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
+                  <Shimmer width={30} height={30} borderRadius={15} />
+                  <View style={{ flex: 1, gap: 5 }}>
+                    <Shimmer width="50%" height={10} borderRadius={2} />
+                    <Shimmer width="80%" height={14} borderRadius={3} />
+                  </View>
+                </View>
+                <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
+                  <Shimmer width={30} height={30} borderRadius={15} />
+                  <View style={{ flex: 1, gap: 5 }}>
+                    <Shimmer width="50%" height={10} borderRadius={2} />
+                    <Shimmer width="80%" height={14} borderRadius={3} />
+                  </View>
+                </View>
+              </View>
+              <Shimmer width="30%" height={12} borderRadius={3} />
+            </AppCard>
+          ))}
+        </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={moderateScale(48)} color={Colors.error} />

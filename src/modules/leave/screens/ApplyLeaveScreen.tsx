@@ -272,11 +272,11 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
   // 6. ERP Leave Balances
   const [balances, setBalances] = useState({
-    annual: 12.5,
-    paidHoliday: 6.0,
-    sick: 8.0,
-    paidCasual: 10.0,
-    unpaidCasual: 30.0,
+    annual: 0.0,
+    paidHoliday: 0.0,
+    sick: 0.0,
+    paidCasual: 0.0,
+    unpaidCasual: 0.0,
   });
 
   // Init metadata and balances
@@ -296,16 +296,16 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         const updated = { ...balances };
         fetchedBalances.forEach(item => {
           const remaining = item.remaining ?? 0;
-          const lowerLabel = item.label.toLowerCase();
-          if (lowerLabel.includes('annual') || lowerLabel.includes('earned')) {
+          const id = item.id.toLowerCase();
+          if (id === 'annual' || id === 'earned') {
             updated.annual = remaining;
-          } else if (lowerLabel.includes('sick')) {
+          } else if (id === 'sick') {
             updated.sick = remaining;
-          } else if (lowerLabel.includes('casual')) {
+          } else if (id === 'paid-casual') {
             updated.paidCasual = remaining;
-          } else if (lowerLabel.includes('holiday')) {
+          } else if (id === 'paid-holiday') {
             updated.paidHoliday = remaining;
-          } else if (lowerLabel.includes('unpaid')) {
+          } else if (id === 'unpaid-casual' || id === 'unpaid') {
             updated.unpaidCasual = remaining;
           }
         });

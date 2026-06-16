@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import Shimmer from '../../../components/Shimmer';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -96,6 +97,7 @@ const ProfileScreen = ({ navigation }: any) => {
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const [presentDays, setPresentDays] = useState(0);
   const [lateDays, setLateDays] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const resetToLogin = useCallback(async () => {
     await clearAuthSession();
@@ -111,15 +113,45 @@ const ProfileScreen = ({ navigation }: any) => {
     useCallback(() => {
       let isActive = true;
 
-      const loadProfile = async () => {
+      const loadData = async () => {
+        if (isActive) {
+          setIsLoading(true);
+        }
         try {
-          const employeeProfile = await getEmployeeProfile();
-
-          if (isActive) {
-            setProfile(employeeProfile);
-            setAvatarImageError(false);
-            setProfileError(null);
-          }
+          await Promise.all([
+            (async () => {
+              const employeeProfile = await getEmployeeProfile();
+              if (isActive) {
+                setProfile(employeeProfile);
+                setAvatarImageError(false);
+                setProfileError(null);
+              }
+            })(),
+            (async () => {
+              const historyResponse = await getAttendanceHistory();
+              if (historyResponse.success && Array.isArray(historyResponse.data)) {
+                let pCount = 0;
+                let lCount = 0;
+                historyResponse.data.forEach((day: any) => {
+                  const inPunch = day.records?.find((r: any) => r.Punch === 'Check IN');
+                  if (inPunch) {
+                    const dateObj = new Date(inPunch.PunchDatetime);
+                    const hours = dateObj.getHours();
+                    const minutes = dateObj.getMinutes();
+                    const isLate = hours > 9 || (hours === 9 && minutes > 15);
+                    if (isLate) {
+                      lCount += 1;
+                    }
+                    pCount += 1;
+                  }
+                });
+                if (isActive) {
+                  setPresentDays(pCount);
+                  setLateDays(lCount);
+                }
+              }
+            })()
+          ]);
         } catch (error) {
           if (isActive) {
             const message =
@@ -132,40 +164,14 @@ const ProfileScreen = ({ navigation }: any) => {
 
             setProfileError(message);
           }
-        }
-      };
-
-      const loadStats = async () => {
-        try {
-          const historyResponse = await getAttendanceHistory();
-          if (historyResponse.success && Array.isArray(historyResponse.data)) {
-            let pCount = 0;
-            let lCount = 0;
-            historyResponse.data.forEach((day: any) => {
-              const inPunch = day.records?.find((r: any) => r.Punch === 'Check IN');
-              if (inPunch) {
-                const dateObj = new Date(inPunch.PunchDatetime);
-                const hours = dateObj.getHours();
-                const minutes = dateObj.getMinutes();
-                const isLate = hours > 9 || (hours === 9 && minutes > 15);
-                if (isLate) {
-                  lCount += 1;
-                }
-                pCount += 1;
-              }
-            });
-            if (isActive) {
-              setPresentDays(pCount);
-              setLateDays(lCount);
-            }
+        } finally {
+          if (isActive) {
+            setIsLoading(false);
           }
-        } catch (err) {
-          console.warn('Failed to load stats for profile:', err);
         }
       };
 
-      loadProfile();
-      loadStats();
+      loadData();
 
       return () => {
         isActive = false;
@@ -256,37 +262,54 @@ const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.profileHeaderContent}>
-          <View style={styles.avatarWrapper}>
-            <View style={styles.avatarRing}>
-              <View style={styles.avatar}>
-                {profile?.profileImageUrl && !avatarImageError ? (
-                  <Image
-                    source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
-                    style={styles.avatarImage}
-                    onError={() => setAvatarImageError(true)}
-                  />
-                ) : (
-                  <Text style={styles.avatarText}>{initials}</Text>
-                )}
+          {isLoading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              <View style={[styles.avatarRing, { marginRight: Theme.spacing.md }]}>
+                <View style={styles.avatar}>
+                  <Shimmer width="100%" height="100%" borderRadius={34} />
+                </View>
+              </View>
+              <View style={{ flex: 1, gap: 5 }}>
+                <Shimmer width="60%" height={20} borderRadius={4} />
+                <Shimmer width="80%" height={14} borderRadius={3} />
+                <Shimmer width="30%" height={18} borderRadius={4} style={{ marginTop: 4 }} />
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => navigation.navigate('PersonalDetails')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="pencil" size={moderateScale(12)} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
-            <Text style={styles.role} numberOfLines={1}>{contactDetails || 'Profile details'}</Text>
-            <View style={styles.employeeBadge}>
-              <Text style={styles.employeeBadgeText}>{employeeCode}</Text>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              <View style={styles.avatarWrapper}>
+                <View style={styles.avatarRing}>
+                  <View style={styles.avatar}>
+                    {profile?.profileImageUrl && !avatarImageError ? (
+                      <Image
+                        source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
+                        style={styles.avatarImage}
+                        onError={() => setAvatarImageError(true)}
+                      />
+                    ) : (
+                      <Text style={styles.avatarText}>{initials}</Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => navigation.navigate('PersonalDetails')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="pencil" size={moderateScale(12)} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+                <Text style={styles.role} numberOfLines={1}>{contactDetails || 'Profile details'}</Text>
+                <View style={styles.employeeBadge}>
+                  <Text style={styles.employeeBadgeText}>{employeeCode}</Text>
+                </View>
+                {profileError ? <Text style={styles.profileError}>{profileError}</Text> : null}
+              </View>
             </View>
-            {profileError ? <Text style={styles.profileError}>{profileError}</Text> : null}
-          </View>
+          )}
         </View>
       </SafeAreaView>
 
@@ -296,115 +319,50 @@ const ProfileScreen = ({ navigation }: any) => {
       >
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Overview</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.floatingStatCard}>
-              <View style={styles.statIconFrame}>
-                <Ionicons name="checkmark-circle" size={moderateScale(20)} color={Colors.success} />
+          {isLoading ? (
+            <View style={styles.statsRow}>
+              {[1, 2].map(i => (
+                <View key={i} style={styles.floatingStatCard}>
+                  <View style={[styles.statIconFrame, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
+                    <Shimmer width={20} height={20} borderRadius={10} />
+                  </View>
+                  <View style={styles.statTextContainer}>
+                    <Shimmer width="50%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
+                    <Shimmer width="70%" height={16} borderRadius={3} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.statsRow}>
+              <View style={styles.floatingStatCard}>
+                <View style={styles.statIconFrame}>
+                  <Ionicons name="checkmark-circle" size={moderateScale(20)} color={Colors.success} />
+                </View>
+                <View style={styles.statTextContainer}>
+                  <Text style={styles.statLabel}>PRESENT</Text>
+                  <Text style={styles.statValue}>
+                    {String(presentDays).padStart(2, '0')} {presentDays === 1 ? 'Day' : 'Days'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statLabel}>PRESENT</Text>
-                <Text style={styles.statValue}>
-                  {String(presentDays).padStart(2, '0')} {presentDays === 1 ? 'Day' : 'Days'}
-                </Text>
+
+              <View style={styles.floatingStatCard}>
+                <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.1)' }]}>
+                  <Ionicons name="alert-circle" size={moderateScale(20)} color={Colors.accent} />
+                </View>
+                <View style={styles.statTextContainer}>
+                  <Text style={styles.statLabel}>LATE PUNCH</Text>
+                  <Text style={styles.statValue}>
+                    {String(lateDays).padStart(2, '0')} {lateDays === 1 ? 'Day' : 'Days'}
+                  </Text>
+                </View>
               </View>
             </View>
-
-            <View style={styles.floatingStatCard}>
-              <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.1)' }]}>
-                <Ionicons name="alert-circle" size={moderateScale(20)} color={Colors.accent} />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statLabel}>LATE PUNCH</Text>
-                <Text style={styles.statValue}>
-                  {String(lateDays).padStart(2, '0')} {lateDays === 1 ? 'Day' : 'Days'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          )}
         </View>
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Employee Details</Text>
-          <AppCard style={styles.detailsCard}>
-            {dobDisplay && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Date of Birth</Text>
-                  <Text style={styles.detailValue}>{dobDisplay}</Text>
-                </View>
-              </View>
-            )}
-            {dojDisplay && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="briefcase-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Date of Joining</Text>
-                  <Text style={styles.detailValue}>{dojDisplay}</Text>
-                </View>
-              </View>
-            )}
-            {profile?.bloodGroup && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="water-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Blood Group</Text>
-                  <Text style={styles.detailValue}>{profile.bloodGroup}</Text>
-                </View>
-              </View>
-            )}
-            {profile?.aadhar && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="card-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Aadhar Number</Text>
-                  <Text style={styles.detailValue}>{profile.aadhar}</Text>
-                </View>
-              </View>
-            )}
-            {profile?.panNo && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="document-text-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>PAN Number</Text>
-                  <Text style={styles.detailValue}>{profile.panNo}</Text>
-                </View>
-              </View>
-            )}
-            {profile?.permanentAddress && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="home-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Permanent Address</Text>
-                  <Text style={styles.detailValue}>{profile.permanentAddress}</Text>
-                </View>
-              </View>
-            )}
-            {profile?.presentAddress && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconWrapper}>
-                  <Ionicons name="location-outline" size={moderateScale(16)} color={Colors.primary} />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Present Address</Text>
-                  <Text style={styles.detailValue}>{profile.presentAddress}</Text>
-                </View>
-              </View>
-            )}
-          </AppCard>
-        </View>
+
 
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Account Services</Text>
@@ -859,6 +817,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: moderateScale(12),
+  },
+  detailDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginLeft: moderateScale(60),
+    marginRight: Theme.spacing.md,
   },
   detailIconWrapper: {
     width: moderateScale(36),

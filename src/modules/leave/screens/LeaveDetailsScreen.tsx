@@ -17,6 +17,7 @@ import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { LeaveRequest, LeaveStatus } from '../services/leave';
 import Toast from 'react-native-toast-message';
+import { downloadReport } from '../../../utils/reportDownloader';
 
 const statusTone: Record<LeaveStatus, { color: string; bg: string; icon: string }> = {
   Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
@@ -109,6 +110,18 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
     );
   };
 
+  const handleDownloadReport = async () => {
+    if (leaveItem.status !== 'Approved') {
+      Alert.alert('Approval Pending', 'Your leave request is still pending HR approval. You can download the report once it is approved.');
+      return;
+    }
+    try {
+      await downloadReport(`/api/mobile/leave-requests/${leaveItem.id}/report`, `leave_${leaveItem.id}.pdf`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -128,7 +141,9 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
             <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Request Details</Text>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadReport}>
+            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerContent}>
@@ -311,6 +326,16 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.md,
   },
   backButton: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(10),
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  downloadButton: {
     width: moderateScale(40),
     height: moderateScale(40),
     borderRadius: moderateScale(10),

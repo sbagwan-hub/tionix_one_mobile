@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert, Platform, Animated, RefreshControl, Modal, TextInput } from 'react-native';
+import Shimmer from '../../../components/Shimmer';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,6 +36,7 @@ type RecentLog = {
   range: string;
   hours: string;
   tone: 'success' | 'primary';
+  isWorking?: boolean;
 };
 
 const formatLogDate = (dateStr: string) => {
@@ -93,6 +95,7 @@ const mapHistoryToRecentLogs = (history: AttendanceHistoryDay[]): RecentLog[] =>
     .slice(0, 3)
     .map((day, index) => {
       const inPunch = day.records.find(record => record.Punch === 'Check IN');
+      const outPunch = [...day.records].reverse().find(record => record.Punch === 'Check OUT');
       let isLate = false;
 
       if (inPunch) {
@@ -108,6 +111,7 @@ const mapHistoryToRecentLogs = (history: AttendanceHistoryDay[]): RecentLog[] =>
         range: getDayTimeRange(day),
         hours: day.totalWork || '0h 00m',
         tone: isLate ? 'primary' : 'success',
+        isWorking: !outPunch,
       };
     });
 };
@@ -147,6 +151,7 @@ const AttendanceScreen = () => {
   });
   const [status, setStatus] = useState<'IN' | 'OUT' | 'BREAK'>('OUT');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [employeeAddress, setEmployeeAddress] = useState<string | null>('Locating...');
   const [officeAddress, setOfficeAddress] = useState<string | null>(COMPANY.office.address);
   const [employeeName, setEmployeeName] = useState('Employee');
@@ -362,6 +367,7 @@ const AttendanceScreen = () => {
       if (showLoading) {
         setRefreshing(false);
       }
+      setIsLoading(false);
     }
   }, [fetchRecentLogs]);
 
@@ -371,6 +377,7 @@ const AttendanceScreen = () => {
 
       const loadData = async () => {
         if (isMounted) {
+          setIsLoading(true);
           await fetchConfig();
           await fetchStatusAndName();
         }
@@ -790,7 +797,29 @@ const AttendanceScreen = () => {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>GOOD MORNING</Text>
-            <Text style={styles.name}>{employeeName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(8), marginTop: moderateScale(4) }}>
+              <Text style={styles.name}>{employeeName}</Text>
+              <View style={[styles.statusPill, (status === 'IN' || status === 'BREAK') && styles.statusPillActive]}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor:
+                        status === 'IN'
+                          ? Colors.success
+                          : status === 'BREAK'
+                          ? Colors.warning
+                          : todayInTime !== '--:--'
+                          ? Colors.primary
+                          : Colors.textSecondary,
+                    },
+                  ]}
+                />
+                <Text style={[styles.statusText, (status === 'IN' || status === 'BREAK') && styles.statusTextActive, status === 'BREAK' && { color: Colors.warningDark || Colors.accentDark }]}>
+                  {status === 'IN' ? 'Working' : status === 'BREAK' ? 'On Break' : todayInTime !== '--:--' ? 'Worked' : 'Not Checked In'}
+                </Text>
+              </View>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <PremiumNotificationBell 
@@ -927,125 +956,163 @@ const AttendanceScreen = () => {
           )}
         </View>
 
-        <View style={styles.statsRow}>
-          <AppCard
-            style={StyleSheet.flatten([
-              styles.statCard,
-              todayInTime !== '--:--' && {
-                backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                borderColor: 'rgba(16, 185, 129, 0.15)',
-                borderWidth: 1,
-              },
-            ])}
-          >
-            <View
-              style={[
-                styles.statIconFrame,
-                {
-                  backgroundColor:
-                    todayInTime !== '--:--' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 77, 28, 0.08)',
+        {isLoading ? (
+          <View style={styles.statsRow}>
+            {[1, 2, 3].map(i => (
+              <AppCard key={i} style={styles.statCard}>
+                <View style={[styles.statIconFrame, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
+                  <Shimmer width={18} height={18} borderRadius={9} />
+                </View>
+                <View style={styles.statTextContainer}>
+                  <Shimmer width="60%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
+                  <Shimmer width="40%" height={14} borderRadius={3} />
+                </View>
+              </AppCard>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.statsRow}>
+            <AppCard
+              style={StyleSheet.flatten([
+                styles.statCard,
+                todayInTime !== '--:--' && {
+                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                  borderColor: 'rgba(16, 185, 129, 0.15)',
+                  borderWidth: 1,
                 },
-              ]}
+              ])}
             >
-              <Ionicons
-                name="log-in-outline"
-                size={moderateScale(14)}
-                color={todayInTime !== '--:--' ? Colors.success : Colors.primary}
-              />
-            </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>PUNCH IN</Text>
-              <Text
+              <View
                 style={[
-                  styles.statValue,
-                  todayInTime !== '--:--' && { color: Colors.successDark, fontWeight: '700' },
+                  styles.statIconFrame,
+                  {
+                    backgroundColor:
+                      todayInTime !== '--:--' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 77, 28, 0.08)',
+                  },
                 ]}
               >
-                {todayInTime}
-              </Text>
-            </View>
-          </AppCard>
+                <Ionicons
+                  name="log-in-outline"
+                  size={moderateScale(14)}
+                  color={todayInTime !== '--:--' ? Colors.success : Colors.primary}
+                />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>PUNCH IN</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    todayInTime !== '--:--' && { color: Colors.successDark, fontWeight: '700' },
+                  ]}
+                >
+                  {todayInTime}
+                </Text>
+              </View>
+            </AppCard>
 
-          <AppCard
-            style={StyleSheet.flatten([
-              styles.statCard,
-              todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && {
-                backgroundColor: 'rgba(255, 179, 0, 0.05)',
-                borderColor: 'rgba(255, 179, 0, 0.15)',
-                borderWidth: 1,
-              },
-            ])}
-          >
-            <View
-              style={[
-                styles.statIconFrame,
-                {
-                  backgroundColor:
-                    todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--'
-                      ? 'rgba(255, 179, 0, 0.12)'
-                      : 'rgba(255, 179, 0, 0.08)',
+            <AppCard
+              style={StyleSheet.flatten([
+                styles.statCard,
+                todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && {
+                  backgroundColor: 'rgba(255, 179, 0, 0.05)',
+                  borderColor: 'rgba(255, 179, 0, 0.15)',
+                  borderWidth: 1,
                 },
-              ]}
+              ])}
             >
-              <Ionicons
-                name="cafe-outline"
-                size={moderateScale(14)}
-                color={Colors.accent}
-              />
-            </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>BREAK TIME</Text>
-              <Text
+              <View
                 style={[
-                  styles.statValue,
-                  todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && { color: Colors.accentDark || Colors.accent, fontWeight: '700' },
+                  styles.statIconFrame,
+                  {
+                    backgroundColor:
+                      todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--'
+                        ? 'rgba(255, 179, 0, 0.12)'
+                        : 'rgba(255, 179, 0, 0.08)',
+                  },
                 ]}
               >
-                {todayBreakTime}
-              </Text>
-            </View>
-          </AppCard>
+                <Ionicons
+                  name="cafe-outline"
+                  size={moderateScale(14)}
+                  color={Colors.accent}
+                />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>BREAK TIME</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && { color: Colors.accentDark || Colors.accent, fontWeight: '700' },
+                  ]}
+                >
+                  {todayBreakTime}
+                </Text>
+              </View>
+            </AppCard>
 
-          <AppCard
-            style={StyleSheet.flatten([
-              styles.statCard,
-              todayOutTime !== '--:--' && {
-                backgroundColor: 'rgba(255, 77, 28, 0.05)',
-                borderColor: 'rgba(255, 77, 28, 0.15)',
-                borderWidth: 1,
-              },
-            ])}
-          >
-            <View
-              style={[
-                styles.statIconFrame,
-                {
-                  backgroundColor:
-                    todayOutTime !== '--:--' ? 'rgba(255, 77, 28, 0.12)' : 'rgba(255, 179, 0, 0.08)',
+            <AppCard
+              style={StyleSheet.flatten([
+                styles.statCard,
+                todayOutTime !== '--:--' && {
+                  backgroundColor: 'rgba(255, 77, 28, 0.05)',
+                  borderColor: 'rgba(255, 77, 28, 0.15)',
+                  borderWidth: 1,
                 },
-              ]}
+              ])}
             >
-              <Ionicons
-                name="log-out-outline"
-                size={moderateScale(14)}
-                color={todayOutTime !== '--:--' ? Colors.primary : Colors.accent}
-              />
-            </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>PUNCH OUT</Text>
-              <Text
+              <View
                 style={[
-                  styles.statValue,
-                  todayOutTime !== '--:--' && { color: Colors.primaryDark, fontWeight: '700' },
+                  styles.statIconFrame,
+                  {
+                    backgroundColor:
+                      todayOutTime !== '--:--' ? 'rgba(255, 77, 28, 0.12)' : 'rgba(255, 179, 0, 0.08)',
+                  },
                 ]}
               >
-                {todayOutTime}
-              </Text>
-            </View>
-          </AppCard>
-        </View>
+                <Ionicons
+                  name="log-out-outline"
+                  size={moderateScale(14)}
+                  color={todayOutTime !== '--:--' ? Colors.primary : Colors.accent}
+                />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>PUNCH OUT</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    todayOutTime !== '--:--' && { color: Colors.primaryDark, fontWeight: '700' },
+                  ]}
+                >
+                  {todayOutTime}
+                </Text>
+              </View>
+            </AppCard>
+          </View>
+        )}
 
-        {recentLogs.length > 0 ? (
+        {isLoading ? (
+          <View style={styles.logsSection}>
+            <View style={styles.logsHeader}>
+              <Shimmer width="30%" height={18} borderRadius={4} />
+              <Shimmer width="15%" height={14} borderRadius={3} />
+            </View>
+            {[1, 2, 3].map(i => (
+              <View key={i} style={styles.logItem}>
+                <View style={[styles.logIcon, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
+                  <Shimmer width={18} height={18} borderRadius={9} />
+                </View>
+                <View style={styles.logBody}>
+                  <Shimmer width="40%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="60%" height={12} borderRadius={2} />
+                </View>
+                <View style={[styles.logMeta, { alignItems: 'flex-end', gap: 4 }]}>
+                  <Shimmer width={50} height={14} borderRadius={3} />
+                  <Shimmer width={30} height={10} borderRadius={2} />
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : recentLogs.length > 0 ? (
           <View style={styles.logsSection}>
             <View style={styles.logsHeader}>
               <Text style={styles.sectionTitle}>Recent Logs</Text>
@@ -1054,25 +1121,52 @@ const AttendanceScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {recentLogs.map(log => (
-              <View key={log.id} style={styles.logItem}>
-                <View style={[styles.logIcon, { backgroundColor: log.tone === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 77, 28, 0.1)' }]}>
-                  <Ionicons
-                    name={log.tone === 'success' ? 'checkmark' : 'time'}
-                    size={moderateScale(18)}
-                    color={log.tone === 'success' ? Colors.success : Colors.primary}
-                  />
+            {recentLogs.map(log => {
+              const displayWorking = log.isWorking;
+              return (
+                <View key={log.id} style={styles.logItem}>
+                  <View
+                    style={[
+                      styles.logIcon,
+                      {
+                        backgroundColor: displayWorking
+                          ? 'rgba(16, 185, 129, 0.1)'
+                          : log.tone === 'success'
+                          ? 'rgba(16, 185, 129, 0.1)'
+                          : 'rgba(255, 77, 28, 0.1)',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={displayWorking ? 'play-outline' : log.tone === 'success' ? 'checkmark' : 'time'}
+                      size={moderateScale(18)}
+                      color={
+                        displayWorking
+                          ? Colors.success
+                          : log.tone === 'success'
+                          ? Colors.success
+                          : Colors.primary
+                      }
+                    />
+                  </View>
+                  <View style={styles.logBody}>
+                    <Text style={styles.logDate}>{log.date}</Text>
+                    <Text style={styles.logRange}>{log.range}</Text>
+                  </View>
+                  <View style={styles.logMeta}>
+                    <Text style={styles.logHours}>{log.hours}</Text>
+                    <Text
+                      style={[
+                        styles.logMetaLabel,
+                        displayWorking && { color: Colors.success, fontWeight: '700' },
+                      ]}
+                    >
+                      {displayWorking ? 'Working' : 'Worked'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.logBody}>
-                  <Text style={styles.logDate}>{log.date}</Text>
-                  <Text style={styles.logRange}>{log.range}</Text>
-                </View>
-                <View style={styles.logMeta}>
-                  <Text style={styles.logHours}>{log.hours}</Text>
-                  <Text style={styles.logMetaLabel}>Worked</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : null}
       </ScrollView>

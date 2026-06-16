@@ -8,15 +8,19 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AppCard from '../../../components/AppCard';
+import Shimmer from '../../../components/Shimmer';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
+import { downloadReport } from '../../../utils/reportDownloader';
+import { getAuthSession } from '../../auth/services/auth';
 import {
   DEFAULT_LEAVE_TYPES,
   getLeaveBalances,
@@ -207,6 +211,20 @@ const LeaveScreen = ({ navigation }: any) => {
   const [isLoadingBalances, setIsLoadingBalances] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const handleDownloadReport = async () => {
+    try {
+      const session = await getAuthSession();
+      const empId = session?.user?.fkEmpId;
+      if (!empId) {
+        Alert.alert('Error', 'Employee ID not found in session.');
+        return;
+      }
+      await downloadReport('/api/mobile/leave-requests/report', 'leave_report.pdf', empId);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
+  };
+
   const loadLeaveData = useCallback(async (showRefresh = false) => {
     if (showRefresh) {
       setRefreshing(true);
@@ -250,6 +268,9 @@ const LeaveScreen = ({ navigation }: any) => {
   };
 
   const isInitialLoading = isLoadingHistory && isLoadingBalances && !refreshing;
+  const showOverviewShimmer = isLoadingHistory && !refreshing;
+  const showBalanceShimmer = isLoadingBalances && !refreshing;
+  const showHistoryShimmer = isLoadingHistory && !refreshing;
 
   return (
     <View style={styles.root}>
@@ -266,7 +287,11 @@ const LeaveScreen = ({ navigation }: any) => {
 
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.headerRow}>
+          <View style={{ width: moderateScale(40) }} />
           <Text style={styles.headerTitle}>Leave</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
+            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
@@ -299,28 +324,54 @@ const LeaveScreen = ({ navigation }: any) => {
 
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionHeading}>Overview</Text>
-          <View style={styles.summaryRow}>
-            {summaryConfig.map(item => (
-              <View key={item.key} style={styles.summaryCard}>
-                <View style={[styles.summaryIconFrame, { backgroundColor: item.bg }]}>
-                  <Ionicons name={item.icon as any} size={moderateScale(18)} color={item.tone} />
+          {showOverviewShimmer ? (
+            <View style={styles.summaryRow}>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={styles.summaryCard}>
+                  <Shimmer width={moderateScale(36)} height={moderateScale(36)} borderRadius={moderateScale(10)} style={{ marginBottom: moderateScale(8) }} />
+                  <Shimmer width="55%" height={moderateScale(22)} borderRadius={5} style={{ marginBottom: 5 }} />
+                  <Shimmer width="65%" height={moderateScale(10)} borderRadius={3} />
                 </View>
-                <Text style={[styles.summaryValue, { color: item.tone }]}>{summary[item.key]}</Text>
-                <Text style={styles.summaryLabel}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.summaryRow}>
+              {summaryConfig.map(item => (
+                <View key={item.key} style={styles.summaryCard}>
+                  <View style={[styles.summaryIconFrame, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon as any} size={moderateScale(18)} color={item.tone} />
+                  </View>
+                  <Text style={[styles.summaryValue, { color: item.tone }]}>{summary[item.key]}</Text>
+                  <Text style={styles.summaryLabel}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Leave balance</Text>
-            {isLoadingBalances ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
+            {isLoadingBalances && refreshing ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
           </View>
 
-          {isLoadingBalances && leaveBalances.length === 0 ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.primary} />
+          {showBalanceShimmer ? (
+            <View style={styles.balanceGrid}>
+              {[1, 2, 3, 4].map(i => (
+                <View key={i} style={styles.balanceTile}>
+                  {/* icon */}
+                  <Shimmer width={moderateScale(34)} height={moderateScale(34)} borderRadius={moderateScale(10)} style={{ marginBottom: moderateScale(8) }} />
+                  {/* label (2 lines) */}
+                  <Shimmer width="75%" height={10} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="50%" height={10} borderRadius={3} style={{ marginBottom: moderateScale(8) }} />
+                  {/* value */}
+                  <Shimmer width="55%" height={moderateScale(22)} borderRadius={5} style={{ marginBottom: moderateScale(8) }} />
+                  {/* progress bar */}
+                  <Shimmer width="100%" height={moderateScale(5)} borderRadius={Theme.borderRadius.pill} style={{ marginBottom: 4 }} />
+                  {/* hint */}
+                  <Shimmer width="40%" height={9} borderRadius={3} />
+                </View>
+              ))}
             </View>
           ) : (
             <View style={styles.balanceGrid}>
@@ -334,13 +385,34 @@ const LeaveScreen = ({ navigation }: any) => {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Leave history</Text>
-            {isLoadingHistory ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
+            {isLoadingHistory && refreshing ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
           </View>
 
-          {isInitialLoading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.primary} />
-              <Text style={styles.loadingText}>Loading your leave records...</Text>
+          {showHistoryShimmer ? (
+            <View style={styles.historyList}>
+              {[1, 2, 3, 4].map(i => (
+                <View key={i} style={styles.historyCard}>
+                  {/* accent strip shimmer */}
+                  <Shimmer width={moderateScale(4)} height={moderateScale(90)} borderRadius={0} />
+                  <View style={{ flex: 1, padding: Theme.spacing.sm, paddingLeft: Theme.spacing.md, gap: moderateScale(8) }}>
+                    {/* top row: title + badge */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1, gap: 5 }}>
+                        <Shimmer width="55%" height={moderateScale(15)} borderRadius={4} />
+                        <Shimmer width="40%" height={moderateScale(11)} borderRadius={3} />
+                      </View>
+                      <Shimmer width={moderateScale(64)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
+                    </View>
+                    {/* reason line */}
+                    <Shimmer width="80%" height={moderateScale(12)} borderRadius={3} />
+                    {/* footer pills */}
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <Shimmer width={moderateScale(60)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
+                      <Shimmer width={moderateScale(90)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
+                    </View>
+                  </View>
+                </View>
+              ))}
             </View>
           ) : history.length === 0 ? (
             <AppCard style={styles.emptyCard}>
@@ -413,8 +485,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingVertical: Theme.spacing.sm,
   },
   headerTitle: {
@@ -713,6 +786,16 @@ const styles = StyleSheet.create({
     textTransform: 'none',
     letterSpacing: 0,
     fontSize: moderateScale(10),
+  },
+  backButton: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(10),
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
 });
 

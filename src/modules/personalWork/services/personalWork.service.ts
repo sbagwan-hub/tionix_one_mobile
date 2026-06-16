@@ -31,8 +31,10 @@ export interface PersonalWorkResponse {
 const PERSONAL_WORK_ENDPOINTS = {
   LIST: '/api/mobile/personal-work',
   CREATE: '/api/mobile/personal-work',
+  UPDATE: (id: number) => `/api/mobile/personal-work/${id}`,
   GET_BY_ID: (id: number) => `/api/mobile/personal-work/${id}`,
   DELETE: (id: number) => `/api/mobile/personal-work/${id}`,
+  SHIFT_END: '/api/mobile/personal-work/shift-end',
 };
 
 export async function applyForPersonalWork(payload: {
@@ -101,7 +103,6 @@ export async function deletePersonalWorkRequest(id: number): Promise<boolean> {
 }
 
 export async function getPersonalWorkDetails(id: number): Promise<PersonalWorkRequest> {
-  const session = await getAuthSession();
   const response = await apiRequest<{ success: boolean, data: PersonalWorkRequest }>(
     PERSONAL_WORK_ENDPOINTS.GET_BY_ID(id),
     {
@@ -111,3 +112,47 @@ export async function getPersonalWorkDetails(id: number): Promise<PersonalWorkRe
 
   return response.data;
 }
+
+/**
+ * Returns the employee's shift end time as "HH:MM" (24-hour) string.
+ * Returns null if the employee has no shift assigned.
+ */
+export async function getShiftEndTime(
+  fkEmpId: number
+): Promise<{ shiftEnd: string | null; shift?: string }> {
+  const params = new URLSearchParams({ fk_emp_id: String(fkEmpId) });
+  const response = await apiRequest<{ success: boolean; data: { shiftEnd: string | null; shift?: string } }>(
+    `${PERSONAL_WORK_ENDPOINTS.SHIFT_END}?${params.toString()}`,
+    { method: 'GET' }
+  );
+  return response.data;
+}
+
+export async function updatePersonalWork(
+  id: number,
+  payload: {
+    leaving_time: string;
+    return_time: string;
+    reason: string;
+    remarks?: string;
+    fk_emp_id: number;
+    request_date: string;
+  }
+): Promise<PersonalWorkResponse> {
+  const response = await apiRequest<{ updated: boolean }>(
+    PERSONAL_WORK_ENDPOINTS.UPDATE(id),
+    {
+      method: 'PUT',
+      body: {
+        leaving_time: payload.leaving_time,
+        return_time: payload.return_time,
+        reason: payload.reason,
+        remarks: payload.remarks || '',
+        fk_emp_id: payload.fk_emp_id,
+        request_date: payload.request_date,
+      },
+    }
+  );
+  return { success: true, data: response };
+}
+

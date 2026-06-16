@@ -19,7 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { applyForPersonalWork } from '../services/personalWork.service';
+import { applyForPersonalWork, getShiftEndTime } from '../services/personalWork.service';
+import { getAuthSession } from '../../auth/services/auth';
 
 const PRIMARY_GRADIENT = Colors.primaryGradient;
 
@@ -69,6 +70,27 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Shift end time state: "HH:MM" in 24h or null
+  const [shiftEndHHMM, setShiftEndHHMM] = useState<string | null>(null);
+  const [shiftName, setShiftName] = useState<string | null>(null);
+
+  // Fetch shift end time for the logged-in employee on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const session = await getAuthSession();
+        const empId = session?.user?.fkEmpId;
+        if (empId) {
+          const info = await getShiftEndTime(Number(empId));
+          setShiftEndHHMM(info.shiftEnd ?? null);
+          setShiftName(info.shift ?? null);
+        }
+      } catch {
+        // non-critical – skip if fails
+      }
+    })();
+  }, []);
+
   // Time selector modal states
   const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
   const [timePickerTarget, setTimePickerTarget] = useState<'leaving' | 'return'>('leaving');
@@ -103,6 +125,13 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   }, [selectedDate]);
 
   const handlePrevMonth = useCallback(() => {
+    const today = new Date();
+    const minMonth = today.getMonth();
+    const minYear = today.getFullYear();
+
+    if (currentCalendarYear < minYear) return;
+    if (currentCalendarYear === minYear && currentCalendarMonth <= minMonth) return;
+
     setCurrentCalendarMonth(prev => {
       if (prev === 0) {
         setCurrentCalendarYear(y => y - 1);
@@ -110,9 +139,16 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
       }
       return prev - 1;
     });
-  }, []);
+  }, [currentCalendarMonth, currentCalendarYear]);
 
   const handleNextMonth = useCallback(() => {
+    const today = new Date();
+    const maxMonth = today.getMonth() + 1; // Allow current month + 1
+    const maxYear = today.getFullYear();
+
+    if (currentCalendarYear > maxYear) return;
+    if (currentCalendarYear === maxYear && currentCalendarMonth >= maxMonth) return;
+
     setCurrentCalendarMonth(prev => {
       if (prev === 11) {
         setCurrentCalendarYear(y => y + 1);
@@ -120,29 +156,26 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
       }
       return prev + 1;
     });
-  }, []);
+  }, [currentCalendarMonth, currentCalendarYear]);
 
   const handleSelectDate = useCallback((dateString: string) => {
-    // Check if the selected date is in the past
+    // Validate that selected date is today or future (not past)
     const today = new Date();
-    const todayStr = toDateInput(today);
-    const selectedDateObj = new Date(dateString);
-    
-    // Reset time portion for accurate date comparison
     today.setHours(0, 0, 0, 0);
-    selectedDateObj.setHours(0, 0, 0, 0);
-    
-    if (selectedDateObj < today) {
+    const selected = new Date(`${dateString}T00:00:00`);
+    selected.setHours(0, 0, 0, 0);
+
+    if (selected < today) {
       Toast.show({
         type: 'error',
         text1: 'Invalid Date',
-        text2: 'Cannot select past date. Please choose today or a future date.',
+        text2: 'Personal work can only be applied for current or future dates',
         position: 'top',
         topOffset: 60,
       });
       return;
     }
-    
+
     setSelectedDate(dateString);
     setIsCalendarOpen(false);
   }, []);
@@ -216,6 +249,31 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   };
 
   const confirmTime = () => {
+    // Check if the selected time itself is disabled
+    if (isTimeDisabled(tempHour, tempMinute, tempAmPm)) {
+      const reason = shiftEndHHMM && (() => {
+        const parseHour = (hStr: string, ap: string) => {
+          let h = parseInt(hStr, 10);
+          if (ap === 'PM' && h < 12) h += 12;
+          if (ap === 'AM' && h === 12) h = 0;
+          return h;
+        };
+        const h = parseHour(tempHour, tempAmPm);
+        const m = parseInt(tempMinute, 10);
+        const [endH, endM] = shiftEndHHMM.split(':').map(Number);
+        return h > endH || (h === endH && m >= endM);
+      })() ? `Cannot select a time at or after shift end (${shiftEndLabel})` : 'Cannot select a past time.';
+
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Time',
+        text2: reason,
+        position: 'top',
+        topOffset: 60,
+      });
+      return;
+    }
+
     // Parse the selected time
     const parseHour = (hStr: string, ampm: string) => {
       let h = parseInt(hStr, 10);
@@ -229,27 +287,6 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
 
     // Create a Date object for the selected time on the selected date
     const selectedDateTime = new Date(`${selectedDate}T${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}:00`);
-
-    // Get current time
-    const now = new Date();
-
-    // Check if the selected date is today
-    const today = new Date();
-    const isToday = selectedDate === toDateInput(today);
-
-    // If selecting time for today, ensure it's not in the past
-    if (isToday) {
-      if (selectedDateTime <= now) {
-        Toast.show({
-          type: 'error',
-          text1: 'Invalid Time',
-          text2: 'Cannot select past time. Please choose a future time.',
-          position: 'top',
-          topOffset: 60,
-        });
-        return;
-      }
-    }
 
     // If it's return time, ensure it's after leaving time
     if (timePickerTarget === 'return') {
@@ -410,6 +447,72 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
   const hoursList = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   const minutesList = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
+  // ── Compute which times are disabled in the picker ──────────────────────────
+  // A slot is disabled if:
+  //   1) The selected date is today AND the slot is in the past.
+  //   2) The slot is at-or-after the shift end time.
+  //   3) The slot is outside working hours (9:30 AM to 6:30 PM)
+  const isTimeDisabled = useCallback(
+    (h12: string, m: string, ampm: string): boolean => {
+      const parseHour = (hStr: string, ap: string) => {
+        let h = parseInt(hStr, 10);
+        if (ap === 'PM' && h < 12) h += 12;
+        if (ap === 'AM' && h === 12) h = 0;
+        return h;
+      };
+      const hour24 = parseHour(h12, ampm);
+      const minute = parseInt(m, 10);
+
+      // 1. Past-time check (only when date is today)
+      const todayStr = toDateInput(new Date());
+      if (selectedDate === todayStr) {
+        const now = new Date();
+        const nowH = now.getHours();
+        const nowM = now.getMinutes();
+        if (hour24 < nowH || (hour24 === nowH && minute <= nowM)) return true;
+      }
+
+      // 2. Working hours check: must be within 9:30 AM to 6:30 PM
+      const workingStartHour = 9; // 9 AM
+      const workingStartMinute = 30; // 30 minutes
+      const workingEndHour = 18; // 6 PM
+      const workingEndMinute = 30; // 30 minutes
+
+      const timeInMinutes = hour24 * 60 + minute;
+      const workingStart = workingStartHour * 60 + workingStartMinute;
+      const workingEnd = workingEndHour * 60 + workingEndMinute;
+
+      if (timeInMinutes < workingStart || timeInMinutes >= workingEnd) return true;
+
+      // 3. Shift-end check: return time must be BEFORE shift end
+      if (shiftEndHHMM) {
+        const [endH, endM] = shiftEndHHMM.split(':').map(Number);
+        // For the RETURN picker only: disable >= shiftEnd
+        // For the LEAVING picker: disable >= shiftEnd (can't leave at shift end)
+        if (hour24 > endH || (hour24 === endH && minute >= endM)) return true;
+      }
+
+      return false;
+    },
+    [selectedDate, shiftEndHHMM]
+  );
+
+  // Helper to convert 24h to 12h display
+  const to12h = (h24: number) => {
+    if (h24 === 0) return { h: '12', ampm: 'AM' };
+    if (h24 < 12) return { h: String(h24).padStart(2, '0'), ampm: 'AM' };
+    if (h24 === 12) return { h: '12', ampm: 'PM' };
+    return { h: String(h24 - 12).padStart(2, '0'), ampm: 'PM' };
+  };
+
+  // Shift end label for display (e.g. "06:00 PM")
+  const shiftEndLabel = useMemo(() => {
+    if (!shiftEndHHMM) return null;
+    const [h, m] = shiftEndHHMM.split(':').map(Number);
+    const { h: h12, ampm } = to12h(h);
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+  }, [shiftEndHHMM]);
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -485,6 +588,22 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
                 <Text style={styles.timeValue}>{returnHour}:{returnMinute} {returnAmPm}</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.shiftEndBanner}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
+              <Text style={styles.shiftEndText}>
+                Personal work must be within working hours (9:30 AM - 6:30 PM)
+              </Text>
+            </View>
+
+            {shiftEndLabel ? (
+              <View style={styles.shiftEndBanner}>
+                <Ionicons name="warning-outline" size={14} color="#B45309" />
+                <Text style={styles.shiftEndText}>
+                  Work ends at <Text style={{ fontFamily: 'Outfit_700Bold' }}>{shiftEndLabel}</Text>. Return time must be before this.
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.durationDisplay}>
               <Ionicons name="time-outline" size={20} color={Colors.primary} />
@@ -581,6 +700,15 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
                   const isCurrentMonth = dayObj.month === currentCalendarMonth;
                   const isToday = dayObj.isToday;
 
+                  // Check if date is within allowed range (today to next month)
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const maxDate = new Date(today);
+                  maxDate.setMonth(maxDate.getMonth() + 1);
+                  maxDate.setDate(maxDate.getDate() + 1); // Allow up to end of next month
+                  const dateObj = new Date(`${dayObj.dateString}T00:00:00`);
+                  const isDateDisabled = dateObj < today || dateObj >= maxDate;
+
                   return (
                     <TouchableOpacity
                       key={gridIdx}
@@ -588,9 +716,10 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
                         styles.dayCell,
                         isSelected && styles.dayCellSelected,
                         !isCurrentMonth && styles.dayCellInactive,
+                        isDateDisabled && styles.dayCellDisabled,
                       ]}
                       onPress={() => dayObj.dateString && handleSelectDate(dayObj.dateString)}
-                      disabled={!dayObj.dateString}
+                      disabled={!dayObj.dateString || isDateDisabled}
                     >
                       {isSelected ? (
                         <LinearGradient
@@ -603,7 +732,8 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
                         <Text style={[
                           styles.dayCellText,
                           isToday && styles.dayCellTextToday,
-                          !isCurrentMonth && styles.dayCellTextInactive
+                          !isCurrentMonth && styles.dayCellTextInactive,
+                          isDateDisabled && styles.dayCellTextDisabled
                         ]}>
                           {dayObj.day}
                         </Text>
@@ -640,15 +770,29 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
               <View style={styles.timeColumn}>
                 <Text style={styles.timeColTitle}>Hour</Text>
                 <ScrollView contentContainerStyle={styles.timeScrollContent}>
-                  {hoursList.map(h => (
-                    <TouchableOpacity
-                      key={h}
-                      style={[styles.timeItem, tempHour === h && styles.timeItemSelected]}
-                      onPress={() => setTempHour(h)}
-                    >
-                      <Text style={[styles.timeItemText, tempHour === h && styles.timeItemTextSelected]}>{h}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {hoursList.map(h => {
+                    const disabledAM = isTimeDisabled(h, tempMinute, 'AM');
+                    const disabledPM = isTimeDisabled(h, tempMinute, 'PM');
+                    const isDisabled = tempAmPm === 'AM' ? disabledAM : disabledPM;
+                    return (
+                      <TouchableOpacity
+                        key={h}
+                        style={[
+                          styles.timeItem,
+                          tempHour === h && styles.timeItemSelected,
+                          isDisabled && styles.timeItemDisabled,
+                        ]}
+                        onPress={() => !isDisabled && setTempHour(h)}
+                        activeOpacity={isDisabled ? 1 : 0.7}
+                      >
+                        <Text style={[
+                          styles.timeItemText,
+                          tempHour === h && styles.timeItemTextSelected,
+                          isDisabled && styles.timeItemTextDisabled,
+                        ]}>{h}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
 
@@ -656,15 +800,27 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
               <View style={styles.timeColumn}>
                 <Text style={styles.timeColTitle}>Min</Text>
                 <ScrollView contentContainerStyle={styles.timeScrollContent}>
-                  {minutesList.map(m => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[styles.timeItem, tempMinute === m && styles.timeItemSelected]}
-                      onPress={() => setTempMinute(m)}
-                    >
-                      <Text style={[styles.timeItemText, tempMinute === m && styles.timeItemTextSelected]}>{m}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {minutesList.map(m => {
+                    const isDisabled = isTimeDisabled(tempHour, m, tempAmPm);
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        style={[
+                          styles.timeItem,
+                          tempMinute === m && styles.timeItemSelected,
+                          isDisabled && styles.timeItemDisabled,
+                        ]}
+                        onPress={() => !isDisabled && setTempMinute(m)}
+                        activeOpacity={isDisabled ? 1 : 0.7}
+                      >
+                        <Text style={[
+                          styles.timeItemText,
+                          tempMinute === m && styles.timeItemTextSelected,
+                          isDisabled && styles.timeItemTextDisabled,
+                        ]}>{m}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
 
@@ -1004,6 +1160,9 @@ const styles = StyleSheet.create({
   dayCellInactive: {
     opacity: 0.4,
   },
+  dayCellDisabled: {
+    opacity: 0.3,
+  },
   daySelectedGradient: {
     width: '100%',
     height: '100%',
@@ -1026,6 +1185,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
   },
   dayCellTextInactive: {
+    color: Colors.textMuted,
+  },
+  dayCellTextDisabled: {
     color: Colors.textMuted,
   },
   // Time picker styles
@@ -1093,6 +1255,31 @@ const styles = StyleSheet.create({
   },
   ampmTextSelected: {
     color: Colors.white,
+  },
+  timeItemDisabled: {
+    opacity: 0.3,
+  },
+  timeItemTextDisabled: {
+    color: Colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  shiftEndBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    padding: Theme.spacing.sm,
+    marginTop: Theme.spacing.xs,
+  },
+  shiftEndText: {
+    flex: 1,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: '#92400E',
+    lineHeight: moderateScale(16),
   },
   timeConfirmBtn: {
     marginHorizontal: Theme.spacing.lg,

@@ -20,6 +20,13 @@ export type EmployeeProfile = {
   panNo: string | null;
   permanentAddress: string | null;
   presentAddress: string | null;
+  pfNo: string | null;
+  esicNo: string | null;
+  accountNo: string | null;
+  employmentType: string | null;
+  gender: 'Male' | 'Female' | null;
+  maritalStatus: 'Married' | 'Single' | null;
+  experience: string | null;
 };
 
 type ProfileResponse = {
@@ -35,6 +42,10 @@ export type UpdateEmployeeProfilePayload = Partial<{
   email: string | null;
   phone: string | null;
   profileImageUrl: string | null;
+  dob: string | null;
+  bloodGroup: string | null;
+  permanentAddress: string | null;
+  presentAddress: string | null;
 }>;
 
 export const getProfileFromAuthSession = (session: AuthSession): EmployeeProfile => ({
@@ -53,6 +64,13 @@ export const getProfileFromAuthSession = (session: AuthSession): EmployeeProfile
   panNo: null,
   permanentAddress: null,
   presentAddress: null,
+  pfNo: null,
+  esicNo: null,
+  accountNo: null,
+  employmentType: null,
+  gender: null,
+  maritalStatus: null,
+  experience: null,
 });
 
 export const getEmployeeProfile = async (): Promise<EmployeeProfile> => {

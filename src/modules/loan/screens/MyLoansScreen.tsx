@@ -8,7 +8,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
+import { downloadReport } from '../../../utils/reportDownloader';
+import Shimmer from '../../../components/Shimmer';
+import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +53,20 @@ const MyLoansScreen = ({ navigation }: any) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDownloadReport = async () => {
+    try {
+      const session = await getAuthSession();
+      const empId = session?.user?.fkEmpId;
+      if (!empId) {
+        Alert.alert('Error', 'Employee ID not found in session.');
+        return;
+      }
+      await downloadReport('/api/mobile/loan-requests/report', 'loans_report.pdf', empId);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download report.');
+    }
+  };
 
   const fetchLoans = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -133,6 +151,9 @@ const MyLoansScreen = ({ navigation }: any) => {
             <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Loans & Advances</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
+            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerContent}>
@@ -142,10 +163,71 @@ const MyLoansScreen = ({ navigation }: any) => {
       </SafeAreaView>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading loans data...</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
+          {/* Apply Loan Premium Card */}
+          <TouchableOpacity style={styles.applyCard} onPress={openApplyLoan} activeOpacity={0.88}>
+            <LinearGradient
+              colors={Colors.primaryGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.applyGradient}
+            >
+              <View style={styles.applyLeft}>
+                <View style={styles.applyIconWrap}>
+                  <Ionicons name="add-circle-outline" size={moderateScale(26)} color={Colors.white} />
+                </View>
+                <View style={styles.applyCopy}>
+                  <Text style={styles.applyTitle}>Apply for loan</Text>
+                  <Text style={styles.applySubtitle}>Submit a new loan or advance request</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={moderateScale(20)} color="rgba(255,255,255,0.9)" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Insight Card Shimmer */}
+          <AppCard style={styles.insightCard}>
+            <Shimmer width={moderateScale(48)} height={moderateScale(48)} borderRadius={moderateScale(10)} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Shimmer width="40%" height={12} borderRadius={3} />
+              <Shimmer width="60%" height={18} borderRadius={4} />
+            </View>
+          </AppCard>
+
+          {/* Summary Row Shimmer */}
+          <View style={styles.summaryRow}>
+            {[1, 2].map(i => (
+              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center' }]}>
+                <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(10)} style={{ marginBottom: Theme.spacing.sm }} />
+                <Shimmer width="60%" height={moderateScale(22)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
+                <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
+              </View>
+            ))}
+          </View>
+
+          {/* Section Title Shimmer */}
+          <View style={styles.sectionHeader}>
+            <Shimmer width="40%" height={20} borderRadius={4} />
+          </View>
+
+          {/* Loan List Items Shimmer */}
+          {[1, 2].map(i => (
+            <AppCard key={i} style={[styles.logCard, { padding: Theme.spacing.md, gap: Theme.spacing.sm, flexDirection: 'row', alignItems: 'center' }]}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Shimmer width="65%" height={16} borderRadius={4} />
+                <Shimmer width="35%" height={12} borderRadius={3} />
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
+                  <Shimmer width={60} height={18} borderRadius={4} />
+                  <Shimmer width={60} height={18} borderRadius={4} />
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <Shimmer width={60} height={20} borderRadius={Theme.borderRadius.pill} />
+                <Shimmer width={50} height={16} borderRadius={4} />
+              </View>
+            </AppCard>
+          ))}
+        </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={moderateScale(48)} color={Colors.error} />
