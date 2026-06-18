@@ -133,22 +133,7 @@ const MainTabs = () => {
           headerShown: false,
         }}
       >
-        <Tab.Screen 
-          name="Attendance" 
-          component={AttendanceScreen} 
-          options={{ 
-            headerShown: true,
-            title: 'Attendance',
-            headerStyle: {
-              backgroundColor: Colors.white,
-            },
-            headerTintColor: Colors.text,
-            headerTitleStyle: {
-              fontSize: moderateScale(18),
-              fontWeight: '600' as const,
-            },
-          }} 
-        />
+        <Tab.Screen name="Attendance" component={AttendanceScreen} />
         <Tab.Screen 
           name="Leave" 
           component={LeaveScreen} 

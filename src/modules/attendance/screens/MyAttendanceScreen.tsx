@@ -300,23 +300,6 @@ const MyAttendanceScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Attendance</Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
-            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.monthLabel}>{currentMonthName}</Text>
-          <Text style={styles.headerSubtitle}>Track your monthly attendance summary and daily logs.</Text>
-        </View>
-      </SafeAreaView>
-
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}>
           {/* Summary Row Shimmer */}
