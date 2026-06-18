@@ -316,19 +316,42 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Statistics Row */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="calendar-outline" size={moderateScale(20)} color={Colors.primary} />
+            </View>
             <Text style={styles.statLabel}>Attendance</Text>
             <Text style={styles.statValue}>{attendancePercentage}%</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Performance</Text>
-            <View style={styles.performanceRow}>
-              <Text style={styles.statValue}>4.8</Text>
-              <Ionicons name="star" size={moderateScale(16)} color={Colors.primary} style={styles.starIcon} />
+            <View style={styles.statProgress}>
+              <View style={[styles.statProgressBar, { width: `${attendancePercentage}%` }]} />
             </View>
           </View>
           <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="star-outline" size={moderateScale(20)} color={Colors.primary} />
+            </View>
+            <Text style={styles.statLabel}>Performance</Text>
+            <View style={styles.performanceRow}>
+              <Text style={styles.statValue}>4.8</Text>
+              <Ionicons name="star" size={moderateScale(14)} color={Colors.primary} style={styles.starIcon} />
+            </View>
+            <View style={styles.ratingStars}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Ionicons 
+                  key={star} 
+                  name={star <= 4 ? 'star' : 'star-outline'} 
+                  size={moderateScale(10)} 
+                  color={star <= 4 ? Colors.primary : Colors.textMuted} 
+                />
+              ))}
+            </View>
+          </View>
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="time-outline" size={moderateScale(20)} color={Colors.primary} />
+            </View>
             <Text style={styles.statLabel}>Tenure</Text>
             <Text style={styles.statValue}>3.5y</Text>
+            <Text style={styles.statSubtitle}>Since 2021</Text>
           </View>
         </View>
 
@@ -556,6 +579,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
     ...Theme.shadow.sm,
+  },
+  statIconContainer: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Theme.spacing.sm,
+  },
+  statProgress: {
+    width: '100%',
+    height: moderateScale(4),
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: moderateScale(2),
+    marginTop: Theme.spacing.sm,
+    overflow: 'hidden',
+  },
+  statProgressBar: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: moderateScale(2),
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    gap: moderateScale(2),
+    marginTop: Theme.spacing.xs,
+  },
+  statSubtitle: {
+    ...Typography.caption,
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    marginTop: Theme.spacing.xs,
   },
   statLabel: {
     ...Typography.caption,

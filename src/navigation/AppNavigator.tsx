@@ -308,7 +308,17 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="ApplyLoan" 
           component={ApplyLoanScreen} 
-          options={{ title: 'Apply for Loan' }} 
+          options={{ 
+            title: 'Apply Loan',
+            headerStyle: {
+              backgroundColor: Colors.white,
+            },
+            headerTintColor: Colors.text,
+            headerTitleStyle: {
+              fontSize: moderateScale(18),
+              fontWeight: '600' as const,
+            },
+          }} 
         />
         <Stack.Screen 
           name="LoanDetails" 
