@@ -524,9 +524,9 @@ const styles = StyleSheet.create({
   },
   rangePill: {
     backgroundColor: Colors.surfaceMuted,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    paddingVertical: moderateScale(3),
+    paddingHorizontal: moderateScale(8),
+    borderRadius: moderateScale(10),
   },
   rangePillText: {
     fontFamily: 'Outfit_600SemiBold',

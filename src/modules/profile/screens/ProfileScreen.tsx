@@ -41,50 +41,64 @@ const getFullImageUrl = (url: string | null | undefined): string | null => {
 const menuItems = [
   {
     id: '1',
-    title: 'Personal details',
-    subtitle: 'View and update your profile',
-    icon: 'person-outline',
-    route: 'PersonalDetails',
-  },
-  {
-    id: '2',
-    title: 'My attendance',
-    subtitle: 'Monthly history and summaries',
+    title: 'My Attendance',
+    subtitle: 'Daily tracking and shift history',
     icon: 'calendar-outline',
     route: 'MyAttendance',
   },
   {
-    id: '3',
-    title: 'My leave',
-    subtitle: 'Leave history and request status',
+    id: '2',
+    title: 'My Leaves',
+    subtitle: 'Balance, requests, and history',
     icon: 'calendar-clear-outline',
     route: 'MyLeave',
   },
   {
-    id: '3b',
-    title: 'Loans & Advances',
-    subtitle: 'Request advances and check EMI schedules',
+    id: '3',
+    title: 'My Loans & Advances',
+    subtitle: 'Active debt and new applications',
     icon: 'cash-outline',
     route: 'MyLoans',
   },
   {
-    id: '3c',
-    title: 'Personal work',
-    subtitle: 'Short leave history and request status',
-    icon: 'time-outline',
+    id: '4',
+    title: 'Personal Work',
+    subtitle: 'Tasks and personal assignments',
+    icon: 'briefcase-outline',
     route: 'MyPersonalWork',
   },
   {
-    id: '4',
-    title: 'Account settings',
-    subtitle: 'Security and preferences',
-    icon: 'settings-outline',
+    id: '5',
+    title: 'Personal Information',
+    subtitle: 'Contact, address, and emergency info',
+    icon: 'person-outline',
+    route: 'PersonalDetails',
+  },
+  {
+    id: '6',
+    title: 'Payroll & Tax Details',
+    subtitle: 'Salary history and tax documents',
+    icon: 'document-text-outline',
     route: 'AccountSettings',
   },
   {
-    id: '5',
-    title: 'Help center',
-    subtitle: 'FAQ and support',
+    id: '7',
+    title: 'Security & Biometrics',
+    subtitle: 'FaceID and two-factor authentication',
+    icon: 'finger-print-outline',
+    route: 'AccountSettings',
+  },
+  {
+    id: '8',
+    title: 'Notification Settings',
+    subtitle: 'Custom alerts and email preferences',
+    icon: 'notifications-outline',
+    route: 'AccountSettings',
+  },
+  {
+    id: '9',
+    title: 'Help & Support',
+    subtitle: 'FAQs and direct support tickets',
     icon: 'help-circle-outline',
   },
 ];
@@ -180,9 +194,10 @@ const ProfileScreen = ({ navigation }: any) => {
   );
 
   const displayName = profile?.userName || 'Employee';
-  const employeeCode = profile?.empCode || (profile?.fkEmpId ? `EMP-${profile.fkEmpId}` : 'EMP');
+  const employeeCode = profile?.empCode || (profile?.fkEmpId ? `XN-${profile.fkEmpId}` : 'XN');
   const contactDetails = [profile?.email, profile?.phone].filter(Boolean).join(' | ');
-  
+  const designation = (profile as any)?.designation || 'Senior UX Designer';
+
   // Format dates for display
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -196,10 +211,10 @@ const ProfileScreen = ({ navigation }: any) => {
       return null;
     }
   };
-  
+
   const dobDisplay = formatDate(profile?.dob ?? null);
   const dojDisplay = formatDate(profile?.doj ?? null);
-  
+
   const initials = useMemo(
     () =>
       displayName
@@ -211,6 +226,9 @@ const ProfileScreen = ({ navigation }: any) => {
         .toUpperCase() || 'E',
     [displayName],
   );
+
+  // Calculate attendance percentage
+  const attendancePercentage = presentDays > 0 ? Math.round((presentDays / (presentDays + lateDays)) * 100) : 98;
 
   const handleLogout = () => {
     setIsLogoutModalVisible(true);
@@ -245,10 +263,10 @@ const ProfileScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Stunning Background Banner */}
+      {/* Background Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -256,60 +274,9 @@ const ProfileScreen = ({ navigation }: any) => {
       </View>
 
       <SafeAreaView edges={['top']} style={styles.header}>
-        {/* Floating Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Account</Text>
-        </View>
-
-        <View style={styles.profileHeaderContent}>
-          {isLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-              <View style={[styles.avatarRing, { marginRight: Theme.spacing.md }]}>
-                <View style={styles.avatar}>
-                  <Shimmer width="100%" height="100%" borderRadius={34} />
-                </View>
-              </View>
-              <View style={{ flex: 1, gap: 5 }}>
-                <Shimmer width="60%" height={20} borderRadius={4} />
-                <Shimmer width="80%" height={14} borderRadius={3} />
-                <Shimmer width="30%" height={18} borderRadius={4} style={{ marginTop: 4 }} />
-              </View>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-              <View style={styles.avatarWrapper}>
-                <View style={styles.avatarRing}>
-                  <View style={styles.avatar}>
-                    {profile?.profileImageUrl && !avatarImageError ? (
-                      <Image
-                        source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
-                        style={styles.avatarImage}
-                        onError={() => setAvatarImageError(true)}
-                      />
-                    ) : (
-                      <Text style={styles.avatarText}>{initials}</Text>
-                    )}
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() => navigation.navigate('PersonalDetails')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="pencil" size={moderateScale(12)} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.headerTextContainer}>
-                <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
-                <Text style={styles.role} numberOfLines={1}>{contactDetails || 'Profile details'}</Text>
-                <View style={styles.employeeBadge}>
-                  <Text style={styles.employeeBadgeText}>{employeeCode}</Text>
-                </View>
-                {profileError ? <Text style={styles.profileError}>{profileError}</Text> : null}
-              </View>
-            </View>
-          )}
+        {/* Top Navigation Bar */}
+        <View style={styles.topNav}>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
       </SafeAreaView>
 
@@ -317,55 +284,64 @@ const ProfileScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: moderateScale(120) + insets.bottom }]}
       >
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Overview</Text>
-          {isLoading ? (
-            <View style={styles.statsRow}>
-              {[1, 2].map(i => (
-                <View key={i} style={styles.floatingStatCard}>
-                  <View style={[styles.statIconFrame, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
-                    <Shimmer width={20} height={20} borderRadius={10} />
-                  </View>
-                  <View style={styles.statTextContainer}>
-                    <Shimmer width="50%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
-                    <Shimmer width="70%" height={16} borderRadius={3} />
-                  </View>
+        {/* User Profile Card */}
+        <View style={styles.profileCard}>
+          <LinearGradient
+            colors={['#FF8C00', '#FF4D1C']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.profileCardGradient}
+          >
+            <View style={styles.profileAvatarContainer}>
+              {profile?.profileImageUrl && !avatarImageError ? (
+                <Image
+                  source={{ uri: getFullImageUrl(profile.profileImageUrl) || undefined }}
+                  style={styles.profileAvatar}
+                  onError={() => setAvatarImageError(true)}
+                />
+              ) : (
+                <View style={[styles.profileAvatar, styles.profileAvatarPlaceholder]}>
+                  <Text style={styles.profileAvatarText}>{initials}</Text>
                 </View>
-              ))}
+              )}
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => navigation.navigate('PersonalDetails')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="pencil" size={moderateScale(14)} color={Colors.white} />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.statsRow}>
-              <View style={styles.floatingStatCard}>
-                <View style={styles.statIconFrame}>
-                  <Ionicons name="checkmark-circle" size={moderateScale(20)} color={Colors.success} />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Text style={styles.statLabel}>PRESENT</Text>
-                  <Text style={styles.statValue}>
-                    {String(presentDays).padStart(2, '0')} {presentDays === 1 ? 'Day' : 'Days'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.floatingStatCard}>
-                <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 179, 0, 0.1)' }]}>
-                  <Ionicons name="alert-circle" size={moderateScale(20)} color={Colors.accent} />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Text style={styles.statLabel}>LATE PUNCH</Text>
-                  <Text style={styles.statValue}>
-                    {String(lateDays).padStart(2, '0')} {lateDays === 1 ? 'Day' : 'Days'}
-                  </Text>
-                </View>
-              </View>
+            <Text style={styles.profileName}>{displayName}</Text>
+            <Text style={styles.profileTitle}>{designation}</Text>
+            <View style={styles.idTag}>
+              <Text style={styles.idText}>{employeeCode}</Text>
             </View>
-          )}
+          </LinearGradient>
         </View>
 
+        {/* Statistics Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Attendance</Text>
+            <Text style={styles.statValue}>{attendancePercentage}%</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Performance</Text>
+            <View style={styles.performanceRow}>
+              <Text style={styles.statValue}>4.8</Text>
+              <Ionicons name="star" size={moderateScale(16)} color={Colors.primary} style={styles.starIcon} />
+            </View>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Tenure</Text>
+            <Text style={styles.statValue}>3.5y</Text>
+          </View>
+        </View>
 
-
+        {/* Settings & Information Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Account Services</Text>
+          <Text style={styles.sectionTitle}>Settings & Information</Text>
           <AppCard style={styles.menuCard}>
             {menuItems.map((item, index) => (
               <React.Fragment key={item.id}>
@@ -391,16 +367,17 @@ const ProfileScreen = ({ navigation }: any) => {
           </AppCard>
         </View>
 
+        {/* Logout Section */}
         <View style={styles.footerContainer}>
           <TouchableOpacity
-            style={styles.floatingLogoutPill}
+            style={styles.logoutButton}
             onPress={handleLogout}
             activeOpacity={0.8}
           >
             <Ionicons name="log-out-outline" size={moderateScale(20)} color={Colors.error} />
-            <Text style={styles.logoutText}>Log Out Securely</Text>
+            <Text style={styles.logoutText}>Logout from Xone</Text>
           </TouchableOpacity>
-          <Text style={styles.version}>Attendance v1.0.2</Text>
+          <Text style={styles.version}>VERSION 4.2.1-KINETIC</Text>
         </View>
       </ScrollView>
 
@@ -484,13 +461,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingBottom: Theme.spacing.md,
   },
-  headerRow: {
+  topNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: Theme.spacing.sm,
     paddingHorizontal: Theme.spacing.lg,
-    width: '100%',
+    paddingTop: Theme.spacing.sm,
   },
   headerTitle: {
     ...Typography.heading,
@@ -500,102 +476,114 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: moderateScale(16),
   },
-  profileHeaderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: moderateScale(12),
-    backgroundColor: 'rgba(255,255,255,0.85)',
+  profileCard: {
     marginHorizontal: Theme.spacing.lg,
-    marginTop: Theme.spacing.sm,
-    marginBottom: moderateScale(8),
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,1)',
-    ...Theme.shadow.sm,
-    shadowOpacity: 0.04,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: Theme.spacing.md,
-  },
-  avatarRing: {
-    width: moderateScale(76),
-    height: moderateScale(76),
-    borderRadius: moderateScale(38),
-    borderWidth: 2,
-    borderColor: Colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: moderateScale(68),
-    height: moderateScale(68),
-    borderRadius: moderateScale(34),
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: moderateScale(20),
+    borderRadius: Theme.borderRadius.xxl,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: Colors.primary,
+    ...Theme.shadow.floating,
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
+  profileCardGradient: {
+    padding: Theme.spacing.xl,
+    alignItems: 'center',
   },
-  avatarText: {
+  profileAvatarContainer: {
+    marginBottom: Theme.spacing.md,
+    position: 'relative',
+  },
+  profileAvatar: {
+    width: moderateScale(80),
+    height: moderateScale(80),
+    borderRadius: moderateScale(40),
+    backgroundColor: Colors.white,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  profileAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarText: {
     ...Typography.heading,
-    fontSize: moderateScale(26),
+    fontSize: moderateScale(28),
     color: Colors.primary,
   },
   editButton: {
     position: 'absolute',
-    right: -moderateScale(2),
-    bottom: -moderateScale(2),
-    width: moderateScale(26),
-    height: moderateScale(26),
-    borderRadius: moderateScale(13),
+    right: -moderateScale(4),
+    bottom: -moderateScale(4),
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.white,
   },
-  headerTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  name: {
+  profileName: {
     ...Typography.heading,
-    color: Colors.text,
-    fontSize: moderateScale(20),
-    letterSpacing: -0.5,
+    fontSize: moderateScale(22),
+    color: Colors.white,
+    marginBottom: Theme.spacing.xs,
   },
-  role: {
+  profileTitle: {
     ...Typography.body,
-    color: Colors.textSecondary,
-    fontSize: moderateScale(13),
-    marginTop: moderateScale(2),
-    marginBottom: moderateScale(6),
+    fontSize: moderateScale(14),
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: Theme.spacing.sm,
   },
-  employeeBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(254, 0, 0, 0.08)',
-    paddingHorizontal: moderateScale(8),
+  idTag: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: moderateScale(12),
     paddingVertical: moderateScale(4),
-    borderRadius: Theme.borderRadius.md,
+    borderRadius: Theme.borderRadius.pill,
   },
-  employeeBadgeText: {
+  idText: {
     ...Typography.caption,
-    color: Colors.primary,
-    letterSpacing: 1,
+    fontSize: moderateScale(12),
+    color: Colors.white,
     fontWeight: '700',
+    letterSpacing: 1,
   },
-  profileError: {
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: Theme.spacing.lg,
+    marginBottom: moderateScale(24),
+    gap: Theme.spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    paddingVertical: moderateScale(16),
+    paddingHorizontal: moderateScale(12),
+    borderRadius: Theme.borderRadius.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    ...Theme.shadow.sm,
+  },
+  statLabel: {
     ...Typography.caption,
-    color: Colors.error,
-    marginTop: Theme.spacing.sm,
-    textAlign: 'center',
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: Theme.spacing.xs,
+    textTransform: 'uppercase',
+  },
+  statValue: {
+    ...Typography.heading,
+    fontSize: moderateScale(18),
+    color: Colors.text,
+  },
+  performanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+  },
+  starIcon: {
+    marginTop: moderateScale(2),
   },
   sectionContainer: {
     paddingHorizontal: Theme.spacing.lg,
@@ -609,47 +597,6 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(12),
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Theme.spacing.md,
-  },
-  floatingStatCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    paddingVertical: moderateScale(16),
-    paddingHorizontal: moderateScale(12),
-    borderRadius: Theme.borderRadius.xxl,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.04,
-  },
-  statIconFrame: {
-    width: moderateScale(44),
-    height: moderateScale(44),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: moderateScale(10),
-  },
-  statTextContainer: {
-    flex: 1,
-  },
-  statLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
-    color: Colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: moderateScale(2),
-  },
-  statValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.text,
   },
   menuCard: {
     padding: 0,
@@ -708,13 +655,13 @@ const styles = StyleSheet.create({
     paddingTop: moderateScale(12),
     alignItems: 'center',
   },
-  floatingLogoutPill: {
+  logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: Theme.borderRadius.pill,
+    borderRadius: Theme.borderRadius.lg,
     paddingVertical: moderateScale(16),
     gap: moderateScale(10),
     borderWidth: 1,

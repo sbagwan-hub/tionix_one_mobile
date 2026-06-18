@@ -593,8 +593,8 @@ const styles = StyleSheet.create({
   },
   instBadge: {
     backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(4),
     borderRadius: Theme.borderRadius.sm,
   },
   instBadgeText: {

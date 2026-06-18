@@ -3,7 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, Platform, StyleSheet } from 'react-native';
+import { View, Text, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import LoginScreen from '../modules/auth/screens/LoginScreen';
@@ -39,77 +39,105 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const CustomTabBar = ({ state, descriptors, navigation }: any) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.tabBarContainer,
+        {
+          paddingTop: moderateScale(10),
+          paddingBottom: insets.bottom > 0 ? insets.bottom : moderateScale(12),
+          paddingHorizontal: moderateScale(12),
+        },
+      ]}
+    >
+      {state.routes.map((route: any, index: number) => {
+        const { options } = descriptors[route.key];
+        const isFocused = state.index === index;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate({ name: route.name, merge: true });
+          }
+        };
+
+        const onLongPress = () => {
+          navigation.emit({
+            type: 'tabLongPress',
+            target: route.key,
+          });
+        };
+
+        let iconName = 'grid-outline';
+        let customLabel = 'DASH';
+
+        if (route.name === 'Attendance') {
+          iconName = isFocused ? 'grid' : 'grid-outline';
+          customLabel = 'DASH';
+        } else if (route.name === 'Leave') {
+          iconName = isFocused ? 'calendar' : 'calendar-outline';
+          customLabel = 'LEAVE';
+        } else if (route.name === 'Loans') {
+          iconName = isFocused ? 'cash' : 'cash-outline';
+          customLabel = 'LOAN';
+        } else if (route.name === 'Profile') {
+          iconName = isFocused ? 'person' : 'person-outline';
+          customLabel = 'PROFILE';
+        }
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            accessibilityRole="button"
+            accessibilityState={isFocused ? { selected: true } : {}}
+            accessibilityLabel={options.tabBarAccessibilityLabel}
+            testID={options.tabBarTestID}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            style={[styles.tabItem, isFocused && styles.activeTabItem]}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={iconName as any}
+              size={moderateScale(20)}
+              color={isFocused ? Colors.primary : Colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: isFocused ? Colors.primary : Colors.textMuted },
+              ]}
+            >
+              {customLabel}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
 const MainTabs = () => {
   return (
     <LiveLocationProvider>
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: styles.tabItem,
-      }}
-    >
-      <Tab.Screen
-        name="Attendance"
-        component={AttendanceScreen}
-        options={{
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={moderateScale(22)}
-              color={color}
-            />
-          ),
+      <Tab.Navigator
+        tabBar={props => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
         }}
-      />
-      <Tab.Screen
-        name="Leave"
-        component={LeaveScreen}
-        options={{
-          tabBarLabel: 'Leave',
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'calendar' : 'calendar-outline'}
-              size={moderateScale(22)}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Loans"
-        component={MyLoansScreen}
-        options={{
-          tabBarLabel: 'Loans',
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'cash' : 'cash-outline'}
-              size={moderateScale(22)}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={moderateScale(22)}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen name="Attendance" component={AttendanceScreen} />
+        <Tab.Screen name="Leave" component={LeaveScreen} />
+        <Tab.Screen name="Loans" component={MyLoansScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
     </LiveLocationProvider>
   );
 };
@@ -169,7 +197,8 @@ const AppNavigator = () => {
 };
 
 const styles = StyleSheet.create({
-  tabBar: {
+  tabBarContainer: {
+    flexDirection: 'row',
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
@@ -178,17 +207,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    paddingTop: 8,
   },
   tabItem: {
-    justifyContent: 'center',
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: moderateScale(6),
+    marginHorizontal: moderateScale(6),
+    marginVertical: moderateScale(2),
+    borderRadius: moderateScale(16),
+  },
+  activeTabItem: {
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
   },
   tabLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: moderateScale(4),
+    letterSpacing: 0.5,
   },
 });
 

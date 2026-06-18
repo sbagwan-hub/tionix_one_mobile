@@ -18,6 +18,7 @@ import Toast from 'react-native-toast-message';
 import AppCard from '../../../components/AppCard';
 import PrimaryButton from '../../../components/PrimaryButton';
 import TextField from '../../../components/TextField';
+import Shimmer from '../../../components/Shimmer';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
@@ -257,7 +258,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             onPress={() => setIsEmpPickerOpen(true)}
           >
             {isLoadingEmployees ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
+              <Shimmer width="60%" height={16} borderRadius={4} />
             ) : (
               <>
                 <Text style={styles.pickerButtonText}>
@@ -707,7 +708,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 14,
+    paddingVertical: moderateScale(14),
     marginBottom: Theme.spacing.md,
   },
   pickerDisabled: {
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: moderateScale(4),
   },
   summaryCol: {
     flex: 1,

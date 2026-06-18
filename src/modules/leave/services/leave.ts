@@ -182,6 +182,63 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
   }
 };
 
+export const getLeaveTypes = async (): Promise<LeaveType[]> => {
+  const session = await getAuthSession();
+
+  if (!session?.access_token) {
+    throw new ApiError('Authentication required. Please log in again.');
+  }
+
+  try {
+    const rawTypes = await getLeaveTypesApi();
+    const mapped = rawTypes.map(t => {
+      const label = t.label;
+      let icon = 'ribbon-outline';
+      const labelLower = label.toLowerCase();
+      if (labelLower.includes('annual') || labelLower.includes('earned')) {
+        icon = 'ribbon-outline';
+      } else if (labelLower.includes('holiday')) {
+        icon = 'calendar-outline';
+      } else if (labelLower.includes('sick')) {
+        icon = 'medkit-outline';
+      } else if (labelLower.includes('casual')) {
+        icon = 'sunny-outline';
+      } else if (labelLower.includes('unpaid') || labelLower.includes('without pay')) {
+        icon = 'wallet-outline';
+      } else if (labelLower.includes('absent')) {
+        icon = 'close-circle-outline';
+      } else if (labelLower.includes('rest')) {
+        icon = 'bed-outline';
+      } else if (labelLower.includes('maternity') || labelLower.includes('paternity') || labelLower.includes('heart')) {
+        icon = 'heart-outline';
+      } else if (labelLower.includes('compensatory') || labelLower.includes('comp')) {
+        icon = 'time-outline';
+      }
+      return {
+        id: t.id,
+        label: t.label,
+        icon,
+      };
+    });
+    return mapped;
+  } catch (error) {
+    if (isMissingLeaveRouteError(error)) {
+      return [
+        { id: '502', label: 'Annual Leave', icon: 'ribbon-outline' },
+        { id: '504', label: 'Paid Holiday', icon: 'calendar-outline' },
+        { id: '505', label: 'Sick Leave', icon: 'medkit-outline' },
+        { id: '506', label: 'Paid Casual Leave', icon: 'sunny-outline' },
+        { id: '507', label: 'Unpaid Casual Leave', icon: 'wallet-outline' },
+        { id: '508', label: 'Unpaid Leave', icon: 'wallet-outline' },
+        { id: '509', label: 'Absent', icon: 'close-circle-outline' },
+        { id: '510', label: 'Rest Day', icon: 'bed-outline' },
+        { id: '512', label: 'Maternity Leave', icon: 'heart-outline' },
+      ];
+    }
+    throw error;
+  }
+};
+
 const readLocalLeaveHistory = async (fkEmpId: number): Promise<LeaveRequest[]> => {
   if (!fkEmpId) {
     return [];

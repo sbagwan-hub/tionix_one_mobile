@@ -92,7 +92,10 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   }, []);
 
   const getDayStatus = useCallback((day: AttendanceHistoryDay) => {
-    const inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    let inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    if (!inPunch && day.records && day.records.length > 0) {
+      inPunch = day.records[day.records.length - 1]; // Fallback to earliest punch of the day
+    }
     if (!inPunch) return 'Absent';
     const dateObj = new Date(inPunch.PunchDatetime);
     const hours = dateObj.getHours();
@@ -275,7 +278,10 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   };
 
   const getDailyPunches = (day: AttendanceHistoryDay) => {
-    const inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    let inPunch = day.records?.find(r => r.Punch === 'Check IN');
+    if (!inPunch && day.records && day.records.length > 0) {
+      inPunch = day.records[day.records.length - 1]; // Fallback to earliest punch of the day
+    }
     const outPunch = day.records ? [...day.records].reverse().find(r => r.Punch === 'Check OUT') : undefined;
     return { inPunch, outPunch };
   };

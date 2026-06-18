@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, StyleSheet, Alert, Platform, Animated, RefreshControl, Modal, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Alert,
+  Platform,
+  Animated,
+  RefreshControl,
+  Modal,
+  TextInput,
+  Image,
+} from 'react-native';
 import Shimmer from '../../../components/Shimmer';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -28,6 +42,7 @@ import {
   getGeolocations,
 } from '../services/attendance';
 import { getAuthSession } from '../../auth/services/auth';
+import { getEmployeeProfile } from '../../profile/services/profile';
 import { COMPANY } from '../../../config/company';
 
 type RecentLog = {
@@ -155,12 +170,16 @@ const AttendanceScreen = () => {
   const [employeeAddress, setEmployeeAddress] = useState<string | null>('Locating...');
   const [officeAddress, setOfficeAddress] = useState<string | null>(COMPANY.office.address);
   const [employeeName, setEmployeeName] = useState('Employee');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const fabAnim = useRef(new Animated.Value(0)).current;
+  const [isFabExpanded, setIsFabExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [todayInTime, setTodayInTime] = useState<string>('--:--');
   const [todayOutTime, setTodayOutTime] = useState<string>('--:--');
   const [todayBreakTime, setTodayBreakTime] = useState<string>('--:--');
   const [isBreakModalVisible, setIsBreakModalVisible] = useState(false);
   const [breakReason, setBreakReason] = useState('');
+  const [todayRecords, setTodayRecords] = useState<any[]>([]);
 
   // Dynamic geofencing configuration states
   const [officeLocation, setOfficeLocation] = useState<{
@@ -290,6 +309,7 @@ const AttendanceScreen = () => {
         console.log('[fetchRecentLogs] Today data:', todayData);
         
         if (todayData && Array.isArray(todayData.records)) {
+          setTodayRecords(todayData.records);
           const inRecord = todayData.records.find((r: any) => r.Punch === 'Check IN');
           const outRecord = [...todayData.records].reverse().find((r: any) => r.Punch === 'Check OUT');
 
@@ -308,17 +328,20 @@ const AttendanceScreen = () => {
             setTodayOutTime('--:--');
           }
         } else {
+          setTodayRecords([]);
           setTodayInTime('--:--');
           setTodayOutTime('--:--');
         }
       } else {
         setRecentLogs([]);
+        setTodayRecords([]);
         setTodayInTime('--:--');
         setTodayOutTime('--:--');
       }
     } catch (error) {
       console.log('[fetchRecentLogs] Error:', error);
       setRecentLogs([]);
+      setTodayRecords([]);
       setTodayInTime('--:--');
       setTodayOutTime('--:--');
     }
@@ -329,9 +352,19 @@ const AttendanceScreen = () => {
       setRefreshing(true);
     }
     try {
-      const session = await getAuthSession();
-      setEmployeeName(session?.user?.UserName || 'Employee');
+      try {
+        const profile = await getEmployeeProfile();
+        if (profile) {
+          setEmployeeName(profile.userName || 'Employee');
+          setProfileImage(profile.profileImageUrl || null);
+        }
+      } catch (err) {
+        const session = await getAuthSession();
+        setEmployeeName(session?.user?.UserName || 'Employee');
+        setProfileImage(session?.user?.ProfileImage || null);
+      }
 
+      const session = await getAuthSession();
       const response = await getAttendanceStatus(session?.user?.fkEmpId);
       if (response && response.success) {
         let currentPunchStatus: 'IN' | 'OUT' | 'BREAK' = 'OUT';
@@ -375,6 +408,10 @@ const AttendanceScreen = () => {
     useCallback(() => {
       let isMounted = true;
 
+      // Reset FAB animation and state on screen focus
+      fabAnim.setValue(0);
+      setIsFabExpanded(false);
+
       const loadData = async () => {
         if (isMounted) {
           setIsLoading(true);
@@ -403,6 +440,21 @@ const AttendanceScreen = () => {
     await fetchConfig();
     await fetchStatusAndName(true);
   }, [fetchConfig, fetchStatusAndName]);
+
+  const handleFabPress = () => {
+    if (isFabExpanded) return;
+    setIsFabExpanded(true);
+
+    Animated.timing(fabAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start(() => {
+      setTimeout(() => {
+        navigation.navigate('MyAttendance');
+      }, 200);
+    });
+  };
 
   const lastFetchedLocationRef = useRef<{ latitude: number, longitude: number } | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -482,7 +534,7 @@ const AttendanceScreen = () => {
 
   const isInRadius = distanceMeters !== null && distanceMeters <= officeRadius;
   const canPunch = isWithinRange && isTracking && !isVerifying;
-  const isGlowing = isInRadius && status === 'OUT';
+  const isGlowing = isTracking && !isVerifying;
 
   const buttonColors = useMemo(() => {
     if (status === 'IN' || status === 'BREAK') {
@@ -779,53 +831,155 @@ const AttendanceScreen = () => {
     mapRef.current?.animateToRegion(mapRegion, 600);
   }, [employeeLocation, mapRegion]);
 
+  // Dynamically calculate shift elapsed time
+  const punchInTime = useMemo(() => {
+    if (!todayRecords || todayRecords.length === 0) return null;
+    let inRecord = todayRecords.find((r: any) => r.Punch === 'Check IN');
+    if (!inRecord && todayRecords.length > 0) {
+      inRecord = todayRecords[todayRecords.length - 1]; // Fallback to earliest punch of the day
+    }
+    return inRecord ? new Date(inRecord.PunchDatetime) : null;
+  }, [todayRecords]);
+
+  const [elapsedTime, setElapsedTime] = useState('00:00:00');
+
+  useEffect(() => {
+    let interval: any;
+    if (status !== 'OUT' && punchInTime) {
+      const updateTimer = () => {
+        const diffMs = new Date().getTime() - punchInTime.getTime();
+        if (diffMs > 0) {
+          const diffSecs = Math.floor(diffMs / 1000);
+          const hrs = Math.floor(diffSecs / 3600);
+          const mins = Math.floor((diffSecs % 3600) / 60);
+          const secs = diffSecs % 60;
+          setElapsedTime(
+            `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          );
+        } else {
+          setElapsedTime('00:00:00');
+        }
+      };
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    } else {
+      setElapsedTime('00:00:00');
+    }
+    return () => clearInterval(interval);
+  }, [status, punchInTime]);
+
+  const formattedPeriodDate = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, []);
+
+  const timelineItems = useMemo(() => {
+    if (!todayRecords || todayRecords.length === 0) {
+      return [];
+    }
+
+    const sorted = [...todayRecords].sort((a, b) => {
+      return new Date(b.PunchDatetime).getTime() - new Date(a.PunchDatetime).getTime();
+    });
+
+    return sorted.map((rec, index) => {
+      let actionName = rec.Punch;
+      let iconName: 'play' | 'pause' | 'checkmark' | 'log-out' = 'checkmark';
+      let iconColorStr = Colors.success;
+      let bgColor = 'rgba(16, 185, 129, 0.1)';
+      let detail = rec.Address || 'GEOFENCE LOCATION';
+
+      if (rec.Punch === 'Check IN') {
+        actionName = 'Clocked In';
+        iconName = 'checkmark';
+        iconColorStr = Colors.success;
+        bgColor = 'rgba(16, 185, 129, 0.1)';
+      } else if (rec.Punch === 'Check OUT') {
+        actionName = 'Clocked Out';
+        iconName = 'log-out';
+        iconColorStr = Colors.primary;
+        bgColor = 'rgba(255, 77, 28, 0.1)';
+      } else if (rec.Punch === 'Break') {
+        actionName = 'Break Started';
+        iconName = 'pause';
+        iconColorStr = Colors.accent;
+        bgColor = 'rgba(255, 179, 0, 0.1)';
+        detail = rec.Device || 'LUNCH BREAK REASON';
+      } else if (rec.Punch === 'Resume') {
+        actionName = 'Resume Session';
+        iconName = 'play';
+        iconColorStr = '#3B82F6';
+        bgColor = 'rgba(59, 130, 246, 0.1)';
+        detail = 'MANUAL APP ENTRY';
+      }
+
+      return {
+        id: rec.PunchDatetime + '-' + index,
+        actionName,
+        detail,
+        time: formatLogTime(rec.PunchDatetime),
+        iconName,
+        iconColor: iconColorStr,
+        bgColor,
+      };
+    });
+  }, [todayRecords]);
+
+  // Initials for avatar fallback
+  const userInitials = useMemo(() => {
+    if (!employeeName) return 'EM';
+    const parts = employeeName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return employeeName.slice(0, 2).toUpperCase();
+  }, [employeeName]);
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Stunning Background Banner */}
+      {/* Modern Background Gradients */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.08)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
         <View style={styles.bannerBlurOrb2} />
       </View>
 
+      {/* Redesigned Header to match mockup */}
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greeting}>GOOD MORNING</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(8), marginTop: moderateScale(4) }}>
-              <Text style={styles.name}>{employeeName}</Text>
-              <View style={[styles.statusPill, (status === 'IN' || status === 'BREAK') && styles.statusPillActive]}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor:
-                        status === 'IN'
-                          ? Colors.success
-                          : status === 'BREAK'
-                          ? Colors.warning
-                          : todayInTime !== '--:--'
-                          ? Colors.primary
-                          : Colors.textSecondary,
-                    },
-                  ]}
+          <View style={styles.headerLeft}>
+            <View style={styles.avatarContainer}>
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.avatar}
                 />
-                <Text style={[styles.statusText, (status === 'IN' || status === 'BREAK') && styles.statusTextActive, status === 'BREAK' && { color: Colors.warningDark || Colors.accentDark }]}>
-                  {status === 'IN' ? 'Working' : status === 'BREAK' ? 'On Break' : todayInTime !== '--:--' ? 'Worked' : 'Not Checked In'}
-                </Text>
-              </View>
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitials}>{userInitials}</Text>
+                </View>
+              )}
+              <View style={styles.avatarActiveDot} />
+            </View>
+            <View style={styles.brandingContainer}>
+              <Text style={styles.logoText}>{employeeName}</Text>
+              <Text style={styles.logoSubtext}>PREMIUM ENTERPRISE</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
             <PremiumNotificationBell 
               unreadCount={3}
               onPress={() => navigation.navigate('Notifications')}
-              size={50}
+              size={44}
             />
           </View>
         </View>
@@ -833,7 +987,7 @@ const AttendanceScreen = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}
+        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(140) + insets.bottom }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -843,334 +997,230 @@ const AttendanceScreen = () => {
           />
         }
       >
-        <AppCard style={styles.clockCard}>
-          <View style={styles.clockCardRow}>
-            <View style={styles.dateContainer}>
-              <View style={[styles.statIconFrame, { backgroundColor: 'rgba(255, 77, 28, 0.08)', width: 36, height: 36 }]}>
-                <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.primary} />
+        {/* Redesigned Active Shift Card */}
+        <AppCard style={styles.activeShiftCard}>
+          {/* Card Top Row */}
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardHeaderLeft}>
+              <View style={styles.cardHeaderIconFrame}>
+                <Ionicons name="calendar" size={moderateScale(18)} color={Colors.primary} />
               </View>
-              <View style={styles.dateTextGroup}>
-                <Text style={styles.dayText}>{currentDate.split(',')[0]}</Text>
-                <Text style={styles.dateLabelText}>{currentDate.split(',')[1]?.trim() || currentDate}</Text>
+              <View>
+                <Text style={styles.cardTitle}>Active Shift</Text>
+                <Text style={styles.liveSessionLabel}>● LIVE SESSION</Text>
               </View>
             </View>
-            <View style={styles.dividerLine} />
-            <View style={styles.timeContainer}>
-              <Text style={styles.clock}>{currentTime.split(' ')[0]}</Text>
-              {currentTime.split(' ')[1] && (
-                <Text style={styles.clockAmpm}>{currentTime.split(' ')[1]}</Text>
-              )}
-            </View>
-          </View>
-          {locationError ? (
-            <Text style={styles.locationError}>{locationError}</Text>
-          ) : null}
-        </AppCard>
-
-        <View style={styles.punchContainer}>
-          <Text style={styles.sectionTitle}>Mark Attendance</Text>
-          <Text style={styles.punchHint}>
-            {canPunch
-              ? 'Verify your biometric identity to punch in or out.'
-              : 'Waiting for dynamic GPS geolocation signal...'}
-          </Text>
-
-          <View style={styles.punchButtonWrapper}>
-            {isGlowing && (
-              <>
-                <Animated.View
-                  style={[
-                    styles.punchPulse,
-                    {
-                      backgroundColor: Colors.primary,
-                      transform: [{ scale: pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
-                      opacity: pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
-                    },
-                  ]}
-                />
-                <Animated.View
-                  style={[
-                    styles.punchPulse,
-                    {
-                      backgroundColor: Colors.primary,
-                      transform: [{ scale: pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
-                      opacity: pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
-                    },
-                  ]}
-                />
-              </>
-            )}
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handlePunch}
-              disabled={!canPunch}
-              style={StyleSheet.flatten([
-                styles.punchButton,
-                status !== 'OUT' && styles.punchButtonOut,
-                !canPunch && styles.punchButtonDisabled,
-              ])}
-            >
-              <View style={styles.punchButtonInner}>
-                <Ionicons
-                  name={status === 'OUT' ? 'finger-print' : 'log-out-outline'}
-                  size={moderateScale(36)}
-                  color={!canPunch ? Colors.textMuted : Colors.white}
-                />
-                <Text style={[styles.punchLabel, !canPunch && { color: Colors.textMuted }]}>
-                  {buttonLabel}
-                </Text>
-                {status !== 'OUT' && todayInTime !== '--:--' && (
-                  <Text style={styles.punchTimeLabel}>
-                    In: {todayInTime}
-                  </Text>
-                )}
-                {status === 'OUT' && todayOutTime !== '--:--' && (
-                  <Text style={styles.punchTimeLabel}>
-                    Out: {todayOutTime}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {status !== 'OUT' && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleBreakToggle}
-              disabled={isVerifying}
-              style={[
-                styles.breakButton,
-                status === 'BREAK' && styles.breakButtonActive
-              ]}
-            >
-              <Ionicons
-                name={status === 'BREAK' ? 'play-outline' : 'cafe-outline'}
-                size={moderateScale(18)}
-                color={Colors.white}
-              />
-              <Text style={styles.breakButtonText}>
-                {status === 'BREAK' ? 'Resume Work' : 'Start Break'}
+            <View style={styles.idBadge}>
+              <Text style={styles.idBadgeText}>
+                ID: #{COMPANY.office.id || 'SH-9284'}
               </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {isLoading ? (
-          <View style={styles.statsRow}>
-            {[1, 2, 3].map(i => (
-              <AppCard key={i} style={styles.statCard}>
-                <View style={[styles.statIconFrame, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
-                  <Shimmer width={18} height={18} borderRadius={9} />
-                </View>
-                <View style={styles.statTextContainer}>
-                  <Shimmer width="60%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
-                  <Shimmer width="40%" height={14} borderRadius={3} />
-                </View>
-              </AppCard>
-            ))}
+            </View>
           </View>
-        ) : (
-          <View style={styles.statsRow}>
-            <AppCard
-              style={StyleSheet.flatten([
-                styles.statCard,
-                todayInTime !== '--:--' && {
-                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                  borderColor: 'rgba(16, 185, 129, 0.15)',
-                  borderWidth: 1,
-                },
-              ])}
-            >
-              <View
+
+          {/* Scheduled details box */}
+          <View style={styles.scheduledBox}>
+            <View style={styles.scheduledCol}>
+              <Text style={styles.scheduledLabel}>SCHEDULED PERIOD</Text>
+              <Text style={styles.scheduledValue}>{formattedPeriodDate}</Text>
+            </View>
+            <View style={styles.scheduledColRight}>
+              <Text style={styles.scheduledLabelRight}>SHIFT WINDOW</Text>
+              <Text style={styles.scheduledValueRight}>09:00 — 18:00</Text>
+            </View>
+          </View>
+
+          {/* Large timer display */}
+          <Text style={styles.activeTimerText}>{elapsedTime}</Text>
+
+          {/* Fingerprint Button Area with Concentric pulsing effect */}
+          <View style={styles.fingerprintSection}>
+            <View style={styles.concentricContainer}>
+              <Animated.View
                 style={[
-                  styles.statIconFrame,
+                  styles.concentricPulse,
+                  styles.concentricPulseOuter,
                   {
-                    backgroundColor:
-                      todayInTime !== '--:--' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 77, 28, 0.08)',
+                    transform: [{ scale: pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }],
+                    opacity: isGlowing ? pulseAnim2.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] }) : 0,
+                    borderColor: status === 'OUT' ? 'rgba(255, 77, 28, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                    backgroundColor: status === 'OUT' ? 'rgba(255, 77, 28, 0.02)' : 'rgba(16, 185, 129, 0.02)',
                   },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.concentricPulse,
+                  styles.concentricPulseInner,
+                  {
+                    transform: [{ scale: pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [1, 1.25] }) }],
+                    opacity: isGlowing ? pulseAnim1.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }) : 0,
+                    borderColor: status === 'OUT' ? 'rgba(255, 77, 28, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                    backgroundColor: status === 'OUT' ? 'rgba(255, 77, 28, 0.02)' : 'rgba(16, 185, 129, 0.02)',
+                  },
+                ]}
+              />
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handlePunch}
+                disabled={isVerifying}
+                style={[
+                  styles.fingerprintBtn,
+                  status === 'OUT' ? styles.fingerprintBtnInGlow : styles.fingerprintBtnOutGlow,
                 ]}
               >
                 <Ionicons
-                  name="log-in-outline"
-                  size={moderateScale(14)}
-                  color={todayInTime !== '--:--' ? Colors.success : Colors.primary}
+                  name="finger-print"
+                  size={moderateScale(42)}
+                  color={status === 'OUT' ? Colors.primary : Colors.success}
                 />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statLabel}>PUNCH IN</Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    todayInTime !== '--:--' && { color: Colors.successDark, fontWeight: '700' },
-                  ]}
-                >
-                  {todayInTime}
-                </Text>
-              </View>
-            </AppCard>
+              </TouchableOpacity>
+            </View>
 
-            <AppCard
-              style={StyleSheet.flatten([
-                styles.statCard,
-                todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && {
-                  backgroundColor: 'rgba(255, 179, 0, 0.05)',
-                  borderColor: 'rgba(255, 179, 0, 0.15)',
-                  borderWidth: 1,
-                },
-              ])}
-            >
-              <View
+            <Text style={styles.fingerprintInstruction}>
+              {status === 'OUT' ? 'HOLD TO PUNCH IN' : 'HOLD TO PUNCH OUT'}
+            </Text>
+            <Text style={styles.fingerprintSubtitle}>IDENTITY VERIFICATION REQUIRED</Text>
+          </View>
+
+          {/* Break and Resume Bottom Actions */}
+          <View style={styles.cardActionsRow}>
+            {status === 'BREAK' ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleBreakToggle}
                 style={[
-                  styles.statIconFrame,
-                  {
-                    backgroundColor:
-                      todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--'
-                        ? 'rgba(255, 179, 0, 0.12)'
-                        : 'rgba(255, 179, 0, 0.08)',
-                  },
+                  styles.actionBtn,
+                  styles.resumeBtn,
+                ]}
+              >
+                <Ionicons
+                  name="play"
+                  size={moderateScale(18)}
+                  color={Colors.white}
+                />
+                <Text style={[styles.actionBtnText, { color: Colors.white }]}>RESUME</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleBreakToggle}
+                disabled={status === 'OUT'}
+                style={[
+                  styles.actionBtn,
+                  styles.breakBtn,
+                  status === 'OUT' && styles.actionBtnDisabled,
                 ]}
               >
                 <Ionicons
                   name="cafe-outline"
-                  size={moderateScale(14)}
-                  color={Colors.accent}
+                  size={moderateScale(18)}
+                  color={status === 'OUT' ? Colors.textMuted : Colors.textSecondary}
                 />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statLabel}>BREAK TIME</Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    todayBreakTime !== '00h 00m' && todayBreakTime !== '--:--' && { color: Colors.accentDark || Colors.accent, fontWeight: '700' },
-                  ]}
-                >
-                  {todayBreakTime}
-                </Text>
-              </View>
-            </AppCard>
-
-            <AppCard
-              style={StyleSheet.flatten([
-                styles.statCard,
-                todayOutTime !== '--:--' && {
-                  backgroundColor: 'rgba(255, 77, 28, 0.05)',
-                  borderColor: 'rgba(255, 77, 28, 0.15)',
-                  borderWidth: 1,
-                },
-              ])}
-            >
-              <View
-                style={[
-                  styles.statIconFrame,
-                  {
-                    backgroundColor:
-                      todayOutTime !== '--:--' ? 'rgba(255, 77, 28, 0.12)' : 'rgba(255, 179, 0, 0.08)',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="log-out-outline"
-                  size={moderateScale(14)}
-                  color={todayOutTime !== '--:--' ? Colors.primary : Colors.accent}
-                />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statLabel}>PUNCH OUT</Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    todayOutTime !== '--:--' && { color: Colors.primaryDark, fontWeight: '700' },
-                  ]}
-                >
-                  {todayOutTime}
-                </Text>
-              </View>
-            </AppCard>
+                <Text style={[
+                  styles.actionBtnText,
+                  status === 'OUT' && { color: Colors.textMuted }
+                ]}>BREAK</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+        </AppCard>
 
+        {/* Activity Timeline Header */}
+        <View style={styles.timelineSectionHeader}>
+          <Text style={styles.timelineSectionTitle}>ACTIVITY TIMELINE</Text>
+          <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
+            <Ionicons name="options-outline" size={moderateScale(20)} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Timeline Items */}
         {isLoading ? (
-          <View style={styles.logsSection}>
-            <View style={styles.logsHeader}>
-              <Shimmer width="30%" height={18} borderRadius={4} />
-              <Shimmer width="15%" height={14} borderRadius={3} />
-            </View>
-            {[1, 2, 3].map(i => (
-              <View key={i} style={styles.logItem}>
-                <View style={[styles.logIcon, { backgroundColor: 'rgba(0,0,0,0.03)' }]}>
-                  <Shimmer width={18} height={18} borderRadius={9} />
-                </View>
-                <View style={styles.logBody}>
-                  <Shimmer width="40%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
-                  <Shimmer width="60%" height={12} borderRadius={2} />
-                </View>
-                <View style={[styles.logMeta, { alignItems: 'flex-end', gap: 4 }]}>
-                  <Shimmer width={50} height={14} borderRadius={3} />
-                  <Shimmer width={30} height={10} borderRadius={2} />
+          <View style={styles.timelineContainer}>
+            {[1, 2].map(i => (
+              <View key={i} style={styles.loadingTimelineItem}>
+                <Shimmer width={36} height={36} borderRadius={18} style={{ marginRight: 16 }} />
+                <View style={{ flex: 1 }}>
+                  <Shimmer width="40%" height={14} borderRadius={3} style={{ marginBottom: 6 }} />
+                  <Shimmer width="60%" height={10} borderRadius={2} />
                 </View>
               </View>
             ))}
           </View>
-        ) : recentLogs.length > 0 ? (
-          <View style={styles.logsSection}>
-            <View style={styles.logsHeader}>
-              <Text style={styles.sectionTitle}>Recent Logs</Text>
-              <TouchableOpacity onPress={() => navigation.getParent()?.navigate('MyAttendance')}>
-                <Text style={styles.viewAll}>View All</Text>
-              </TouchableOpacity>
-            </View>
-
-            {recentLogs.map(log => {
-              const displayWorking = log.isWorking;
+        ) : timelineItems.length > 0 ? (
+          <View style={styles.timelineContainer}>
+            {timelineItems.map((item, index) => {
+              const isLast = index === timelineItems.length - 1;
               return (
-                <View key={log.id} style={styles.logItem}>
-                  <View
-                    style={[
-                      styles.logIcon,
-                      {
-                        backgroundColor: displayWorking
-                          ? 'rgba(16, 185, 129, 0.1)'
-                          : log.tone === 'success'
-                          ? 'rgba(16, 185, 129, 0.1)'
-                          : 'rgba(255, 77, 28, 0.1)',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={displayWorking ? 'play-outline' : log.tone === 'success' ? 'checkmark' : 'time'}
-                      size={moderateScale(18)}
-                      color={
-                        displayWorking
-                          ? Colors.success
-                          : log.tone === 'success'
-                          ? Colors.success
-                          : Colors.primary
-                      }
-                    />
+                <View key={item.id} style={styles.timelineItem}>
+                  {/* Timeline connecting line */}
+                  {!isLast && <View style={styles.timelineLine} />}
+
+                  {/* Timeline icon */}
+                  <View style={[styles.timelineIconBg, { backgroundColor: item.bgColor }]}>
+                    <Ionicons name={item.iconName as any} size={moderateScale(16)} color={item.iconColor} />
                   </View>
-                  <View style={styles.logBody}>
-                    <Text style={styles.logDate}>{log.date}</Text>
-                    <Text style={styles.logRange}>{log.range}</Text>
+
+                  {/* Content details */}
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineActionTitle}>{item.actionName}</Text>
+                    <Text style={styles.timelineActionDetail}>{item.detail}</Text>
                   </View>
-                  <View style={styles.logMeta}>
-                    <Text style={styles.logHours}>{log.hours}</Text>
-                    <Text
-                      style={[
-                        styles.logMetaLabel,
-                        displayWorking && { color: Colors.success, fontWeight: '700' },
-                      ]}
-                    >
-                      {displayWorking ? 'Working' : 'Worked'}
-                    </Text>
-                  </View>
+
+                  {/* Time */}
+                  <Text style={styles.timelineTime}>{item.time}</Text>
                 </View>
               );
             })}
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.emptyTimelineCard}>
+            <Ionicons name="calendar-outline" size={moderateScale(32)} color={Colors.textMuted} />
+            <Text style={styles.emptyTimelineText}>No shift logs recorded for today.</Text>
+          </View>
+        )}
       </ScrollView>
 
+      {/* Floating Action Button (FAB) - MONTHLY REPORT */}
+      <Animated.View
+        style={[
+          styles.fabContainer,
+          {
+            width: fabAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [moderateScale(56), moderateScale(180)],
+            }),
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleFabPress}
+          style={styles.fabButton}
+        >
+          <View style={styles.fabInnerContent}>
+            <Ionicons name="stats-chart" size={moderateScale(22)} color={Colors.white} />
+            <Animated.View
+              style={{
+                opacity: fabAnim,
+                marginLeft: fabAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, moderateScale(10)],
+                }),
+                width: fabAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, moderateScale(110)],
+                }),
+                overflow: 'hidden',
+              }}
+            >
+              <Text style={styles.fabText} numberOfLines={1}>MONTHLY REPORT</Text>
+            </Animated.View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Break reason modal */}
       <Modal
         visible={isBreakModalVisible}
         transparent={true}
@@ -1217,14 +1267,14 @@ const AttendanceScreen = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#F8FAFC',
   },
   bannerContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: moderateScale(280),
+    height: moderateScale(300),
     overflow: 'hidden',
   },
   bannerGradient: {
@@ -1234,21 +1284,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -moderateScale(50),
     left: -moderateScale(50),
-    width: moderateScale(200),
-    height: moderateScale(200),
-    borderRadius: moderateScale(100),
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
-    filter: 'blur(40px)',
+    width: moderateScale(220),
+    height: moderateScale(220),
+    borderRadius: moderateScale(110),
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
+    filter: Platform.OS === 'ios' ? 'blur(40px)' : undefined,
+    opacity: Platform.OS === 'android' ? 0.3 : 1,
   },
   bannerBlurOrb2: {
     position: 'absolute',
     top: moderateScale(40),
     right: -moderateScale(60),
-    width: moderateScale(250),
-    height: moderateScale(250),
-    borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
-    filter: 'blur(50px)',
+    width: moderateScale(260),
+    height: moderateScale(260),
+    borderRadius: moderateScale(130),
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    filter: Platform.OS === 'ios' ? 'blur(50px)' : undefined,
+    opacity: Platform.OS === 'android' ? 0.3 : 1,
   },
   header: {
     paddingHorizontal: Theme.spacing.lg,
@@ -1261,326 +1313,420 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(12),
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
+    backgroundColor: '#E2E8F0',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarActiveDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: moderateScale(12),
+    height: moderateScale(12),
+    borderRadius: moderateScale(6),
+    backgroundColor: Colors.success,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarPlaceholder: {
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(15),
+    color: Colors.primary,
+  },
+  brandingContainer: {
+    justifyContent: 'center',
+  },
+  logoText: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(18),
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  logoSubtext: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(8),
+    color: Colors.textMuted,
+    letterSpacing: 1.2,
+    marginTop: moderateScale(1),
+  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: moderateScale(12),
   },
-  greeting: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    fontSize: moderateScale(10),
-    letterSpacing: 1.5,
-    marginBottom: moderateScale(2),
-  },
-  name: {
-    ...Typography.heading,
-    fontSize: moderateScale(22),
-    color: Colors.text,
-    letterSpacing: -0.5,
-  },
-  statusPill: {
-    flexDirection: 'row',
+  headerIconButton: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    paddingHorizontal: moderateScale(12),
-    paddingVertical: moderateScale(6),
-    borderRadius: Theme.borderRadius.pill,
-    gap: moderateScale(6),
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'center',
     ...Theme.shadow.sm,
-    shadowOpacity: 0.02,
-  },
-  statusPillActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderColor: 'rgba(16, 185, 129, 0.15)',
-  },
-  statusDot: {
-    width: moderateScale(6),
-    height: moderateScale(6),
-    borderRadius: moderateScale(3),
-  },
-  statusText: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
-    color: Colors.textSecondary,
-    fontWeight: '700',
-  },
-  statusTextActive: {
-    color: Colors.successDark,
   },
   content: {
     paddingHorizontal: Theme.spacing.lg,
-    paddingTop: Theme.spacing.md,
-    paddingBottom: 120,
-    gap: Theme.spacing.lg,
+    paddingTop: Theme.spacing.sm,
+    gap: Theme.spacing.md,
   },
-  clockCard: {
-    paddingVertical: Theme.spacing.sm + 4,
-    paddingHorizontal: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.md,
+  activeShiftCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(28),
+    padding: Theme.spacing.lg,
+    borderWidth: 0,
+    ...Theme.shadow.floating,
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowRadius: 24,
+    shadowOpacity: 0.8,
   },
-  clockCardRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
+    alignItems: 'center',
   },
-  dateContainer: {
+  cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Theme.spacing.sm,
-    flex: 1,
+    gap: moderateScale(12),
   },
-  dateTextGroup: {
-    flexDirection: 'column',
-  },
-  dayText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(14),
-    color: Colors.text,
-  },
-  dateLabelText: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: moderateScale(12),
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-  dividerLine: {
-    width: 1,
-    height: 32,
-    backgroundColor: Colors.border,
-    marginHorizontal: Theme.spacing.md,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'flex-end',
-    minWidth: 80,
-  },
-  clock: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(24),
-    color: Colors.text,
-    letterSpacing: -0.5,
-  },
-  clockAmpm: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(12),
-    color: Colors.textMuted,
-    marginLeft: 3,
-  },
-  locationError: {
-    ...Typography.caption,
-    color: Colors.error,
-    marginTop: Theme.spacing.md,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Theme.spacing.xs,
-  },
-  statCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.md,
-    paddingHorizontal: moderateScale(6),
-    backgroundColor: Colors.white,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.sm,
-  },
-  statIconFrame: {
-    width: moderateScale(28),
-    height: moderateScale(28),
-    borderRadius: moderateScale(6),
+  cardHeaderIconFrame: {
+    width: moderateScale(42),
+    height: moderateScale(42),
+    borderRadius: moderateScale(14),
     backgroundColor: 'rgba(255, 77, 28, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: moderateScale(6),
   },
-  statTextContainer: {
-    flex: 1,
-  },
-  statLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(9),
-    color: Colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: moderateScale(2),
-  },
-  statValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-  },
-  punchContainer: {
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.xl,
-    paddingHorizontal: Theme.spacing.lg,
-  },
-  sectionTitle: {
-    ...Typography.heading,
+  cardTitle: {
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(18),
     color: Colors.text,
-    letterSpacing: -0.5,
   },
-  punchHint: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
+  liveSessionLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.success,
+    marginTop: moderateScale(2),
+  },
+  idBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: moderateScale(12),
+    paddingVertical: moderateScale(6),
+    borderRadius: moderateScale(12),
+  },
+  idBadgeText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
     color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: moderateScale(6),
-    marginBottom: moderateScale(32),
   },
-  punchButtonWrapper: {
+  scheduledBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(16),
+    padding: moderateScale(14),
+    marginTop: moderateScale(18),
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  scheduledCol: {
+    flex: 1.1,
+  },
+  scheduledColRight: {
+    flex: 0.9,
+    alignItems: 'flex-end',
+  },
+  scheduledLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(8),
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: moderateScale(4),
+  },
+  scheduledLabelRight: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(8),
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: moderateScale(4),
+    textAlign: 'right',
+  },
+  scheduledValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: Colors.text,
+  },
+  scheduledValueRight: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: Colors.primary,
+    textAlign: 'right',
+  },
+  activeTimerText: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(44),
+    color: '#0F172A',
+    textAlign: 'center',
+    marginTop: moderateScale(24),
+    letterSpacing: -1,
+  },
+  fingerprintSection: {
+    alignItems: 'center',
+    marginTop: moderateScale(12),
+    marginBottom: moderateScale(16),
+  },
+  concentricContainer: {
     width: moderateScale(180),
     height: moderateScale(180),
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  punchPulse: {
+  concentricPulse: {
     position: 'absolute',
-    width: moderateScale(160),
-    height: moderateScale(160),
-    borderRadius: moderateScale(80),
-    backgroundColor: Colors.primary,
+    borderRadius: moderateScale(999),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 77, 28, 0.3)',
+    backgroundColor: 'rgba(255, 77, 28, 0.02)',
   },
-  punchButton: {
-    width: moderateScale(160),
-    height: moderateScale(160),
-    borderRadius: moderateScale(80),
-    backgroundColor: Colors.primary,
+  concentricPulseInner: {
+    width: moderateScale(124),
+    height: moderateScale(124),
+  },
+  concentricPulseOuter: {
+    width: moderateScale(156),
+    height: moderateScale(156),
+  },
+  fingerprintBtn: {
+    width: moderateScale(92),
+    height: moderateScale(92),
+    borderRadius: moderateScale(46),
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     ...Theme.shadow.floating,
     shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  punchButtonOut: {
-    backgroundColor: Colors.success,
+  fingerprintBtnInGlow: {
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    borderColor: 'rgba(255, 77, 28, 0.25)',
+    borderWidth: 1.5,
+    elevation: 12,
+  },
+  fingerprintBtnOutGlow: {
     shadowColor: Colors.success,
-    borderRadius: moderateScale(80),
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderWidth: 1.5,
+    elevation: 12,
   },
-  punchButtonDisabled: {
-    backgroundColor: Colors.surfaceMuted,
-    shadowOpacity: 0,
-    elevation: 0,
-    borderRadius: moderateScale(80),
+  fingerprintBtnDisabled: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
   },
-  punchButtonInner: {
+  fingerprintInstruction: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: Colors.primary,
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginTop: moderateScale(8),
+  },
+  fingerprintSubtitle: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(9),
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    marginTop: moderateScale(4),
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: moderateScale(12),
+    marginTop: moderateScale(8),
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: moderateScale(8),
+    paddingVertical: moderateScale(14),
+    borderRadius: moderateScale(16),
+    gap: moderateScale(6),
+    ...Theme.shadow.sm,
   },
-  punchLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(14),
-    color: Colors.white,
-    letterSpacing: 1,
-  },
-  punchTimeLabel: {
-    ...Typography.label,
+  actionBtnText: {
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(12),
-    color: Colors.white,
-    fontWeight: '600',
+    letterSpacing: 0.8,
   },
-  logsSection: {
-    marginTop: Theme.spacing.md,
+  breakBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowOpacity: 0.02,
   },
-  logsHeader: {
+  actionBtnDisabled: {
+    borderColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+  },
+  resumeBtn: {
+    backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  resumeBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
+  },
+  timelineSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Theme.spacing.md,
+    marginTop: moderateScale(22),
+    marginBottom: moderateScale(10),
   },
-  viewAll: {
-    ...Typography.label,
-    fontSize: moderateScale(12),
-    color: Colors.primary,
-  },
-  logItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    padding: Theme.spacing.md,
-    borderRadius: Theme.borderRadius.xl,
-    marginBottom: Theme.spacing.sm,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.03)',
-    ...Theme.shadow.sm,
-  },
-  logIcon: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(8),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Theme.spacing.md,
-  },
-  logBody: {
-    flex: 1,
-  },
-  logDate: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-  },
-  logRange: {
-    ...Typography.caption,
+  timelineSectionTitle: {
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(12),
     color: Colors.textSecondary,
-    marginTop: moderateScale(2),
+    letterSpacing: 1.5,
   },
-  logMeta: {
-    alignItems: 'flex-end',
+  filterButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(10),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadow.sm,
   },
-  logHours: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
+  timelineContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(24),
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
+    ...Theme.shadow.sm,
+  },
+  loadingTimelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Theme.spacing.md,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(14),
+    position: 'relative',
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: moderateScale(18),
+    top: moderateScale(38),
+    bottom: -moderateScale(14),
+    width: 2,
+    backgroundColor: '#E2E8F0',
+  },
+  timelineIconBg: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: moderateScale(14),
+    zIndex: 2,
+  },
+  timelineContent: {
+    flex: 1,
+  },
+  timelineActionTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
     color: Colors.text,
   },
-  logMetaLabel: {
-    ...Typography.caption,
+  timelineActionDetail: {
+    fontFamily: 'Outfit_600SemiBold',
     fontSize: moderateScale(11),
     color: Colors.textMuted,
     marginTop: moderateScale(2),
   },
-  breakButton: {
+  timelineTime: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+  },
+  emptyTimelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(24),
+    paddingVertical: moderateScale(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: moderateScale(8),
+    ...Theme.shadow.sm,
+  },
+  emptyTimelineText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: Colors.textMuted,
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: moderateScale(24),
+    right: Theme.spacing.lg,
+    zIndex: 99,
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
+    overflow: 'hidden',
+    ...Theme.shadow.floating,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  fabButton: {
+    flex: 1,
+    height: '100%',
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabInnerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.accent,
-    paddingVertical: moderateScale(10),
-    paddingHorizontal: moderateScale(20),
-    borderRadius: Theme.borderRadius.pill,
-    gap: moderateScale(6),
-    marginTop: moderateScale(16),
-    alignSelf: 'center',
-    ...Theme.shadow.md,
-    shadowColor: Colors.accent,
-    shadowOpacity: 0.2,
+    height: '100%',
   },
-  breakButtonActive: {
-    backgroundColor: Colors.success,
-    shadowColor: Colors.success,
-  },
-  breakButtonText: {
-    ...Typography.heading,
-    fontSize: moderateScale(14),
-    color: Colors.white,
-    fontWeight: '700',
+  fabText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Theme.spacing.xl,
@@ -1613,7 +1759,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: Theme.borderRadius.md,
     padding: Theme.spacing.sm,
-    height: 80,
+    height: moderateScale(80),
     textAlignVertical: 'top',
     marginBottom: Theme.spacing.lg,
   },

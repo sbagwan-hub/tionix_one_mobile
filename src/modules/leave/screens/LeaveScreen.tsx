@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +22,7 @@ import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { downloadReport } from '../../../utils/reportDownloader';
 import { getAuthSession } from '../../auth/services/auth';
+import { getEmployeeProfile } from '../../profile/services/profile';
 import {
   DEFAULT_LEAVE_TYPES,
   getLeaveBalances,
@@ -30,174 +32,162 @@ import {
   LeaveType,
 } from '../services/leave';
 
-const formatDisplayDate = (value: string) => {
-  if (!value) {
-    return '—';
-  }
+const formatDateRange = (startStr: string, endStr: string) => {
+  try {
+    const startDate = new Date(`${startStr}T00:00:00`);
+    const endDate = new Date(`${endStr}T00:00:00`);
+    
+    if (Number.isNaN(startDate.getTime())) return startStr;
 
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = startDate.getDate();
+    const startYear = startDate.getFullYear();
 
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+    if (startStr === endStr || !endStr) {
+      return `${startMonth} ${startDay}, ${startYear}`;
+    }
+
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
+    const endDay = endDate.getDate();
+
+    return `${startMonth} ${startDay} — ${endMonth} ${endDay}, ${startYear}`;
+  } catch {
+    return startStr === endStr ? startStr : `${startStr} — ${endStr}`;
+  }
 };
-
-const formatShortDate = (value: string) => {
-  if (!value) {
-    return '—';
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
-const statusStyles: Record<
-  LeaveStatus,
-  { backgroundColor: string; color: string; icon: string; borderColor: string }
-> = {
-  Pending: {
-    backgroundColor: 'rgba(255, 179, 0, 0.10)',
-    color: Colors.warningDark,
-    icon: 'time-outline',
-    borderColor: 'rgba(255, 179, 0, 0.25)',
-  },
-  Approved: {
-    backgroundColor: 'rgba(16, 185, 129, 0.10)',
-    color: Colors.successDark,
-    icon: 'checkmark-circle-outline',
-    borderColor: 'rgba(16, 185, 129, 0.25)',
-  },
-  Rejected: {
-    backgroundColor: 'rgba(239, 68, 68, 0.10)',
-    color: Colors.errorDark,
-    icon: 'close-circle-outline',
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-  },
-  Cancelled: {
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
-    color: Colors.textSecondary,
-    icon: 'ban-outline',
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-  },
-};
-
-const summaryConfig = [
-  {
-    key: 'pending' as const,
-    label: 'Pending',
-    icon: 'hourglass-outline',
-    tone: Colors.warning,
-    bg: 'rgba(255, 179, 0, 0.10)',
-  },
-  {
-    key: 'approved' as const,
-    label: 'Approved',
-    icon: 'checkmark-circle-outline',
-    tone: Colors.success,
-    bg: 'rgba(16, 185, 129, 0.10)',
-  },
-  {
-    key: 'rejected' as const,
-    label: 'Rejected',
-    icon: 'close-circle-outline',
-    tone: Colors.error,
-    bg: 'rgba(239, 68, 68, 0.10)',
-  },
-];
 
 const BalanceCard = ({ type }: { type: LeaveType }) => {
-  const remaining = type.remaining;
-  const total = type.total;
-  const hasNumbers = typeof remaining === 'number' && typeof total === 'number' && total > 0;
-  const progress = hasNumbers ? Math.min(1, Math.max(0, remaining / total)) : 0;
+  const remaining = type.remaining ?? 0;
+  const total = type.total ?? 0;
+  const used = Math.max(0, total - remaining);
+  const progress = total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
+  const progressPercent = Math.round(progress * 100);
+
+  const cardConfig = useMemo(() => {
+    const label = type.label.toLowerCase();
+    if (label.includes('annual')) {
+      return {
+        colors: ['#FF4D1C', '#C22C00'] as const,
+        icon: 'airplane-outline',
+      };
+    }
+    if (label.includes('sick')) {
+      return {
+        colors: ['#3B82F6', '#1D4ED8'] as const,
+        icon: 'medkit-outline',
+      };
+    }
+    if (label.includes('casual')) {
+      return {
+        colors: ['#10B981', '#047857'] as const,
+        icon: 'sunny-outline',
+      };
+    }
+    if (label.includes('earned') || label.includes('paid-casual')) {
+      return {
+        colors: ['#F59E0B', '#B45309'] as const,
+        icon: 'ribbon-outline',
+      };
+    }
+    if (label.includes('holiday')) {
+      return {
+        colors: ['#EC4899', '#BE185D'] as const,
+        icon: 'calendar-outline',
+      };
+    }
+    return {
+      colors: ['#6366F1', '#4338CA'] as const,
+      icon: 'wallet-outline',
+    };
+  }, [type.label]);
 
   return (
-    <View style={styles.balanceTile}>
-      <View style={styles.balanceIconWrap}>
-        <Ionicons name={type.icon as any} size={moderateScale(18)} color={Colors.primary} />
+    <LinearGradient
+      colors={cardConfig.colors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.balanceCardContainer}
+    >
+      {/* Top Row: Label and Icon */}
+      <View style={styles.balanceCardHeader}>
+        <Text style={styles.balanceCardLabel} numberOfLines={1}>
+          {type.label.toUpperCase()}
+        </Text>
+        <View style={styles.balanceCardIconFrame}>
+          <Ionicons name={cardConfig.icon as any} size={moderateScale(18)} color={Colors.white} />
+        </View>
       </View>
-      <Text style={styles.balanceTileLabel} numberOfLines={2}>
-        {type.label}
+
+      {/* Middle Row: Counter */}
+      <Text style={styles.balanceCardValue}>
+        {remaining}
+        <Text style={styles.balanceCardDaysLabel}> DAYS</Text>
       </Text>
-      {hasNumbers ? (
-        <>
-          <Text style={styles.balanceTileValue}>
-            {remaining}
-            <Text style={styles.balanceTileTotal}> / {total}</Text>
-          </Text>
-          <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={Colors.primaryGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${progress * 100}%` }]}
-            />
-          </View>
-          <Text style={styles.balanceTileHint}>days left</Text>
-        </>
-      ) : (
-        <>
-          <Text style={styles.balanceTileValue}>—</Text>
-          <Text style={styles.balanceTileHint}>Not available</Text>
-        </>
-      )}
-    </View>
+
+      {/* Bottom Row: Progress and Metrics */}
+      <View style={styles.balanceCardFooter}>
+        <Text style={styles.balanceCardMetricText}>{progressPercent}% REMAINING</Text>
+        <View style={styles.progressBarTrack}>
+          <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+        </View>
+        <View style={styles.balanceCardBottomRow}>
+          <Text style={styles.balanceCardUsedText}>{used} Days Used</Text>
+        </View>
+      </View>
+    </LinearGradient>
   );
 };
 
 const HistoryCard = ({ item }: { item: LeaveRequest }) => {
-  const tone = statusStyles[item.status];
-  const dateRange =
-    item.endDate !== item.startDate
-      ? `${formatShortDate(item.startDate)} → ${formatShortDate(item.endDate)}`
-      : formatShortDate(item.startDate);
+  const tone = useMemo(() => {
+    const status = item.status.toLowerCase();
+    if (status.includes('approved')) {
+      return {
+        badgeColor: 'rgba(16, 185, 129, 0.08)',
+        textColor: '#10B981',
+        iconName: 'checkmark-circle-sharp',
+        borderColor: 'rgba(16, 185, 129, 0.2)',
+      };
+    }
+    if (status.includes('pending')) {
+      return {
+        badgeColor: 'rgba(245, 158, 11, 0.08)',
+        textColor: '#F59E0B',
+        iconName: 'time-sharp',
+        borderColor: 'rgba(245, 158, 11, 0.2)',
+      };
+    }
+    if (status.includes('rejected')) {
+      return {
+        badgeColor: 'rgba(239, 68, 68, 0.08)',
+        textColor: '#EF4444',
+        iconName: 'close-circle-sharp',
+        borderColor: 'rgba(239, 68, 68, 0.2)',
+      };
+    }
+    return {
+      badgeColor: 'rgba(148, 163, 184, 0.08)',
+      textColor: '#64748B',
+      iconName: 'ban-sharp',
+      borderColor: 'rgba(148, 163, 184, 0.2)',
+    };
+  }, [item.status]);
+
+  const dateRange = formatDateRange(item.startDate, item.endDate);
 
   return (
-    <View style={styles.historyCard}>
-      <View style={[styles.historyAccent, { backgroundColor: tone.color }]} />
-      <View style={styles.historyBody}>
-        <View style={styles.historyTopRow}>
-          <View style={styles.historyTitleBlock}>
-            <Text style={styles.historyTitle}>{item.leaveType}</Text>
-            <Text style={styles.historyDates}>{dateRange}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: tone.backgroundColor, borderColor: tone.borderColor }]}>
-            <Ionicons name={tone.icon as any} size={13} color={tone.color} />
-            <Text style={[styles.statusText, { color: tone.color }]}>{item.status}</Text>
-          </View>
-        </View>
-
-        {item.reason ? (
-          <Text style={styles.historyReason} numberOfLines={2}>
-            {item.reason}
-          </Text>
-        ) : null}
-
-        <View style={styles.historyFooter}>
-          <View style={styles.historyMetaPill}>
-            <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
-            <Text style={styles.historyMetaText}>
-              {item.days} day{item.days === 1 ? '' : 's'}
-            </Text>
-          </View>
-          <View style={styles.historyMetaPill}>
-            <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-            <Text style={styles.historyMetaText}>Applied {formatDisplayDate(item.appliedOn.split('T')[0])}</Text>
-          </View>
-        </View>
+    <View style={styles.historyCardContainer}>
+      <View style={[styles.historyCardIconBg, { backgroundColor: tone.badgeColor }]}>
+        <Ionicons name={tone.iconName as any} size={moderateScale(22)} color={tone.textColor} />
+      </View>
+      <View style={styles.historyCardContent}>
+        <Text style={styles.historyCardTitle}>{item.leaveType}</Text>
+        <Text style={styles.historyCardDate}>{dateRange}</Text>
+      </View>
+      <View style={[styles.historyCardBadge, { borderColor: tone.borderColor, backgroundColor: tone.badgeColor }]}>
+        <Text style={[styles.historyCardBadgeText, { color: tone.textColor }]}>
+          {item.status.toUpperCase()}
+        </Text>
       </View>
     </View>
   );
@@ -210,6 +200,26 @@ const LeaveScreen = ({ navigation }: any) => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isLoadingBalances, setIsLoadingBalances] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [employeeName, setEmployeeName] = useState('Employee');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      try {
+        const profile = await getEmployeeProfile();
+        if (profile) {
+          setEmployeeName(profile.userName || 'Employee');
+          setProfileImage(profile.profileImageUrl || null);
+        }
+      } catch (err) {
+        const session = await getAuthSession();
+        setEmployeeName(session?.user?.UserName || 'Employee');
+        setProfileImage(session?.user?.ProfileImage || null);
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
 
   const handleDownloadReport = async () => {
     try {
@@ -234,12 +244,35 @@ const LeaveScreen = ({ navigation }: any) => {
     }
 
     try {
-      const [rows, balances] = await Promise.all([getLeaveHistory(), getLeaveBalances()]);
+      const [rows, rawBalances] = await Promise.all([getLeaveHistory(), getLeaveBalances()]);
       setHistory(rows);
+
+      let balances = rawBalances;
+      if (!balances || balances.length === 0) {
+        balances = [
+          { id: 'annual', label: 'Annual Leave', icon: 'ribbon-outline', remaining: 0, total: 0 },
+          { id: 'paid-holiday', label: 'Paid Holiday', icon: 'calendar-outline', remaining: 0, total: 0 },
+          { id: 'sick', label: 'Sick Leave', icon: 'medkit-outline', remaining: 0, total: 0 },
+          { id: 'paid-casual', label: 'Paid Casual Leave', icon: 'sunny-outline', remaining: 0, total: 0 },
+          { id: 'unpaid-casual', label: 'Unpaid Casual Leave', icon: 'wallet-outline', remaining: 0, total: 0 },
+        ];
+      } else {
+        balances = balances.map(b => ({
+          ...b,
+          remaining: b.remaining ?? 0,
+          total: b.total ?? 0,
+        }));
+      }
       setLeaveBalances(balances);
     } catch {
       setHistory([]);
-      setLeaveBalances(DEFAULT_LEAVE_TYPES);
+      setLeaveBalances([
+        { id: 'annual', label: 'Annual Leave', icon: 'ribbon-outline', remaining: 0, total: 0 },
+        { id: 'paid-holiday', label: 'Paid Holiday', icon: 'calendar-outline', remaining: 0, total: 0 },
+        { id: 'sick', label: 'Sick Leave', icon: 'medkit-outline', remaining: 0, total: 0 },
+        { id: 'paid-casual', label: 'Paid Casual Leave', icon: 'sunny-outline', remaining: 0, total: 0 },
+        { id: 'unpaid-casual', label: 'Unpaid Casual Leave', icon: 'wallet-outline', remaining: 0, total: 0 },
+      ]);
     } finally {
       setIsLoadingHistory(false);
       setIsLoadingBalances(false);
@@ -249,26 +282,35 @@ const LeaveScreen = ({ navigation }: any) => {
 
   useFocusEffect(
     useCallback(() => {
+      fetchProfile();
       loadLeaveData();
-    }, [loadLeaveData]),
+    }, [fetchProfile, loadLeaveData]),
   );
 
-  const summary = useMemo(
-    () => ({
-      pending: history.filter(item => item.status === 'Pending').length,
-      approved: history.filter(item => item.status === 'Approved').length,
-      rejected: history.filter(item => item.status === 'Rejected').length,
-    }),
-    [history],
-  );
+  const userInitials = useMemo(() => {
+    if (!employeeName) return 'EM';
+    const parts = employeeName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return employeeName.slice(0, 2).toUpperCase();
+  }, [employeeName]);
+
+  const welcomeName = useMemo(() => {
+    if (!employeeName) return 'ALEX';
+    return employeeName.trim().split(/\s+/)[0].toUpperCase();
+  }, [employeeName]);
 
   const openApplyLeave = () => {
     const rootNavigation = navigation.getParent?.() ?? navigation;
     rootNavigation.navigate('ApplyLeave');
   };
 
-  const isInitialLoading = isLoadingHistory && isLoadingBalances && !refreshing;
-  const showOverviewShimmer = isLoadingHistory && !refreshing;
+  const viewAllRequests = () => {
+    const rootNavigation = navigation.getParent?.() ?? navigation;
+    rootNavigation.navigate('MyLeave');
+  };
+
   const showBalanceShimmer = isLoadingBalances && !refreshing;
   const showHistoryShimmer = isLoadingHistory && !refreshing;
 
@@ -276,160 +318,104 @@ const LeaveScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Background Gradients */}
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.12)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.08)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
         <View style={styles.bannerBlurOrb2} />
       </View>
 
+      {/* Header matching Mockup */}
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View style={{ width: moderateScale(40) }} />
-          <Text style={styles.headerTitle}>Leave</Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
-            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <Text style={styles.brandingLogo}>Xone</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.downloadReportBtn} onPress={handleDownloadReport} activeOpacity={0.7}>
+              <Ionicons name="download-outline" size={moderateScale(20)} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}
+        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(110) + insets.bottom }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => loadLeaveData(true)} tintColor={Colors.primary} />
         }
       >
-        <TouchableOpacity style={styles.applyCard} onPress={openApplyLeave} activeOpacity={0.88}>
-          <LinearGradient
-            colors={Colors.primaryGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.applyGradient}
-          >
-            <View style={styles.applyLeft}>
-              <View style={styles.applyIconWrap}>
-                <Ionicons name="add-circle-outline" size={moderateScale(26)} color={Colors.white} />
-              </View>
-              <View style={styles.applyCopy}>
-                <Text style={styles.applyTitle}>Apply for leave</Text>
-                <Text style={styles.applySubtitle}>Submit a new time-off request</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={moderateScale(20)} color="rgba(255,255,255,0.9)" />
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>Overview</Text>
-          {showOverviewShimmer ? (
-            <View style={styles.summaryRow}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={styles.summaryCard}>
-                  <Shimmer width={moderateScale(36)} height={moderateScale(36)} borderRadius={moderateScale(10)} style={{ marginBottom: moderateScale(8) }} />
-                  <Shimmer width="55%" height={moderateScale(22)} borderRadius={5} style={{ marginBottom: 5 }} />
-                  <Shimmer width="65%" height={moderateScale(10)} borderRadius={3} />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.summaryRow}>
-              {summaryConfig.map(item => (
-                <View key={item.key} style={styles.summaryCard}>
-                  <View style={[styles.summaryIconFrame, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon as any} size={moderateScale(18)} color={item.tone} />
-                  </View>
-                  <Text style={[styles.summaryValue, { color: item.tone }]}>{summary[item.key]}</Text>
-                  <Text style={styles.summaryLabel}>{item.label}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeSubtitle}>WELCOME BACK, {welcomeName}</Text>
+          <Text style={styles.welcomeTitle}>Leave Balance</Text>
         </View>
 
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeading}>Leave balance</Text>
-            {isLoadingBalances && refreshing ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
-          </View>
-
+        {/* Leave Balance Horizontal Slider */}
+        <View style={styles.balanceContainer}>
           {showBalanceShimmer ? (
-            <View style={styles.balanceGrid}>
-              {[1, 2, 3, 4].map(i => (
-                <View key={i} style={styles.balanceTile}>
-                  {/* icon */}
-                  <Shimmer width={moderateScale(34)} height={moderateScale(34)} borderRadius={moderateScale(10)} style={{ marginBottom: moderateScale(8) }} />
-                  {/* label (2 lines) */}
-                  <Shimmer width="75%" height={10} borderRadius={3} style={{ marginBottom: 4 }} />
-                  <Shimmer width="50%" height={10} borderRadius={3} style={{ marginBottom: moderateScale(8) }} />
-                  {/* value */}
-                  <Shimmer width="55%" height={moderateScale(22)} borderRadius={5} style={{ marginBottom: moderateScale(8) }} />
-                  {/* progress bar */}
-                  <Shimmer width="100%" height={moderateScale(5)} borderRadius={Theme.borderRadius.pill} style={{ marginBottom: 4 }} />
-                  {/* hint */}
-                  <Shimmer width="40%" height={9} borderRadius={3} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.balanceScrollContent}>
+              {[1, 2].map(i => (
+                <View key={i} style={[styles.balanceCardContainer, { backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Shimmer width={moderateScale(240)} height={moderateScale(120)} borderRadius={16} />
                 </View>
               ))}
-            </View>
+            </ScrollView>
           ) : (
-            <View style={styles.balanceGrid}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.balanceScrollContent}
+              decelerationRate="fast"
+              snapToInterval={moderateScale(280) + Theme.spacing.md}
+              snapToAlignment="start"
+            >
               {leaveBalances.map(type => (
                 <BalanceCard key={type.id} type={type} />
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
 
+        {/* Recent Requests Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeading}>Leave history</Text>
-            {isLoadingHistory && refreshing ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
+            <Text style={styles.sectionHeading}>Recent Requests</Text>
+            <TouchableOpacity onPress={viewAllRequests} activeOpacity={0.7}>
+              <Text style={styles.viewAllBtnText}>View All &gt;</Text>
+            </TouchableOpacity>
           </View>
 
           {showHistoryShimmer ? (
             <View style={styles.historyList}>
-              {[1, 2, 3, 4].map(i => (
-                <View key={i} style={styles.historyCard}>
-                  {/* accent strip shimmer */}
-                  <Shimmer width={moderateScale(4)} height={moderateScale(90)} borderRadius={0} />
-                  <View style={{ flex: 1, padding: Theme.spacing.sm, paddingLeft: Theme.spacing.md, gap: moderateScale(8) }}>
-                    {/* top row: title + badge */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1, gap: 5 }}>
-                        <Shimmer width="55%" height={moderateScale(15)} borderRadius={4} />
-                        <Shimmer width="40%" height={moderateScale(11)} borderRadius={3} />
-                      </View>
-                      <Shimmer width={moderateScale(64)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
-                    </View>
-                    {/* reason line */}
-                    <Shimmer width="80%" height={moderateScale(12)} borderRadius={3} />
-                    {/* footer pills */}
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <Shimmer width={moderateScale(60)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
-                      <Shimmer width={moderateScale(90)} height={moderateScale(22)} borderRadius={Theme.borderRadius.pill} />
-                    </View>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={styles.historyCardContainer}>
+                  <Shimmer width={moderateScale(42)} height={moderateScale(42)} borderRadius={21} style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Shimmer width="45%" height={12} borderRadius={3} />
+                    <Shimmer width="30%" height={9} borderRadius={2} />
                   </View>
+                  <Shimmer width={moderateScale(80)} height={24} borderRadius={12} />
                 </View>
               ))}
             </View>
           ) : history.length === 0 ? (
             <AppCard style={styles.emptyCard}>
               <View style={styles.emptyIconWrap}>
-                <Ionicons name="document-text-outline" size={moderateScale(36)} color={Colors.primary} />
+                <Ionicons name="document-text-outline" size={moderateScale(32)} color={Colors.primary} />
               </View>
               <Text style={styles.emptyTitle}>No leave requests yet</Text>
               <Text style={styles.emptySubtitle}>
                 When you apply for leave, your requests and approval status will show up here.
               </Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={openApplyLeave} activeOpacity={0.85}>
-                <Text style={styles.emptyButtonText}>Apply for leave</Text>
-              </TouchableOpacity>
             </AppCard>
           ) : (
             <View style={styles.historyList}>
-              {history.map(item => (
+              {history.slice(0, 5).map(item => (
                 <TouchableOpacity
                   key={item.id}
                   activeOpacity={0.85}
@@ -441,7 +427,28 @@ const LeaveScreen = ({ navigation }: any) => {
             </View>
           )}
         </View>
+
+        {/* Break Banner Card matching Mockup */}
+        <TouchableOpacity style={styles.breakBannerCard} onPress={openApplyLeave} activeOpacity={0.9}>
+          <View style={styles.breakBannerIconContainer}>
+            <Ionicons name="compass-outline" size={moderateScale(22)} color="#FF4D1C" />
+          </View>
+          <Text style={styles.breakBannerTitle}>Ready for a break?</Text>
+          <Text style={styles.breakBannerSubtitle}>
+            Plan your next adventure and secure your dates today.
+          </Text>
+          <Text style={styles.breakBannerActionText}>APPLY NOW</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Floating Action Button (FAB) - Apply Leave */}
+      <TouchableOpacity
+        style={[styles.fabButton, { bottom: moderateScale(24) }]}
+        activeOpacity={0.85}
+        onPress={openApplyLeave}
+      >
+        <Ionicons name="add" size={moderateScale(28)} color={Colors.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -449,14 +456,14 @@ const LeaveScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#F8FAFC',
   },
   bannerContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: moderateScale(180),
+    height: moderateScale(220),
     overflow: 'hidden',
   },
   bannerGradient: {
@@ -466,336 +473,334 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -moderateScale(40),
     left: -moderateScale(40),
-    width: moderateScale(160),
-    height: moderateScale(160),
-    borderRadius: moderateScale(80),
-    backgroundColor: 'rgba(255, 179, 0, 0.12)',
+    width: moderateScale(180),
+    height: moderateScale(180),
+    borderRadius: moderateScale(90),
+    backgroundColor: 'rgba(255, 179, 0, 0.08)',
   },
   bannerBlurOrb2: {
     position: 'absolute',
     top: moderateScale(20),
     right: -moderateScale(50),
-    width: moderateScale(200),
-    height: moderateScale(200),
-    borderRadius: moderateScale(100),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    width: moderateScale(220),
+    height: moderateScale(220),
+    borderRadius: moderateScale(110),
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
   },
   header: {
     paddingHorizontal: Theme.spacing.lg,
+    backgroundColor: 'transparent',
     zIndex: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Theme.spacing.sm,
+    paddingVertical: moderateScale(10),
   },
-  headerTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.text,
-  },
-  content: {
-    paddingHorizontal: Theme.spacing.lg,
-    paddingBottom: moderateScale(120),
-    gap: moderateScale(28),
-  },
-  applyCard: {
-    borderRadius: Theme.borderRadius.xxl,
-    overflow: 'hidden',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.12,
-  },
-  applyGradient: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(18),
+    gap: moderateScale(10),
   },
-  applyLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
-    flex: 1,
-  },
-  applyIconWrap: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: Theme.borderRadius.xl,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+  menuIconButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  applyCopy: {
-    flex: 1,
+  brandingLogo: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(20),
+    color: '#FF4D1C',
   },
-  applyTitle: {
-    ...Typography.heading,
-    color: Colors.white,
-    fontSize: moderateScale(16),
-    marginBottom: 2,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(12),
   },
-  applySubtitle: {
-    ...Typography.body,
-    color: 'rgba(255,255,255,0.85)',
+  downloadReportBtn: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarContainer: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(12),
+    color: Colors.primary,
+  },
+  content: {
+    paddingTop: Theme.spacing.md,
+    gap: moderateScale(22),
+  },
+  welcomeSection: {
+    paddingHorizontal: Theme.spacing.lg,
+  },
+  welcomeSubtitle: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: moderateScale(4),
+  },
+  welcomeTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(24),
+    color: '#0F172A',
+  },
+  balanceContainer: {
+    marginTop: moderateScale(4),
+  },
+  balanceScrollContent: {
+    paddingHorizontal: Theme.spacing.lg,
+    gap: Theme.spacing.md,
+    paddingBottom: moderateScale(10),
+  },
+  balanceCardContainer: {
+    width: moderateScale(280),
+    height: moderateScale(160),
+    borderRadius: moderateScale(24),
+    padding: moderateScale(16),
+    justifyContent: 'space-between',
+    ...Theme.shadow.floating,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  balanceCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  balanceCardLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
+    color: '#FFFFFF',
+    opacity: 0.9,
+    letterSpacing: 0.8,
+  },
+  balanceCardIconFrame: {
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(10),
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balanceCardValue: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(34),
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  balanceCardDaysLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: '#FFFFFF',
+  },
+  balanceCardFooter: {
+    gap: moderateScale(6),
+  },
+  balanceCardMetricText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  progressBarTrack: {
+    height: moderateScale(6),
+    borderRadius: moderateScale(3),
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: moderateScale(3),
+    backgroundColor: '#FFFFFF',
+  },
+  balanceCardBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  balanceCardUsedText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(9),
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   sectionContainer: {
-    gap: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.lg,
+    gap: Theme.spacing.md,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: moderateScale(4),
+    paddingHorizontal: moderateScale(2),
   },
   sectionHeading: {
-    ...Typography.label,
-    fontSize: moderateScale(13),
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginLeft: moderateScale(4),
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: Theme.spacing.sm,
-  },
-  summaryCard: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    paddingVertical: moderateScale(14),
-    paddingHorizontal: moderateScale(8),
-    borderWidth: 0,
-    ...Theme.shadow.md,
-  },
-  summaryIconFrame: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(10),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: moderateScale(8),
-  },
-  summaryValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(20),
-    marginBottom: 2,
-  },
-  summaryLabel: {
-    ...Typography.caption,
-    fontSize: moderateScale(10),
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  balanceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Theme.spacing.sm,
-  },
-  balanceTile: {
-    width: '48.5%',
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    padding: Theme.spacing.sm,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-    minHeight: moderateScale(132),
-  },
-  balanceIconWrap: {
-    width: moderateScale(34),
-    height: moderateScale(34),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: moderateScale(8),
-  },
-  balanceTileLabel: {
-    ...Typography.subheading,
-    fontSize: moderateScale(12),
-    color: Colors.textSecondary,
-    marginBottom: moderateScale(6),
-    minHeight: moderateScale(32),
-  },
-  balanceTileValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.text,
-  },
-  balanceTileTotal: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  progressTrack: {
-    height: moderateScale(5),
-    borderRadius: Theme.borderRadius.pill,
-    backgroundColor: Colors.surfaceMuted,
-    marginTop: moderateScale(8),
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: Theme.borderRadius.pill,
-    backgroundColor: Colors.primary,
-  },
-  balanceTileHint: {
-    ...Typography.caption,
-    fontSize: moderateScale(10),
-    color: Colors.textMuted,
-    marginTop: moderateScale(4),
-    textTransform: 'none',
-    letterSpacing: 0,
-  },
-  loadingBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Theme.spacing.xl,
-    gap: Theme.spacing.sm,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textMuted,
-    fontSize: moderateScale(13),
-  },
-  emptyCard: {
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-  },
-  emptyIconWrap: {
-    width: moderateScale(72),
-    height: moderateScale(72),
-    borderRadius: moderateScale(36),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  emptyTitle: {
-    ...Typography.subheading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(16),
-    marginBottom: Theme.spacing.xs,
+    color: '#0F172A',
   },
-  emptySubtitle: {
-    ...Typography.body,
-    textAlign: 'center',
-    color: Colors.textSecondary,
-    fontSize: moderateScale(13),
-    lineHeight: moderateScale(20),
-    marginBottom: Theme.spacing.md,
-  },
-  emptyButton: {
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: moderateScale(12),
-    borderRadius: Theme.borderRadius.pill,
-    backgroundColor: 'rgba(255, 77, 28, 0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 77, 28, 0.18)',
-  },
-  emptyButtonText: {
-    ...Typography.subheading,
-    color: Colors.primary,
-    fontSize: moderateScale(13),
+  viewAllBtnText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#FF4D1C',
   },
   historyList: {
     gap: Theme.spacing.sm,
   },
-  historyCard: {
+  historyCardContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    borderWidth: 0,
-    overflow: 'hidden',
-    ...Theme.shadow.md,
-  },
-  historyAccent: {
-    width: moderateScale(4),
-  },
-  historyBody: {
-    flex: 1,
-    padding: Theme.spacing.sm,
-    paddingLeft: Theme.spacing.md,
-    gap: moderateScale(8),
-  },
-  historyTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(18),
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: moderateScale(14),
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Theme.spacing.sm,
+    ...Theme.shadow.sm,
   },
-  historyTitleBlock: {
+  historyCardIconBg: {
+    width: moderateScale(42),
+    height: moderateScale(42),
+    borderRadius: moderateScale(21),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: moderateScale(12),
+  },
+  historyCardContent: {
     flex: 1,
+    justifyContent: 'center',
   },
-  historyTitle: {
-    ...Typography.subheading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-    marginBottom: 2,
+  historyCardTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#0F172A',
+    marginBottom: moderateScale(2),
   },
-  historyDates: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    textTransform: 'none',
-    letterSpacing: 0,
+  historyCardDate: {
+    fontFamily: 'Outfit_500Medium',
     fontSize: moderateScale(11),
+    color: '#64748B',
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: Theme.borderRadius.pill,
+  historyCardBadge: {
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: moderateScale(5),
+    borderRadius: moderateScale(12),
     borderWidth: 1,
-  },
-  statusText: {
-    ...Typography.caption,
-    fontSize: moderateScale(10),
-    textTransform: 'none',
-    letterSpacing: 0,
-    fontWeight: '700',
-  },
-  historyReason: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.textSecondary,
-    lineHeight: moderateScale(18),
-  },
-  historyFooter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Theme.spacing.xs,
-  },
-  historyMetaPill: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.surfaceMuted,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.pill,
+    justifyContent: 'center',
   },
-  historyMetaText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    textTransform: 'none',
-    letterSpacing: 0,
-    fontSize: moderateScale(10),
+  historyCardBadgeText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    letterSpacing: 0.5,
   },
-  backButton: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(10),
-    backgroundColor: Colors.white,
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: moderateScale(30),
+    borderRadius: moderateScale(18),
+    gap: moderateScale(6),
+  },
+  emptyIconWrap: {
+    width: moderateScale(60),
+    height: moderateScale(60),
+    borderRadius: moderateScale(30),
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(6),
+  },
+  emptyTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(15),
+    color: '#0F172A',
+  },
+  emptySubtitle: {
+    fontFamily: 'Outfit_500Medium',
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: moderateScale(12),
+    lineHeight: moderateScale(18),
+    paddingHorizontal: moderateScale(20),
+  },
+  breakBannerCard: {
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
+    borderRadius: moderateScale(24),
+    paddingVertical: moderateScale(24),
+    paddingHorizontal: moderateScale(16),
+    marginHorizontal: Theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(255, 77, 28, 0.08)',
+  },
+  breakBannerIconContainer: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(12),
+  },
+  breakBannerTitle: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(18),
+    color: '#8C3D2B',
+    textAlign: 'center',
+    marginBottom: moderateScale(6),
+  },
+  breakBannerSubtitle: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: '#8C3D2B',
+    textAlign: 'center',
+    opacity: 0.85,
+    paddingHorizontal: moderateScale(16),
+    marginBottom: moderateScale(14),
+  },
+  breakBannerActionText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#8C3D2B',
+    textDecorationLine: 'underline',
+    letterSpacing: 0.8,
+  },
+  fabButton: {
+    position: 'absolute',
+    right: Theme.spacing.lg,
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
+    backgroundColor: '#FF4D1C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    ...Theme.shadow.floating,
+    shadowColor: '#FF4D1C',
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });
 

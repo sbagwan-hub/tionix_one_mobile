@@ -208,10 +208,11 @@ export async function getLoanHistory(
     params.append('fk_emp_id', String(session.user.fkEmpId));
   }
 
-  const response = await apiRequest<{ success: boolean; data: { data: LoanResponseItem[] } }>(
+  const response = await apiRequest<{ success: boolean; data: { data: LoanResponseItem[]; meta: any } }>(
     `${LOAN_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
+      token: session?.access_token,
     }
   );
 

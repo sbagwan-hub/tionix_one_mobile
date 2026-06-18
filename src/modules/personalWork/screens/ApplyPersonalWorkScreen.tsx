@@ -1109,7 +1109,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalClose: {
-    padding: 4,
+    padding: moderateScale(4),
   },
   // Calendar styles
   calendarContainer: {
@@ -1212,12 +1212,12 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   timeItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    width: 60,
+    paddingVertical: moderateScale(8),
+    paddingHorizontal: moderateScale(16),
+    borderRadius: moderateScale(8),
+    width: moderateScale(60),
     alignItems: 'center',
-    marginVertical: 2,
+    marginVertical: moderateScale(2),
   },
   timeItemSelected: {
     backgroundColor: 'rgba(255, 77, 28, 0.08)',
@@ -1232,13 +1232,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
   },
   ampmColumn: {
-    width: 60,
+    width: moderateScale(60),
     justifyContent: 'center',
     gap: Theme.spacing.sm,
   },
   ampmBtn: {
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: moderateScale(10),
+    borderRadius: moderateScale(8),
     alignItems: 'center',
     backgroundColor: Colors.surfaceMuted,
     borderWidth: 1,

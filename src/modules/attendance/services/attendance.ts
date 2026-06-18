@@ -382,6 +382,7 @@ export type AttendanceHistoryDay = {
   date: string;
   totalWork: string;
   totalBreak: string;
+  workType?: string;
   records: AttendanceRecord[];
 };
 
@@ -408,6 +409,7 @@ export const getAttendanceHistory = async (): Promise<AttendanceHistoryResponse>
     date: day.date,
     totalWork: day.totalWork || '00h 00m',
     totalBreak: day.totalBreak || '00h 00m',
+    workType: day.workType || 'Present',
     records: (day.records || []).map((rec: any) => ({
       EmpCode: rec.empCode,
       EmpName: rec.empName,

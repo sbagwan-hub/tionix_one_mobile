@@ -11,6 +11,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,9 +24,8 @@ import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
-import { applyForLeave, getLeaveBalances } from '../services/leave';
-
-const PRIMARY_GRADIENT = Colors.primaryGradient;
+import { getEmployeeProfile } from '../../profile/services/profile';
+import { applyForLeave, getLeaveBalances, getLeaveTypes, LeaveType } from '../services/leave';
 
 type RangeDateItem = {
   dateStr: string;
@@ -75,26 +77,32 @@ const formatDisplayDate = (value: string) => {
   });
 };
 
-const FormCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <View style={styles.formCard}>
-    <Text style={styles.cardHeading}>{title}</Text>
-    <View style={styles.cardContent}>{children}</View>
-  </View>
-);
+const formatDateInput = (dateStr: string) => {
+  if (!dateStr) return 'mm/dd/yyyy';
+  try {
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (isNaN(d.getTime())) return dateStr;
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  } catch {
+    return dateStr;
+  }
+};
 
-const MOCK_EMPLOYEES = ['SUPERVISOR', 'AVINASH MAGAR', 'JOHN DOE', 'JANE SMITH'];
 const WORKING_TYPES = ['Full Day', 'First Half', 'Second Half', 'Work From Home', 'On Duty'];
 
-const APP_LEAVE_TYPES = [
-  { id: 'annual', label: 'Annual Leave', icon: 'ribbon-outline' },
-  { id: 'holiday', label: 'Paid Holiday', icon: 'calendar-outline' },
-  { id: 'sick', label: 'Sick Leave', icon: 'medkit-outline' },
-  { id: 'paidCasual', label: 'Paid Casual Leave', icon: 'sunny-outline' },
-  { id: 'unpaidCasual', label: 'Unpaid Casual Leave', icon: 'wallet-outline' },
-  { id: 'unpaid', label: 'Unpaid Leave', icon: 'wallet-outline' },
-  { id: 'absent', label: 'Absent', icon: 'close-circle-outline' },
-  { id: 'restDay', label: 'Rest Day', icon: 'bed-outline' },
-  { id: 'maternity', label: 'Maternity Leave', icon: 'heart-outline' },
+const DEFAULT_APP_LEAVE_TYPES: LeaveType[] = [
+  { id: '502', label: 'Annual Leave', icon: 'ribbon-outline' },
+  { id: '504', label: 'Paid Holiday', icon: 'calendar-outline' },
+  { id: '505', label: 'Sick Leave', icon: 'medkit-outline' },
+  { id: '506', label: 'Paid Casual Leave', icon: 'sunny-outline' },
+  { id: '507', label: 'Unpaid Casual Leave', icon: 'wallet-outline' },
+  { id: '508', label: 'Unpaid Leave', icon: 'wallet-outline' },
+  { id: '509', label: 'Absent', icon: 'close-circle-outline' },
+  { id: '510', label: 'Rest Day', icon: 'bed-outline' },
+  { id: '512', label: 'Maternity Leave', icon: 'heart-outline' },
 ];
 
 const ApplyLeaveScreen = ({ navigation }: any) => {
@@ -103,13 +111,18 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   const [requestNo, setRequestNo] = useState('CE/26-27/LR0012');
   const [requestDate, setRequestDate] = useState('05-Jun-2026');
   const [employeeName, setEmployeeName] = useState('SUPERVISOR');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Leave Types Dynamic State
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(DEFAULT_APP_LEAVE_TYPES);
 
   // 2. Form Fields State
   const [startDate, setStartDate] = useState(toDateInput(new Date()));
   const [endDate, setEndDate] = useState(toDateInput(getTomorrowDate()));
   const [hasSelectedDates, setHasSelectedDates] = useState(false);
-  const [leaveTypeId, setLeaveTypeId] = useState(APP_LEAVE_TYPES[0].id);
-  const [workingType, setWorkingType] = useState('Full Day');
+  const [leaveTypeId, setLeaveTypeId] = useState('502');
+  const [startWorkingType, setStartWorkingType] = useState('Full Day');
+  const [endWorkingType, setEndWorkingType] = useState('Full Day');
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
 
@@ -174,9 +187,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       if (new Date(`${endDate}T00:00:00`) < new Date(`${dateStr}T00:00:00`)) {
         setEndDate(dateStr);
       }
-      if (workingType !== 'Full Day') {
-        setEndDate(dateStr);
-      }
     } else {
       if (new Date(`${dateStr}T00:00:00`) < new Date(`${startDate}T00:00:00`)) {
         Toast.show({
@@ -191,7 +201,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       }
     }
     setIsCalendarOpen(false);
-  }, [calendarTarget, startDate, endDate, workingType]);
+  }, [calendarTarget, startDate, endDate]);
 
   const calendarDaysGrid = useMemo(() => {
     const totalDays = getDaysInMonth(currentCalendarYear, currentCalendarMonth);
@@ -254,23 +264,21 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     return grid;
   }, [currentCalendarMonth, currentCalendarYear, getDaysInMonth, getFirstDayOfMonth]);
 
-  // 3. Dropdown Pickers State
+  // Picker States
   const [isLeaveTypePickerOpen, setIsLeaveTypePickerOpen] = useState(false);
-  const [isWorkingTypePickerOpen, setIsWorkingTypePickerOpen] = useState(false);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [rangeItemPickerIndex, setRangeItemPickerIndex] = useState<number | null>(null);
   const [isRangeLeaveTypePickerOpen, setIsRangeLeaveTypePickerOpen] = useState(false);
   const [isRangeWorkingTypePickerOpen, setIsRangeWorkingTypePickerOpen] = useState(false);
 
-  // 4. Draft List & Editing state
+  // Draft List & Editing state
   const [draftList, setDraftList] = useState<DraftItem[]>([]);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
-  // 5. Loading / Action Statuses
+  // Loading / Action Statuses
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 6. ERP Leave Balances
+  // ERP Leave Balances
   const [balances, setBalances] = useState({
     annual: 0.0,
     paidHoliday: 0.0,
@@ -283,17 +291,32 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   useEffect(() => {
     const initData = async () => {
       try {
-        const session = await getAuthSession();
-        if (session?.user?.UserName) {
-          setEmployeeName(session.user.UserName.toUpperCase());
+        const profile = await getEmployeeProfile();
+        if (profile) {
+          setEmployeeName(profile.userName || 'Employee');
+          setProfileImage(profile.profileImageUrl || null);
         }
       } catch (e) {
-        console.warn('Failed to load session details', e);
+        try {
+          const session = await getAuthSession();
+          if (session?.user?.UserName) {
+            setEmployeeName(session.user.UserName);
+            setProfileImage(session.user.ProfileImage || null);
+          }
+        } catch (err) {
+          console.warn('Failed to load session details', err);
+        }
       }
 
       try {
         const fetchedBalances = await getLeaveBalances();
-        const updated = { ...balances };
+        const updated = {
+          annual: 0.0,
+          paidHoliday: 0.0,
+          sick: 0.0,
+          paidCasual: 0.0,
+          unpaidCasual: 0.0,
+        };
         fetchedBalances.forEach(item => {
           const remaining = item.remaining ?? 0;
           const id = item.id.toLowerCase();
@@ -312,6 +335,16 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         setBalances(updated);
       } catch (e) {
         console.warn('Failed to load leave balances', e);
+      }
+
+      try {
+        const fetchedTypes = await getLeaveTypes();
+        if (fetchedTypes && fetchedTypes.length > 0) {
+          setLeaveTypes(fetchedTypes);
+          setLeaveTypeId(fetchedTypes[0].id);
+        }
+      } catch (e) {
+        console.warn('Failed to load leave types', e);
       }
     };
 
@@ -332,8 +365,25 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setRequestNo(`CE/${yy}-${ny}/LR${rand}`);
   }, []);
 
-  // 7. Dynamic range checklist state
+  // Checklist of Days in range
   const [rangeDates, setRangeDates] = useState<RangeDateItem[]>([]);
+
+  // Sync start and end working types for single day leave
+  useEffect(() => {
+    if (startDate === endDate) {
+      if (startWorkingType !== endWorkingType) {
+        setEndWorkingType(startWorkingType);
+      }
+    }
+  }, [startWorkingType, startDate, endDate]);
+
+  useEffect(() => {
+    if (startDate === endDate) {
+      if (endWorkingType !== startWorkingType) {
+        setStartWorkingType(endWorkingType);
+      }
+    }
+  }, [endWorkingType, startDate, endDate]);
 
   // Regenerate range list when startDate or endDate changes
   useEffect(() => {
@@ -351,41 +401,61 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setRangeDates(prev => {
       const items: RangeDateItem[] = [];
       const current = new Date(start);
+      const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      let idx = 0;
       while (current <= end) {
         const dateStr = toDateInput(current);
         const existing = prev.find(item => item.dateStr === dateStr);
         if (existing) {
           items.push(existing);
         } else {
+          let defaultType = 'Full Day';
+          if (idx === 0) {
+            defaultType = startWorkingType;
+          } else if (idx === totalDays - 1) {
+            defaultType = endWorkingType;
+          }
           items.push({
             dateStr,
             isSelected: true,
-            workingType: workingType,
+            workingType: defaultType,
             leaveTypeId: leaveTypeId,
           });
         }
         current.setDate(current.getDate() + 1);
+        idx++;
       }
       return items;
     });
   }, [startDate, endDate]);
 
-  // Sync main working type change to all days in range
+  // Update first and last day working types in the checklist when startWorkingType/endWorkingType changes
   useEffect(() => {
-    setRangeDates(prev => prev.map(item => ({ ...item, workingType })));
-  }, [workingType]);
+    setRangeDates(prev => {
+      if (prev.length === 0) return prev;
+      return prev.map((item, index) => {
+        if (index === 0) {
+          return { ...item, workingType: startWorkingType };
+        }
+        if (index === prev.length - 1) {
+          return { ...item, workingType: endWorkingType };
+        }
+        return item;
+      });
+    });
+  }, [startWorkingType, endWorkingType]);
 
-  // Sync main leave type change to all days in range
+  // Sync leave type change to all days in range
   useEffect(() => {
     setRangeDates(prev => prev.map(item => ({ ...item, leaveTypeId })));
   }, [leaveTypeId]);
 
   const selectedLeaveType = useMemo(
-    () => APP_LEAVE_TYPES.find(type => type.id === leaveTypeId) ?? APP_LEAVE_TYPES[0],
-    [leaveTypeId],
+    () => leaveTypes.find(type => type.id === leaveTypeId) ?? leaveTypes[0],
+    [leaveTypeId, leaveTypes],
   );
 
-  // Active form calculated days (summing up enabled days in the checklist)
+  // Active form days count
   const activeFormDays = useMemo(() => {
     return rangeDates
       .filter(item => item.isSelected)
@@ -396,58 +466,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         return sum + 1.0;
       }, 0);
   }, [rangeDates]);
-
-  // Total applied leave days (Active Form + Drafts)
-  const totalAppliedDays = useMemo(() => {
-    const draftTotal = draftList.reduce((acc, item) => acc + item.days, 0);
-    return draftTotal + activeFormDays;
-  }, [draftList, activeFormDays]);
-
-  // Leave Summary totals
-  const summaryMetrics = useMemo(() => {
-    const totalDrafts = draftList.reduce((acc, item) => acc + item.days, 0);
-    const active = activeFormDays;
-    const totalApplied = totalDrafts + active;
-    const totalAvailable = balances.annual + balances.paidHoliday + balances.sick + balances.paidCasual;
-
-    return {
-      totalApplied,
-      remaining: Math.max(0, totalAvailable - totalApplied),
-      approved: 4.5, // Mock approved leaves this month
-      pending: 2.0, // Mock pending leaves
-    };
-  }, [balances, draftList, activeFormDays]);
-
-  // Dynamic breakdown of applied leaves based on custom categories
-  const appliedBreakdown = useMemo(() => {
-    const breakdown = {
-      annual: 0,
-      holiday: 0,
-      sick: 0,
-      paidCasual: 0,
-      unpaidCasual: 0,
-      unpaid: 0,
-      absent: 0,
-      restDay: 0,
-      maternity: 0,
-    };
-
-    // Aggregate from drafts
-    draftList.forEach(item => {
-      const type = item.leaveTypeId;
-      if (type in breakdown) {
-        breakdown[type as keyof typeof breakdown] += item.days;
-      }
-    });
-
-    // Add current active form entry if valid
-    const activeType = leaveTypeId;
-    if (activeType in breakdown) {
-      breakdown[activeType as keyof typeof breakdown] += activeFormDays;
-    }
-
-    return breakdown;
-  }, [draftList, leaveTypeId, activeFormDays]);
 
   const handleToggleRangeDate = (index: number) => {
     setRangeDates(prev => {
@@ -501,8 +519,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   const resetForm = () => {
     setStartDate(toDateInput(new Date()));
     setEndDate(toDateInput(getTomorrowDate()));
-    setLeaveTypeId(APP_LEAVE_TYPES[0].id);
-    setWorkingType('Full Day');
+    setLeaveTypeId(leaveTypes[0]?.id || '502');
+    setStartWorkingType('Full Day');
+    setEndWorkingType('Full Day');
     setReason('');
     setRemarks('');
     setEditingDraftId(null);
@@ -515,15 +534,11 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
     if (!startDate || !endDate) {
-      setErrorMessage('Please select start and end dates before saving draft.');
+      setErrorMessage('Please select start and end dates before adding range.');
       return;
     }
     if (new Date(`${endDate}T00:00:00`) < new Date(`${startDate}T00:00:00`)) {
       setErrorMessage('End date cannot be before start date.');
-      return;
-    }
-    if (trimmedReason.length < 5) {
-      setErrorMessage('Please enter a reason (at least 5 characters) to save a draft.');
       return;
     }
 
@@ -536,7 +551,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
             employeeName,
             leaveTypeLabel: selectedLeaveType.label,
             leaveTypeId,
-            workingType,
+            workingType: startWorkingType,
             startDate,
             endDate,
             days: activeFormDays,
@@ -549,8 +564,8 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       }));
       Toast.show({
         type: 'success',
-        text1: 'Draft updated',
-        text2: 'The draft item has been updated in the list.',
+        text1: 'Date range updated',
+        text2: 'The selected date range has been updated.',
         position: 'top',
         topOffset: 60,
       });
@@ -562,7 +577,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         employeeName,
         leaveTypeLabel: selectedLeaveType.label,
         leaveTypeId,
-        workingType,
+        workingType: startWorkingType,
         startDate,
         endDate,
         days: activeFormDays,
@@ -573,8 +588,8 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       setDraftList(prev => [...prev, newDraft]);
       Toast.show({
         type: 'success',
-        text1: 'Draft saved',
-        text2: 'The item has been added to the draft list below.',
+        text1: 'Date range added',
+        text2: 'The item has been added as a draft request.',
         position: 'top',
         topOffset: 60,
       });
@@ -587,7 +602,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setEditingDraftId(item.id);
     setEmployeeName(item.employeeName);
     setLeaveTypeId(item.leaveTypeId);
-    setWorkingType(item.workingType);
     setStartDate(item.startDate);
     setEndDate(item.endDate);
     setReason(item.reason);
@@ -595,6 +609,13 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setHasSelectedDates(true);
     if (item.rangeDates) {
       setRangeDates(item.rangeDates);
+      if (item.rangeDates.length > 0) {
+        setStartWorkingType(item.rangeDates[0].workingType);
+        setEndWorkingType(item.rangeDates[item.rangeDates.length - 1].workingType);
+      }
+    } else {
+      setStartWorkingType(item.workingType);
+      setEndWorkingType(item.workingType);
     }
   };
 
@@ -606,7 +627,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     Toast.show({
       type: 'info',
       text1: 'Draft removed',
-      text2: 'The draft item has been removed from the list.',
+      text2: 'The date range draft has been removed.',
       position: 'top',
       topOffset: 60,
     });
@@ -616,7 +637,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
 
-    // Check if we are submitting drafts, or submitting the current form
     const itemsToSubmit: Array<{
       leaveType: string;
       startDate: string;
@@ -625,7 +645,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       isHalfDay: boolean;
     }> = [];
 
-    // If there is active form content, validate and prepare it
+    // Validate active form if filled
     if (trimmedReason || startDate !== toDateInput(new Date())) {
       if (!startDate || !endDate) {
         setErrorMessage('Please select start and end dates.');
@@ -642,7 +662,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
       const checkedDates = rangeDates.filter(d => d.isSelected);
       if (checkedDates.length === 0) {
-        setErrorMessage('No days are selected in the date range checklist.');
+        setErrorMessage('No days are selected in the date checklist.');
         return;
       }
 
@@ -651,7 +671,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         : trimmedReason;
 
       checkedDates.forEach(d => {
-        const typeLabel = APP_LEAVE_TYPES.find(t => t.id === d.leaveTypeId)?.label || selectedLeaveType.label;
+        const typeLabel = leaveTypes.find(t => t.id === d.leaveTypeId)?.label || selectedLeaveType.label;
         itemsToSubmit.push({
           leaveType: typeLabel,
           startDate: d.dateStr,
@@ -662,7 +682,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       });
     }
 
-    // Append all drafts
+    // Add drafts
     draftList.forEach(draft => {
       const finalReason = draft.remarks
         ? `${draft.reason} (Remarks: ${draft.remarks})`
@@ -671,7 +691,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       if (draft.rangeDates && draft.rangeDates.length > 0) {
         const checked = draft.rangeDates.filter(d => d.isSelected);
         checked.forEach(d => {
-          const typeLabel = APP_LEAVE_TYPES.find(t => t.id === d.leaveTypeId)?.label || draft.leaveTypeLabel;
+          const typeLabel = leaveTypes.find(t => t.id === d.leaveTypeId)?.label || draft.leaveTypeLabel;
           itemsToSubmit.push({
             leaveType: typeLabel,
             startDate: d.dateStr,
@@ -692,14 +712,13 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     });
 
     if (itemsToSubmit.length === 0) {
-      setErrorMessage('Please fill in the leave form or add drafts before submitting.');
+      setErrorMessage('Please fill in the leave form and reason before submitting.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Submit each request sequentially
       for (const item of itemsToSubmit) {
         await applyForLeave(item);
       }
@@ -707,7 +726,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       Toast.show({
         type: 'success',
         text1: 'Leave request(s) submitted',
-        text2: `Successfully submitted ${itemsToSubmit.length} leave request(s).`,
+        text2: `Successfully submitted ${itemsToSubmit.length} request(s).`,
         position: 'top',
         topOffset: 60,
       });
@@ -724,476 +743,323 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     }
   };
 
+  const userInitials = useMemo(() => {
+    if (!employeeName) return 'EM';
+    const parts = employeeName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return employeeName.slice(0, 2).toUpperCase();
+  }, [employeeName]);
+
+  const handleAttachmentUpload = () => {
+    Alert.alert('Attachment', 'Attachment upload is optional. Document selected successfully.');
+  };
+
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* 1. Custom Gradient AppBar Header */}
-      <View style={styles.appBarContainer}>
-        <LinearGradient
-          colors={PRIMARY_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
-        >
-          <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
-            <View style={styles.headerRow}>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.goBack()}>
-                <Ionicons name="arrow-back" size={22} color={Colors.white} />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Leave Request</Text>
-              <View style={styles.headerRightGroup}>
-                <TouchableOpacity style={styles.headerIconBtn} onPress={handleSaveDraft}>
-                  <Ionicons name="save-outline" size={22} color={Colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.headerIconBtn} onPress={() => setIsMoreMenuOpen(true)}>
-                  <Ionicons name="ellipsis-vertical" size={22} color={Colors.white} />
-                </TouchableOpacity>
+      {/* Header matching Mockup */}
+      <SafeAreaView edges={['top']} style={styles.header}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={moderateScale(24)} color="#8C3D2B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Apply for Leave</Text>
+          <View style={styles.avatarContainer}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitials}>{userInitials}</Text>
               </View>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-      </View>
-
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: moderateScale(180) + insets.bottom }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* 2. Leave Balance Cards (Grid styled like Monthly Summary) */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.cardHeading}>Leave Balances</Text>
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Annual Leave</Text>
-                <Text style={[styles.metricValue, { color: '#E97132' }]}>
-                  {balances.annual.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Paid Holiday</Text>
-                <Text style={[styles.metricValue, { color: '#3B82F6' }]}>
-                  {balances.paidHoliday.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Sick Leave</Text>
-                <Text style={[styles.metricValue, { color: '#EF4444' }]}>
-                  {balances.sick.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Paid Casual</Text>
-                <Text style={[styles.metricValue, { color: '#22C55E' }]}>
-                  {balances.paidCasual.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Unpaid Leave</Text>
-                <Text style={[styles.metricValue, { color: '#6B7280' }]}>
-                  {balances.unpaidCasual.toFixed(1)} D
-                </Text>
-              </View>
-            </View>
+            )}
           </View>
+        </View>
+      </SafeAreaView>
 
-          {/* 3. Leave Summary Metrics Card */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.cardHeading}>Monthly Summary</Text>
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Total Applied</Text>
-                <Text style={[styles.metricValue, { color: Colors.primary }]}>
-                  {summaryMetrics.totalApplied.toFixed(1)} D
+      <LinearGradient
+        colors={['#FFF5F2', '#F8FAFC']}
+        style={styles.gradientBg}
+      >
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.content, { paddingBottom: moderateScale(40) + insets.bottom }]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Leave Balances Horizontal Preview Cards */}
+            <View style={styles.balancesPreviewRow}>
+              {/* Annual Card */}
+              <View style={styles.miniBalanceCard}>
+                <Text style={styles.miniCardLabel}>ANNUAL</Text>
+                <Text style={styles.miniCardValueAnnual}>
+                  {String(Math.round(balances.annual)).padStart(2, '0')}
+                  <Text style={styles.miniCardDaysLabel}> DAYS</Text>
                 </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Remaining</Text>
-                <Text style={[styles.metricValue, { color: Colors.success }]}>
-                  {summaryMetrics.remaining.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Approved</Text>
-                <Text style={[styles.metricValue, { color: '#3B82F6' }]}>
-                  {summaryMetrics.approved.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Pending</Text>
-                <Text style={[styles.metricValue, { color: Colors.warning }]}>
-                  {summaryMetrics.pending.toFixed(1)} D
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Applied Leave Breakdown Card (Desktop ERP Redesign Style) */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.cardHeading}>Applied Leave Breakdown</Text>
-            <View style={styles.breakdownList}>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Absent Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.absent > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.absent.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Rest Day Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.restDay > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.restDay.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Unpaid Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.unpaid > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.unpaid.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Paid Holiday Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.holiday > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.holiday.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Sick Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.sick > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.sick.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Annual Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.annual > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.annual.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Paid Casual Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.paidCasual > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.paidCasual.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Unpaid Casual Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.unpaidCasual > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.unpaidCasual.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Maternity Leave Applied</Text>
-                <Text style={[styles.breakdownValue, appliedBreakdown.maternity > 0 && styles.breakdownValueActive]}>
-                  {appliedBreakdown.maternity.toFixed(1)} D
-                </Text>
-              </View>
-              <View style={styles.breakdownTotalRow}>
-                <Text style={styles.breakdownTotalLabel}>Total Leave Applied</Text>
-                <Text style={styles.breakdownTotalValue}>
-                  {totalAppliedDays.toFixed(1)} D
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 4. Form Section: Request Details */}
-          <FormCard title="Request Info">
-            <View style={styles.row}>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Request Number</Text>
-                <View style={styles.disabledInputRow}>
-                  <Text style={styles.disabledInputText}>{requestNo}</Text>
+                <View style={styles.miniCardProgressBg}>
+                  <View style={[styles.miniCardProgressFill, { backgroundColor: '#FF4D1C', width: '56%' }]} />
                 </View>
+                <Ionicons name="airplane-outline" size={moderateScale(40)} color="rgba(255, 77, 28, 0.04)" style={styles.miniCardWatermark} />
               </View>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Request Date</Text>
-                <View style={styles.disabledInputRow}>
-                  <Text style={styles.disabledInputText}>{requestDate}</Text>
+
+              {/* Sick Card */}
+              <View style={styles.miniBalanceCard}>
+                <Text style={styles.miniCardLabel}>SICK</Text>
+                <Text style={styles.miniCardValueSick}>
+                  {String(Math.round(balances.sick)).padStart(2, '0')}
+                  <Text style={styles.miniCardDaysLabel}> DAYS</Text>
+                </Text>
+                <View style={styles.miniCardProgressBg}>
+                  <View style={[styles.miniCardProgressFill, { backgroundColor: '#3B82F6', width: '60%' }]} />
                 </View>
+                <Ionicons name="briefcase-outline" size={moderateScale(40)} color="rgba(59, 130, 246, 0.04)" style={styles.miniCardWatermark} />
               </View>
             </View>
 
-            <Text style={[styles.inputLabel, { marginTop: Theme.spacing.md }]}>Employee Name</Text>
-            <View style={styles.disabledInputRow}>
-              <Text style={styles.disabledInputText}>{employeeName}</Text>
-            </View>
-          </FormCard>
-
-          {/* 5. Form Section: Date & Types */}
-          <FormCard title="Leave & Duration">
-            <View style={styles.row}>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Leave Type</Text>
+            {/* Main Form Card Wrapper */}
+            <View style={styles.mainFormCard}>
+              {/* 1. Select Leave Type */}
+              <View style={styles.fieldSection}>
+                <View style={styles.fieldLabelRow}>
+                  <Text style={styles.fieldLabel}>SELECT LEAVE TYPE</Text>
+                  <TouchableOpacity style={styles.calendarEditBtn} activeOpacity={0.7} onPress={() => setIsLeaveTypePickerOpen(true)}>
+                    <Ionicons name="calendar-outline" size={moderateScale(16)} color="#FF4D1C" />
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
-                  style={styles.dropdownTrigger}
+                  style={styles.dropdownSelector}
                   onPress={() => setIsLeaveTypePickerOpen(true)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.dropdownValueText}>{selectedLeaveType.label}</Text>
-                  <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
+                  <View style={styles.dropdownLeft}>
+                    <Ionicons name="shapes-outline" size={moderateScale(18)} color="#64748B" style={{ marginRight: 8 }} />
+                    <Text style={styles.dropdownText}>{selectedLeaveType.label}</Text>
+                  </View>
+                  <Ionicons name="swap-vertical-outline" size={moderateScale(16)} color="#64748B" />
                 </TouchableOpacity>
               </View>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Working Type</Text>
-                <TouchableOpacity
-                  style={styles.dropdownTrigger}
-                  onPress={() => setIsWorkingTypePickerOpen(true)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.dropdownValueText}>{workingType}</Text>
-                  <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            </View>
 
-            <View style={[styles.row, { marginTop: Theme.spacing.md }]}>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>From Date</Text>
-                <TouchableOpacity
-                  style={styles.inputIconRow}
-                  onPress={() => handleOpenCalendar('start')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-                  <Text style={styles.dateValueText}>{formatDisplayDate(startDate)}</Text>
-                </TouchableOpacity>
-                <Text style={styles.hintText}>Tap to change</Text>
-              </View>
-
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>To Date</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.inputIconRow,
-                    workingType !== 'Full Day' && { backgroundColor: Colors.surfaceMuted }
-                  ]}
-                  onPress={() => workingType === 'Full Day' && handleOpenCalendar('end')}
-                  activeOpacity={workingType === 'Full Day' ? 0.8 : 1}
-                  disabled={workingType !== 'Full Day'}
-                >
-                  <Ionicons
-                    name="calendar-outline"
-                    size={18}
-                    color={workingType === 'Full Day' ? Colors.primary : Colors.textMuted}
-                  />
-                  <Text
-                    style={[
-                      styles.dateValueText,
-                      workingType !== 'Full Day' && { color: Colors.textMuted }
-                    ]}
-                  >
-                    {workingType === 'Full Day' ? formatDisplayDate(endDate) : 'Disabled'}
-                  </Text>
-                </TouchableOpacity>
-                <Text style={styles.hintText}>
-                  {workingType === 'Full Day' ? 'Tap to change' : 'Disabled for Half Day'}
-                </Text>
-              </View>
-            </View>
-          </FormCard>
-
-          {/* Dynamic Checklist of Days in Range */}
-          {hasSelectedDates && rangeDates.length > 0 && (
-            <FormCard title="Days in Selected Range">
-              <Text style={styles.rangeHeadingHint}>
-                Select days to include. Tap pills to cycle Working Type and Leave Type for individual days.
-              </Text>
-              <View style={styles.rangeDatesList}>
-                {rangeDates.map((item, index) => {
-                  const isChecked = item.isSelected;
-                  const leaveTypeLabel = APP_LEAVE_TYPES.find(t => t.id === item.leaveTypeId)?.label || 'Leave';
-
-                  return (
-                    <View
-                      key={item.dateStr}
-                      style={[
-                        styles.rangeItemRow,
-                        !isChecked && styles.rangeItemDisabled
-                      ]}
+              {/* 2. Dates Selection Box (Shaded Box) */}
+              <View style={styles.datesSelectionBox}>
+                <View style={styles.datesGridRow}>
+                  {/* From Column */}
+                  <View style={styles.dateCol}>
+                    <Text style={styles.dateColLabel}>FROM</Text>
+                    <TouchableOpacity
+                      style={styles.dateInputButton}
+                      onPress={() => handleOpenCalendar('start')}
+                      activeOpacity={0.8}
                     >
-                      <TouchableOpacity
-                        style={styles.checkboxWrapper}
-                        onPress={() => handleToggleRangeDate(index)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                          {isChecked && <Ionicons name="checkmark" size={12} color={Colors.white} />}
-                        </View>
-                        <View style={styles.rangeDateTextGroup}>
-                          <Text style={styles.rangeDayText}>
-                            {new Date(`${item.dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' })}
-                          </Text>
-                          <Text style={styles.rangeDateText}>
-                            {new Date(`${item.dateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-
-                      {isChecked && (
-                        <View style={styles.rangeActions}>
-                          {/* Working Type Dropdown Pill */}
-                          <TouchableOpacity
-                            style={styles.pillTrigger}
-                            onPress={() => handleOpenRangeWorkingTypePicker(index)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.pillTriggerText}>{item.workingType}</Text>
-                            <Ionicons name="chevron-down-outline" size={10} color={Colors.textSecondary} />
-                          </TouchableOpacity>
-
-                          {/* Leave Type Dropdown Pill */}
-                          <TouchableOpacity
-                            style={styles.pillTrigger}
-                            onPress={() => handleOpenRangeLeaveTypePicker(index)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.pillTriggerText} numberOfLines={1}>
-                              {leaveTypeLabel.replace(' Leave', '')}
-                            </Text>
-                            <Ionicons name="chevron-down-outline" size={10} color={Colors.textSecondary} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            </FormCard>
-          )}
-
-          {/* 6. Form Section: Reasons & Remarks */}
-          <FormCard title="Justification">
-            <Text style={styles.inputLabel}>Reason *</Text>
-            <View style={styles.textAreaBox}>
-              <TextInput
-                value={reason}
-                onChangeText={setReason}
-                placeholder="Why do you need leave?..."
-                placeholderTextColor={Colors.textMuted}
-                style={styles.textArea}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-                maxLength={300}
-              />
-            </View>
-            <Text style={[styles.charCounter, { marginBottom: Theme.spacing.md }]}>
-              {reason.trim().length}/300 characters
-            </Text>
-
-            <Text style={styles.inputLabel}>Remarks</Text>
-            <View style={styles.textAreaBox}>
-              <TextInput
-                value={remarks}
-                onChangeText={setRemarks}
-                placeholder="Additional notes for managers..."
-                placeholderTextColor={Colors.textMuted}
-                style={styles.textArea}
-                multiline
-                numberOfLines={2}
-                textAlignVertical="top"
-                maxLength={200}
-              />
-            </View>
-            <Text style={styles.charCounter}>
-              {remarks.trim().length}/200 characters
-            </Text>
-          </FormCard>
-
-          {/* 7. Draft / Applied Leaves List */}
-          {draftList.length > 0 && (
-            <View style={styles.draftSection}>
-              <Text style={styles.sectionHeading}>Draft Items ({draftList.length})</Text>
-              {draftList.map(item => (
-                <View key={item.id} style={styles.draftCard}>
-                  <View style={styles.draftHeader}>
-                    <View style={styles.draftTypeBadge}>
-                      <Text style={styles.draftTypeBadgeText}>{item.leaveTypeLabel}</Text>
-                    </View>
-                    <Text style={styles.draftDaysText}>{item.days} Day{item.days === 1 ? '' : 's'}</Text>
-                  </View>
-
-                  <View style={styles.draftMetaRow}>
-                    <Text style={styles.draftMetaLabel}>Period:</Text>
-                    <Text style={styles.draftMetaValue}>
-                      {formatDisplayDate(item.startDate)}
-                      {item.startDate !== item.endDate ? ` → ${formatDisplayDate(item.endDate)}` : ''}
-                    </Text>
-                  </View>
-
-                  <View style={styles.draftMetaRow}>
-                    <Text style={styles.draftMetaLabel}>Working Type:</Text>
-                    <Text style={styles.draftMetaValue}>{item.workingType}</Text>
-                  </View>
-
-                  <View style={styles.draftMetaRow}>
-                    <Text style={styles.draftMetaLabel}>Reason:</Text>
-                    <Text style={styles.draftMetaValue} numberOfLines={1}>{item.reason}</Text>
-                  </View>
-
-                  <View style={styles.draftActionsRow}>
-                    <TouchableOpacity style={styles.draftEditBtn} onPress={() => handleEditDraft(item)}>
-                      <Ionicons name="pencil-outline" size={16} color={Colors.accent} />
-                      <Text style={styles.draftEditBtnText}>Edit</Text>
+                      <Ionicons name="calendar-outline" size={moderateScale(18)} color="#64748B" style={{ marginRight: 6 }} />
+                      <Text style={styles.dateInputText}>{hasSelectedDates ? formatDateInput(startDate) : 'mm/dd/yyyy'}</Text>
+                      <Ionicons name="calendar-outline" size={moderateScale(14)} color="#E2E8F0" style={{ marginLeft: 'auto' }} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.draftDeleteBtn} onPress={() => handleDeleteDraft(item.id)}>
-                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                      <Text style={styles.draftDeleteBtnText}>Delete</Text>
+
+                    {/* Inline Working Type Selector pills */}
+                    {hasSelectedDates && (
+                      <View style={styles.pillsRow}>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, startWorkingType === 'Full Day' && styles.pillBtnActive]}
+                          onPress={() => setStartWorkingType('Full Day')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, startWorkingType === 'Full Day' && styles.pillBtnTextActive]}>FULL</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, startWorkingType === 'First Half' && styles.pillBtnActive]}
+                          onPress={() => setStartWorkingType('First Half')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, startWorkingType === 'First Half' && styles.pillBtnTextActive]}>1ST HALF</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, startWorkingType === 'Second Half' && styles.pillBtnActive]}
+                          onPress={() => setStartWorkingType('Second Half')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, startWorkingType === 'Second Half' && styles.pillBtnTextActive]}>2ND HALF</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* To Column */}
+                  <View style={styles.dateCol}>
+                    <Text style={styles.dateColLabel}>TO</Text>
+                    <TouchableOpacity
+                      style={styles.dateInputButton}
+                      onPress={() => handleOpenCalendar('end')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="calendar-outline" size={moderateScale(18)} color="#64748B" style={{ marginRight: 6 }} />
+                      <Text style={styles.dateInputText}>{hasSelectedDates ? formatDateInput(endDate) : 'mm/dd/yyyy'}</Text>
+                      <Ionicons name="calendar-outline" size={moderateScale(14)} color="#E2E8F0" style={{ marginLeft: 'auto' }} />
                     </TouchableOpacity>
+
+                    {/* Inline Working Type Selector pills */}
+                    {hasSelectedDates && (
+                      <View style={styles.pillsRow}>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, endWorkingType === 'Full Day' && styles.pillBtnActive]}
+                          onPress={() => setEndWorkingType('Full Day')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, endWorkingType === 'Full Day' && styles.pillBtnTextActive]}>FULL</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, endWorkingType === 'First Half' && styles.pillBtnActive]}
+                          onPress={() => setEndWorkingType('First Half')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, endWorkingType === 'First Half' && styles.pillBtnTextActive]}>1ST HALF</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.pillBtn, endWorkingType === 'Second Half' && styles.pillBtnActive]}
+                          onPress={() => setEndWorkingType('Second Half')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pillBtnText, endWorkingType === 'Second Half' && styles.pillBtnTextActive]}>2ND HALF</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
+              </View>
 
-          {errorMessage && (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
-
-          {/* Dynamic bottom spacing is now handled via ScrollView paddingBottom */}
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* 8. Sticky Footer Action Row */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Theme.spacing.sm) }]}>
-        <View style={styles.footerActionsContainer}>
-          <View style={styles.footerSecondaryRow}>
-            <TouchableOpacity style={styles.resetBtn} onPress={resetForm}>
-              <Text style={styles.resetBtnText}>Reset Form</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.draftBtn} onPress={handleSaveDraft}>
-              <Text style={styles.draftBtnText}>{editingDraftId ? 'Update Draft' : 'Add to Draft'}</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.submitBtnWrapper} onPress={handleSubmit} disabled={isSubmitting}>
-            <LinearGradient
-              colors={PRIMARY_GRADIENT}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitBtnGradient}
-            >
-              <Text style={styles.submitBtnText}>Submit Request</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Modals for selectors */}
-      {/* A. Leave Type Selector Modal */}
-      <Modal visible={isLeaveTypePickerOpen} transparent animationType="fade" onRequestClose={() => setIsLeaveTypePickerOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setIsLeaveTypePickerOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Leave Type</Text>
-              <TouchableOpacity onPress={() => setIsLeaveTypePickerOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
+              {/* 3. Add Another Date Range Button */}
+              <TouchableOpacity style={styles.addRangeButton} onPress={handleSaveDraft} activeOpacity={0.8}>
+                <Ionicons name="add-circle-outline" size={moderateScale(18)} color="#FF4D1C" style={{ marginRight: 6 }} />
+                <Text style={styles.addRangeButtonText}>Add another date range</Text>
               </TouchableOpacity>
+
+              {/* Checklist of selected range days */}
+              {hasSelectedDates && rangeDates.length > 1 && (
+                <View style={styles.checklistSection}>
+                  <Text style={styles.checklistTitle}>Date Checklist ({activeFormDays} Days)</Text>
+                  {rangeDates.map((item, idx) => (
+                    <View key={item.dateStr} style={styles.checkItemRow}>
+                      <TouchableOpacity style={styles.checkLeft} onPress={() => handleToggleRangeDate(idx)} activeOpacity={0.7}>
+                        <View style={[styles.checkbox, item.isSelected && styles.checkboxActive]}>
+                          {item.isSelected && <Ionicons name="checkmark" size={10} color="#FFFFFF" />}
+                        </View>
+                        <Text style={styles.checkDateText}>
+                          {new Date(`${item.dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </Text>
+                      </TouchableOpacity>
+                      {item.isSelected && (
+                        <TouchableOpacity style={styles.checkPillTrigger} onPress={() => handleOpenRangeWorkingTypePicker(idx)}>
+                          <Text style={styles.checkPillText}>{item.workingType}</Text>
+                          <Ionicons name="chevron-down" size={8} color="#64748B" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* 4. Reason Input */}
+              <View style={styles.fieldSection}>
+                <Text style={styles.fieldLabel}>REASON FOR LEAVE</Text>
+                <View style={styles.textInputBox}>
+                  <Ionicons name="menu-outline" size={moderateScale(18)} color="#64748B" style={{ marginRight: 8, marginTop: Platform.OS === 'ios' ? 2 : 0 }} />
+                  <TextInput
+                    value={reason}
+                    onChangeText={setReason}
+                    placeholder="Briefly describe the purpose..."
+                    placeholderTextColor="#94A3B8"
+                    style={styles.textInput}
+                    multiline={true}
+                    numberOfLines={2}
+                  />
+                </View>
+              </View>
+
+              {/* 5. Attachment Upload */}
+              <View style={styles.fieldSection}>
+                <Text style={styles.fieldLabel}>ATTACHMENT (OPTIONAL)</Text>
+                <TouchableOpacity style={styles.uploadBox} onPress={handleAttachmentUpload} activeOpacity={0.8}>
+                  <View style={styles.uploadIconBadge}>
+                    <Ionicons name="document-attach-outline" size={moderateScale(24)} color="#FF4D1C" />
+                  </View>
+                  <Text style={styles.uploadBoxTitle}>Tap to upload documents</Text>
+                  <Text style={styles.uploadBoxSubtext}>PDF, JPG up to 5MB</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Error Message Box */}
+              {errorMessage && (
+                <View style={styles.formErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                  <Text style={styles.formErrorText}>{errorMessage}</Text>
+                </View>
+              )}
+
+              {/* 6. Submit Button */}
+              <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isSubmitting} activeOpacity={0.85}>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <View style={styles.submitBtnContent}>
+                    <Text style={styles.submitBtnText}>Submit Application</Text>
+                    <Ionicons name="paper-plane-outline" size={moderateScale(16)} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.submitSubtext}>Approval usually takes 1-2 business days.</Text>
             </View>
+
+            {/* Draft Ranges List */}
+            {draftList.length > 0 && (
+              <View style={styles.draftSection}>
+                <Text style={styles.draftSectionTitle}>Applied Ranges ({draftList.length})</Text>
+                {draftList.map(item => (
+                  <View key={item.id} style={styles.draftItemCard}>
+                    <View style={styles.draftItemHeader}>
+                      <Text style={styles.draftItemType}>{item.leaveTypeLabel}</Text>
+                      <Text style={styles.draftItemDays}>{item.days} Day{item.days === 1 ? '' : 's'}</Text>
+                    </View>
+                    <Text style={styles.draftItemPeriod}>
+                      Period: {formatDateInput(item.startDate)} → {formatDateInput(item.endDate)}
+                    </Text>
+                    <View style={styles.draftItemFooter}>
+                      <TouchableOpacity style={styles.draftActionLink} onPress={() => handleEditDraft(item)}>
+                        <Ionicons name="pencil-outline" size={12} color="#3B82F6" style={{ marginRight: 4 }} />
+                        <Text style={[styles.draftActionLinkText, { color: '#3B82F6' }]}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.draftActionLink} onPress={() => handleDeleteDraft(item.id)}>
+                        <Ionicons name="trash-outline" size={12} color="#EF4444" style={{ marginRight: 4 }} />
+                        <Text style={[styles.draftActionLinkText, { color: '#EF4444' }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Bottom Info Box */}
+            <View style={styles.bottomInfoContainer}>
+              <View style={styles.bottomInfoIconFrame}>
+                <Ionicons name="information-circle-outline" size={moderateScale(20)} color="#FF4D1C" />
+              </View>
+              <Text style={styles.bottomInfoText}>
+                Your request will be sent to <Text style={{ fontWeight: '700' }}>Alex Rivers</Text> for approval. You'll receive a notification once the status is updated.
+              </Text>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+
+      {/* Selectors Modals */}
+      {/* A. Leave Type Modal */}
+      <Modal visible={isLeaveTypePickerOpen} transparent={true} animationType="fade" onRequestClose={() => setIsLeaveTypePickerOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setIsLeaveTypePickerOpen(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Leave Type</Text>
             <ScrollView>
-              {APP_LEAVE_TYPES.map(type => (
+              {leaveTypes.map(type => (
                 <TouchableOpacity
                   key={type.id}
                   style={styles.modalItem}
@@ -1202,59 +1068,20 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                     setIsLeaveTypePickerOpen(false);
                   }}
                 >
-                  <Text style={[styles.modalItemText, leaveTypeId === type.id && styles.modalItemTextActive]}>
-                    {type.label}
-                  </Text>
-                  {leaveTypeId === type.id && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  <Text style={[styles.modalItemText, leaveTypeId === type.id && styles.modalItemTextActive]}>{type.label}</Text>
+                  {leaveTypeId === type.id && <Ionicons name="checkmark" size={18} color="#FF4D1C" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
-      {/* C. Working Type Selector Modal */}
-      <Modal visible={isWorkingTypePickerOpen} transparent animationType="fade" onRequestClose={() => setIsWorkingTypePickerOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setIsWorkingTypePickerOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Working Type</Text>
-              <TouchableOpacity onPress={() => setIsWorkingTypePickerOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {WORKING_TYPES.map(wt => (
-                <TouchableOpacity
-                  key={wt}
-                  style={styles.modalItem}
-                  onPress={() => {
-                    setWorkingType(wt);
-                    if (wt !== 'Full Day') {
-                      setEndDate(startDate); // For half-day, From and To are identical
-                    }
-                    setIsWorkingTypePickerOpen(false);
-                  }}
-                >
-                  <Text style={[styles.modalItemText, workingType === wt && styles.modalItemTextActive]}>{wt}</Text>
-                  {workingType === wt && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* C2. Range Item Working Type Selector Modal */}
-      <Modal visible={isRangeWorkingTypePickerOpen} transparent animationType="fade" onRequestClose={() => setIsRangeWorkingTypePickerOpen(false)}>
+      {/* B. Range Item Working Type Modal */}
+      <Modal visible={isRangeWorkingTypePickerOpen} transparent={true} animationType="fade" onRequestClose={() => setIsRangeWorkingTypePickerOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setIsRangeWorkingTypePickerOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Working Type</Text>
-              <TouchableOpacity onPress={() => setIsRangeWorkingTypePickerOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Working Type</Text>
             <ScrollView>
               {rangeItemPickerIndex !== null && ['Full Day', 'First Half', 'Second Half'].map(wt => (
                 <TouchableOpacity
@@ -1262,124 +1089,58 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                   style={styles.modalItem}
                   onPress={() => handleSelectRangeWorkingType(wt)}
                 >
-                  <Text style={[styles.modalItemText, rangeDates[rangeItemPickerIndex]?.workingType === wt && styles.modalItemTextActive]}>
-                    {wt}
-                  </Text>
-                  {rangeDates[rangeItemPickerIndex]?.workingType === wt && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  <Text style={[styles.modalItemText, rangeDates[rangeItemPickerIndex]?.workingType === wt && styles.modalItemTextActive]}>{wt}</Text>
+                  {rangeDates[rangeItemPickerIndex]?.workingType === wt && <Ionicons name="checkmark" size={18} color="#FF4D1C" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
-      {/* C3. Range Item Leave Type Selector Modal */}
-      <Modal visible={isRangeLeaveTypePickerOpen} transparent animationType="fade" onRequestClose={() => setIsRangeLeaveTypePickerOpen(false)}>
+      {/* C. Range Item Leave Type Modal */}
+      <Modal visible={isRangeLeaveTypePickerOpen} transparent={true} animationType="fade" onRequestClose={() => setIsRangeLeaveTypePickerOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setIsRangeLeaveTypePickerOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Leave Type</Text>
-              <TouchableOpacity onPress={() => setIsRangeLeaveTypePickerOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Leave Type</Text>
             <ScrollView>
-              {rangeItemPickerIndex !== null && APP_LEAVE_TYPES.map(type => (
+              {rangeItemPickerIndex !== null && leaveTypes.map(type => (
                 <TouchableOpacity
                   key={type.id}
                   style={styles.modalItem}
                   onPress={() => handleSelectRangeLeaveType(type.id)}
                 >
-                  <Text style={[styles.modalItemText, rangeDates[rangeItemPickerIndex]?.leaveTypeId === type.id && styles.modalItemTextActive]}>
-                    {type.label}
-                  </Text>
-                  {rangeDates[rangeItemPickerIndex]?.leaveTypeId === type.id && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  <Text style={[styles.modalItemText, rangeDates[rangeItemPickerIndex]?.leaveTypeId === type.id && styles.modalItemTextActive]}>{type.label}</Text>
+                  {rangeDates[rangeItemPickerIndex]?.leaveTypeId === type.id && <Ionicons name="checkmark" size={18} color="#FF4D1C" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
-      {/* D. More Menu Actions Modal */}
-      <Modal visible={isMoreMenuOpen} transparent animationType="fade" onRequestClose={() => setIsMoreMenuOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setIsMoreMenuOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Options</Text>
-              <TouchableOpacity onPress={() => setIsMoreMenuOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                resetForm();
-                setIsMoreMenuOpen(false);
-              }}
-            >
-              <Ionicons name="refresh-outline" size={18} color={Colors.textSecondary} />
-              <Text style={[styles.modalItemText, { marginLeft: 10 }]}>Reset Form</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setDraftList([]);
-                setIsMoreMenuOpen(false);
-                Toast.show({
-                  type: 'info',
-                  text1: 'Drafts cleared',
-                  text2: 'All saved drafts have been deleted.',
-                });
-              }}
-            >
-              <Ionicons name="trash-outline" size={18} color={Colors.error} />
-              <Text style={[styles.modalItemText, { marginLeft: 10, color: Colors.error }]}>Clear All Drafts</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Calendar Date Picker Modal */}
-      <Modal
-        visible={isCalendarOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsCalendarOpen(false)}
-      >
+      {/* Custom Calendar Picker Modal */}
+      <Modal visible={isCalendarOpen} transparent={true} animationType="fade" onRequestClose={() => setIsCalendarOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setIsCalendarOpen(false)}>
-          <Pressable style={[styles.modalSheet, { maxHeight: '80%' }]} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Select {calendarTarget === 'start' ? 'Start' : 'End'} Date
-              </Text>
-              <TouchableOpacity onPress={() => setIsCalendarOpen(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={20} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <Text style={styles.modalTitle}>Select {calendarTarget === 'start' ? 'Start' : 'End'} Date</Text>
             <View style={styles.calendarContainer}>
-              {/* Month Selector Row */}
               <View style={styles.calendarHeaderRow}>
                 <TouchableOpacity onPress={handlePrevMonth} style={styles.monthNavBtn}>
-                  <Ionicons name="chevron-back" size={20} color={Colors.text} />
+                  <Ionicons name="chevron-back" size={20} color="#0F172A" />
                 </TouchableOpacity>
                 <Text style={styles.calendarMonthYearText}>
                   {CALENDAR_MONTHS[currentCalendarMonth]} {currentCalendarYear}
                 </Text>
                 <TouchableOpacity onPress={handleNextMonth} style={styles.monthNavBtn}>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.text} />
+                  <Ionicons name="chevron-forward" size={20} color="#0F172A" />
                 </TouchableOpacity>
               </View>
-
-              {/* Weekday Headers */}
               <View style={styles.weekdaysRow}>
                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(dayName => (
                   <Text key={dayName} style={styles.weekdayText}>{dayName}</Text>
                 ))}
               </View>
-
-              {/* Days Grid */}
               <View style={styles.daysGrid}>
                 {calendarDaysGrid.map((dayObj, gridIdx) => {
                   const isSelected = dayObj.dateString === (calendarTarget === 'start' ? startDate : endDate);
@@ -1398,12 +1159,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                       disabled={!dayObj.dateString}
                     >
                       {isSelected ? (
-                        <LinearGradient
-                          colors={Colors.primaryGradient}
-                          style={styles.daySelectedGradient}
-                        >
+                        <View style={styles.daySelectedDot}>
                           <Text style={styles.dayCellTextSelected}>{dayObj.day}</Text>
-                        </LinearGradient>
+                        </View>
                       ) : (
                         <Text style={[
                           styles.dayCellText,
@@ -1418,7 +1176,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                 })}
               </View>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -1428,617 +1186,630 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.surface, // Clean white card surface structure
+    backgroundColor: '#FFFFFF',
+  },
+  gradientBg: {
+    flex: 1,
   },
   flex: {
     flex: 1,
   },
-  appBarContainer: {
-    overflow: 'hidden',
-    ...Theme.shadow.md,
-  },
-  headerGradient: {
-    paddingBottom: Theme.spacing.md,
-  },
-  headerSafeArea: {
-    backgroundColor: 'transparent',
+  header: {
+    paddingHorizontal: Theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    zIndex: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    height: 56,
+    paddingVertical: moderateScale(10),
   },
-  headerTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(19),
-    color: Colors.white,
-    fontWeight: '800',
-    flex: 1,
-    textAlign: 'center',
-    marginLeft: Theme.spacing.md,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  backButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  headerRightGroup: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  content: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingTop: Theme.spacing.md,
-    gap: Theme.spacing.md,
-  },
-  balancesSection: {
-    gap: Theme.spacing.sm,
-  },
-  sectionHeading: {
-    ...Typography.label,
-    fontSize: moderateScale(13),
-    color: Colors.textSecondary,
-    marginLeft: 4,
-  },
-
-  summaryCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.md,
-    borderWidth: 0,
-    ...Theme.shadow.card,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: Theme.spacing.sm,
-  },
-  metricBox: {
+  headerTitle: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(20),
+    color: '#8C3D2B',
     flex: 1,
-    minWidth: '45%',
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.md,
-    padding: Theme.spacing.sm,
-    borderWidth: 0,
-    gap: 2,
+    marginLeft: moderateScale(8),
   },
-  metricLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    fontSize: moderateScale(11),
+  avatarContainer: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    overflow: 'hidden',
   },
-  metricValue: {
-    ...Typography.subheading,
-    fontWeight: '800',
-    fontSize: moderateScale(16),
+  avatar: {
+    width: '100%',
+    height: '100%',
   },
-  formCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.md,
-    borderWidth: 0,
-    ...Theme.shadow.card,
-  },
-  cardHeading: {
-    ...Typography.subheading,
-    fontSize: moderateScale(15),
-    fontWeight: '800',
-    color: Colors.text,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    paddingBottom: Theme.spacing.sm,
-    marginBottom: Theme.spacing.md,
-  },
-  cardContent: {
-    gap: Theme.spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: Theme.spacing.md,
-  },
-  halfCol: {
-    flex: 1,
-  },
-  inputLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  disabledInputRow: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: Theme.spacing.md,
-    height: moderateScale(48),
+  avatarPlaceholder: {
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  disabledInputText: {
-    ...Typography.body,
-    color: Colors.textMuted,
-    fontWeight: '700',
+  avatarInitials: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: Colors.primary,
   },
-  dropdownTrigger: {
+  content: {
+    paddingHorizontal: Theme.spacing.lg,
+    paddingTop: Theme.spacing.md,
+    gap: moderateScale(20),
+  },
+  balancesPreviewRow: {
+    flexDirection: 'row',
+    gap: moderateScale(12),
+  },
+  miniBalanceCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(18),
+    padding: moderateScale(14),
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  miniCardLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: moderateScale(2),
+  },
+  miniCardValueAnnual: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(26),
+    color: '#FF4D1C',
+  },
+  miniCardValueSick: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(26),
+    color: '#0066FF',
+  },
+  miniCardDaysLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: '#94A3B8',
+  },
+  miniCardProgressBg: {
+    height: moderateScale(3),
+    borderRadius: moderateScale(2),
+    backgroundColor: '#F1F5F9',
+    width: '100%',
+    marginTop: moderateScale(8),
+    overflow: 'hidden',
+  },
+  miniCardProgressFill: {
+    height: '100%',
+    borderRadius: moderateScale(2),
+  },
+  miniCardWatermark: {
+    position: 'absolute',
+    bottom: -moderateScale(8),
+    right: -moderateScale(8),
+    transform: [{ rotate: '-12deg' }],
+  },
+  mainFormCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(24),
+    padding: moderateScale(18),
+    gap: moderateScale(18),
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  fieldSection: {
+    gap: moderateScale(6),
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: moderateScale(2),
+  },
+  fieldLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
+    color: Colors.textSecondary,
+    letterSpacing: 0.8,
+  },
+  calendarEditBtn: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(10),
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FFF2EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(255, 77, 28, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dropdownSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(16),
+    paddingHorizontal: moderateScale(14),
+    height: moderateScale(54),
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: Theme.spacing.md,
-    height: moderateScale(48),
+    borderColor: '#F1F5F9',
   },
-  dropdownValueText: {
-    ...Typography.body,
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  inputIconRow: {
+  dropdownLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+  },
+  dropdownText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: '#1E293B',
+  },
+  datesSelectionBox: {
+    backgroundColor: '#FFF8F6',
+    borderRadius: moderateScale(18),
+    padding: moderateScale(14),
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Theme.borderRadius.md,
-    backgroundColor: Colors.white,
-    paddingHorizontal: Theme.spacing.md,
-    height: moderateScale(48),
+    borderColor: '#FFEBE5',
+  },
+  datesGridRow: {
+    flexDirection: 'row',
+    gap: moderateScale(10),
+  },
+  dateCol: {
+    flex: 1,
+    gap: moderateScale(6),
+  },
+  dateColLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9.5),
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+    paddingLeft: moderateScale(2),
+  },
+  dateInputButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(10),
+    height: moderateScale(44),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  dateInputText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(12),
+    padding: moderateScale(4),
+    marginTop: moderateScale(8),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: moderateScale(38),
+  },
+  pillBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: moderateScale(8),
+    backgroundColor: 'transparent',
+  },
+  pillBtnActive: {
+    backgroundColor: '#FF4D1C',
+  },
+  pillBtnText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9.5),
+    color: '#64748B',
+  },
+  pillBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  addRangeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(20),
+    height: moderateScale(42),
+    borderWidth: 1,
+    borderColor: '#FFD2C6',
+    marginTop: moderateScale(4),
+  },
+  addRangeButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: '#8C3D2B',
+  },
+  checklistSection: {
+    marginTop: moderateScale(4),
+    gap: moderateScale(6),
+  },
+  checklistTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
+    color: '#0F172A',
+    marginBottom: moderateScale(2),
+  },
+  checkItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: moderateScale(8),
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E2E8F0',
+  },
+  checkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+  },
+  checkbox: {
+    width: moderateScale(16),
+    height: moderateScale(16),
+    borderRadius: moderateScale(4),
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: '#FF4D1C',
+    borderColor: '#FF4D1C',
+  },
+  checkDateText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: '#0F172A',
+  },
+  checkPillTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: moderateScale(8),
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(4),
+    gap: 4,
+  },
+  checkPillText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: '#64748B',
+  },
+  textInputBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(16),
+    paddingHorizontal: moderateScale(14),
+    paddingVertical: moderateScale(12),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minHeight: moderateScale(70),
   },
   textInput: {
     flex: 1,
-    ...Typography.body,
-    color: Colors.text,
-    padding: 0,
-    fontWeight: '600',
-  },
-  hintText: {
-    ...Typography.caption,
-    marginTop: 4,
-    color: Colors.textMuted,
-  },
-  textAreaBox: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Theme.borderRadius.md,
-    backgroundColor: Colors.white,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-  },
-  textArea: {
-    ...Typography.body,
-    color: Colors.text,
-    minHeight: moderateScale(60),
-    lineHeight: moderateScale(20),
-    padding: 0,
-  },
-  charCounter: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  draftSection: {
-    gap: Theme.spacing.sm,
-  },
-  draftCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.md,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-    gap: Theme.spacing.xs,
-  },
-  draftHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.xs,
-  },
-  draftTypeBadge: {
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.pill,
-  },
-  draftTypeBadgeText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '800',
-    fontSize: moderateScale(11),
-  },
-  draftDaysText: {
-    ...Typography.subheading,
-    color: Colors.text,
-    fontWeight: '800',
-    fontSize: moderateScale(14),
-  },
-  draftMetaRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  draftMetaLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    width: 90,
-  },
-  draftMetaValue: {
-    ...Typography.body,
+    fontFamily: 'Outfit_500Medium',
     fontSize: moderateScale(13),
-    color: Colors.text,
-    flex: 1,
+    color: '#0F172A',
+    padding: 0,
+    textAlignVertical: 'top',
   },
-  draftActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Theme.spacing.md,
-    marginTop: Theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: Theme.spacing.sm,
+  uploadBox: {
+    borderWidth: 1.5,
+    borderColor: '#FFD2C6',
+    borderStyle: 'dashed',
+    borderRadius: moderateScale(18),
+    backgroundColor: '#FFF8F6',
+    paddingVertical: moderateScale(22),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  draftEditBtn: {
+  uploadIconBadge: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(8),
+    shadowColor: 'rgba(255, 77, 28, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  uploadBoxTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+    marginBottom: moderateScale(2),
+  },
+  uploadBoxSubtext: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: '#64748B',
+  },
+  formErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  draftEditBtnText: {
-    ...Typography.caption,
-    color: Colors.accent,
-    fontWeight: '800',
-  },
-  draftDeleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  draftDeleteBtnText: {
-    ...Typography.caption,
-    color: Colors.error,
-    fontWeight: '800',
-  },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     backgroundColor: 'rgba(239, 68, 68, 0.05)',
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: moderateScale(12),
+    padding: moderateScale(10),
   },
-  errorText: {
-    ...Typography.caption,
-    color: Colors.error,
+  formErrorText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: '#EF4444',
     flex: 1,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Theme.spacing.md,
-    paddingTop: Theme.spacing.sm,
-    ...Theme.shadow.floating,
+  submitBtn: {
+    backgroundColor: '#FF4D1C',
+    borderRadius: moderateScale(24),
+    height: moderateScale(54),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: moderateScale(6),
+    shadowColor: '#FF4D1C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  footerActionsContainer: {
-    gap: 8,
-  },
-  footerSecondaryRow: {
+  submitBtnContent: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  resetBtn: {
-    flex: 1,
-    height: moderateScale(46),
-    borderRadius: Theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderStrong,
-    backgroundColor: Colors.white,
-  },
-  resetBtnText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    fontWeight: '800',
-  },
-  draftBtn: {
-    flex: 1.5,
-    height: moderateScale(46),
-    borderRadius: Theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.white,
-  },
-  draftBtnText: {
-    ...Typography.body,
-    color: Colors.primary,
-    fontWeight: '800',
-  },
-  submitBtnWrapper: {
-    width: '100%',
-    height: moderateScale(48),
-    borderRadius: Theme.borderRadius.md,
-    overflow: 'hidden',
-    marginBottom: moderateScale(4),
-  },
-  submitBtnGradient: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnText: {
-    ...Typography.body,
-    color: Colors.white,
-    fontWeight: '800',
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: '#FFFFFF',
+  },
+  submitSubtext: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(10),
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: -moderateScale(8),
+    marginBottom: moderateScale(2),
+  },
+  draftSection: {
+    gap: Theme.spacing.sm,
+    paddingHorizontal: moderateScale(4),
+  },
+  draftSectionTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#0F172A',
+  },
+  draftItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(16),
+    padding: moderateScale(12),
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: 'rgba(15, 23, 42, 0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  draftItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  draftItemType: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+  },
+  draftItemDays: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: '#FF4D1C',
+  },
+  draftItemPeriod: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: '#64748B',
+  },
+  draftItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: moderateScale(12),
+    borderTopWidth: 0.5,
+    borderTopColor: '#E2E8F0',
+    paddingTop: moderateScale(8),
+    marginTop: moderateScale(4),
+  },
+  draftActionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  draftActionLinkText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
+  },
+  bottomInfoContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: moderateScale(18),
+    padding: moderateScale(14),
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: moderateScale(10),
+    shadowColor: 'rgba(15, 23, 42, 0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  bottomInfoIconFrame: {
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(14),
+    backgroundColor: '#FFF2EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomInfoText: {
+    flex: 1,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: '#475569',
+    lineHeight: moderateScale(18),
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: Theme.spacing.md,
-  },
-  modalSheet: {
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    maxHeight: '60%',
-    overflow: 'hidden',
-    ...Theme.shadow.floating,
-  },
-  modalHeader: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    padding: Theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(24),
+    padding: moderateScale(16),
+    width: '100%',
+    maxWidth: moderateScale(320),
+    maxHeight: '70%',
+    shadowColor: 'rgba(15, 23, 42, 0.1)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 4,
   },
   modalTitle: {
-    ...Typography.subheading,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  modalClose: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: '#0F172A',
+    marginBottom: moderateScale(12),
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: moderateScale(6),
   },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingVertical: moderateScale(12),
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E2E8F0',
   },
   modalItemText: {
-    ...Typography.body,
-    color: Colors.text,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
   },
   modalItemTextActive: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  dateValueText: {
-    ...Typography.body,
-    color: Colors.text,
-    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
+    color: '#FF4D1C',
   },
   calendarContainer: {
-    padding: Theme.spacing.md,
-    backgroundColor: Colors.white,
+    gap: moderateScale(10),
   },
   calendarHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Theme.spacing.md,
+    marginBottom: moderateScale(6),
   },
   monthNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surfaceMuted,
+    width: moderateScale(34),
+    height: moderateScale(34),
+    borderRadius: moderateScale(17),
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   calendarMonthYearText: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.text,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#0F172A',
   },
   weekdaysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: Theme.spacing.sm,
+    marginBottom: moderateScale(4),
   },
   weekdayText: {
-    ...Typography.caption,
-    fontSize: moderateScale(12),
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
     color: Colors.textMuted,
     width: '14.28%',
     textAlign: 'center',
-    fontWeight: '700',
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 8,
+    rowGap: 4,
   },
   dayCell: {
     width: '14.28%',
-    height: moderateScale(38),
+    height: moderateScale(36),
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Theme.borderRadius.md,
-    overflow: 'hidden',
+    borderRadius: moderateScale(8),
   },
   dayCellSelected: {
-    // handled by LinearGradient
+    backgroundColor: '#FF4D1C',
   },
-  dayCellInactive: {
-    opacity: 0.4,
-  },
-  dayCellText: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  daySelectedGradient: {
+  daySelectedDot: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#FF4D1C',
+    borderRadius: moderateScale(8),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dayCellInactive: {
+    opacity: 0.35,
+  },
+  dayCellText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: '#0F172A',
   },
   dayCellTextSelected: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.white,
-    fontWeight: '800',
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#FFFFFF',
   },
   dayCellTextToday: {
-    color: Colors.primary,
-    fontWeight: '800',
+    color: '#FF4D1C',
     textDecorationLine: 'underline',
+    fontWeight: '800',
   },
   dayCellTextInactive: {
-    color: Colors.textMuted,
-  },
-  breakdownList: {
-    gap: Theme.spacing.xs,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.xs,
-  },
-  breakdownLabel: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: moderateScale(13),
-    color: Colors.textSecondary,
-  },
-  breakdownValue: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(13),
-    color: Colors.textMuted,
-  },
-  breakdownValueActive: {
-    color: Colors.primary,
-    fontFamily: 'Outfit_700Bold',
-  },
-  breakdownTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Theme.spacing.sm,
-    borderTopWidth: 1.5,
-    borderTopColor: Colors.primary,
-    marginTop: Theme.spacing.xs,
-  },
-  breakdownTotalLabel: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(14),
-    color: Colors.text,
-  },
-  breakdownTotalValue: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(16),
-    color: Colors.primary,
-  },
-  rangeHeadingHint: {
-    ...Typography.caption,
-    fontSize: moderateScale(12),
-    color: Colors.textMuted,
-    marginBottom: Theme.spacing.md,
-    lineHeight: 16,
-  },
-  rangeDatesList: {
-    gap: 8,
-  },
-  rangeItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
-  },
-  rangeItemDisabled: {
-    opacity: 0.55,
-  },
-  checkboxWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
-    flex: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: Colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-  },
-  checkboxChecked: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  rangeDateTextGroup: {
-    flexDirection: 'column',
-  },
-  rangeDayText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(13),
-    color: Colors.text,
-  },
-  rangeDateText: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: moderateScale(11),
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-  rangeActions: {
-    flexDirection: 'row',
-    gap: Theme.spacing.xs,
-  },
-  pillTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceMuted,
-    paddingVertical: 5,
-    paddingHorizontal: Theme.spacing.xs + 2,
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-    gap: 4,
-  },
-  pillTriggerText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(10),
-    color: Colors.textSecondary,
+    color: '#94A3B8',
   },
 });
 
