@@ -6,6 +6,8 @@ interface ShimmerProps {
   height?: DimensionValue;
   borderRadius?: number;
   style?: ViewStyle;
+  lightColor?: string;
+  darkColor?: string;
 }
 
 export const Shimmer: React.FC<ShimmerProps> = ({
@@ -13,24 +15,19 @@ export const Shimmer: React.FC<ShimmerProps> = ({
   height = 20,
   borderRadius = 4,
   style,
+  lightColor = '#F2F4F7',
+  darkColor = '#E4E7EC',
 }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const startAnimation = () => {
       Animated.loop(
-        Animated.sequence([
-          Animated.timing(animatedValue, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: false,
-          }),
-          Animated.timing(animatedValue, {
-            toValue: 0,
-            duration: 800,
-            useNativeDriver: false,
-          }),
-        ])
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: false,
+        })
       ).start();
     };
 
@@ -38,8 +35,8 @@ export const Shimmer: React.FC<ShimmerProps> = ({
   }, [animatedValue]);
 
   const backgroundColor = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#F2F4F7', '#E4E7EC'],
+    inputRange: [0, 0.5, 1],
+    outputRange: [lightColor, darkColor, lightColor],
   });
 
   return (

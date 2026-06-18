@@ -131,29 +131,6 @@ const mapHistoryToRecentLogs = (history: AttendanceHistoryDay[]): RecentLog[] =>
     });
 };
 
-const kamdenuLat = 19.096388750705227;
-const kamdenuLng = 73.01687580932347;
-
-const koparkhairneLat = 19.102727966839172;
-const koparkhairneLng = 73.00876110747178;
-
-const textoLat = 19.1110101;
-const textoLng = 73.0155262;
-
-const getPreciseCoordinates = (officeName: string, defaultLat: number, defaultLng: number) => {
-  const name = officeName.toLowerCase();
-  if (name.includes('kamdenu')) {
-    return { latitude: kamdenuLat, longitude: kamdenuLng };
-  }
-  if (name.includes('koparkhairne')) {
-    return { latitude: koparkhairneLat, longitude: koparkhairneLng };
-  }
-  if (name.includes('texto')) {
-    return { latitude: textoLat, longitude: textoLng };
-  }
-  return { latitude: defaultLat, longitude: defaultLng };
-};
-
 const AttendanceScreen = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -168,7 +145,7 @@ const AttendanceScreen = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [employeeAddress, setEmployeeAddress] = useState<string | null>('Locating...');
-  const [officeAddress, setOfficeAddress] = useState<string | null>(COMPANY.office.address);
+  const [officeAddress, setOfficeAddress] = useState<string | null>(null);
   const [employeeName, setEmployeeName] = useState('Employee');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const fabAnim = useRef(new Animated.Value(0)).current;
@@ -180,6 +157,19 @@ const AttendanceScreen = () => {
   const [isBreakModalVisible, setIsBreakModalVisible] = useState(false);
   const [breakReason, setBreakReason] = useState('');
   const [todayRecords, setTodayRecords] = useState<any[]>([]);
+  const [greeting, setGreeting] = useState('Good Morning');
+
+  // Update greeting based on time
+  const updateGreeting = useCallback(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting('Good Morning');
+    } else if (hour < 17) {
+      setGreeting('Good Afternoon');
+    } else {
+      setGreeting('Good Evening');
+    }
+  }, []);
 
   // Dynamic geofencing configuration states
   const [officeLocation, setOfficeLocation] = useState<{
@@ -187,27 +177,11 @@ const AttendanceScreen = () => {
     longitude: number;
     latitudeDelta: number;
     longitudeDelta: number;
-  } | null>({
-    latitude: COMPANY.office.latitude,
-    longitude: COMPANY.office.longitude,
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
-  });
-  const [officeRadius, setOfficeRadius] = useState<number>(COMPANY.office.radiusMeters);
-  const [officeName, setOfficeName] = useState<string>(COMPANY.office.name);
-  const [geolocationsList, setGeolocationsList] = useState<any[]>([
-    {
-      pkGeoId: COMPANY.office.id,
-      OfficeName: COMPANY.office.name,
-      Latitude: COMPANY.office.latitude,
-      Longitude: COMPANY.office.longitude,
-      RadiusMeters: COMPANY.office.radiusMeters,
-      IsActive: true,
-    },
-    { pkGeoId: 102, OfficeName: 'Koparkhairne', Latitude: koparkhairneLat, Longitude: koparkhairneLng, RadiusMeters: 25, IsActive: false },
-    { pkGeoId: 103, OfficeName: 'Texto', Latitude: textoLat, Longitude: textoLng, RadiusMeters: 25, IsActive: false },
-  ]);
-  const [selectedGeoId, setSelectedGeoId] = useState<number | null>(COMPANY.office.id);
+  } | null>(null);
+  const [officeRadius, setOfficeRadius] = useState<number>(25);
+  const [officeName, setOfficeName] = useState<string>('');
+  const [geolocationsList, setGeolocationsList] = useState<any[]>([]);
+  const [selectedGeoId, setSelectedGeoId] = useState<number | null>(null);
 
   const {
     employeeLocation,
@@ -224,32 +198,12 @@ const AttendanceScreen = () => {
     try {
       const response = await getGeolocations();
       if (response && response.success && Array.isArray(response.geolocations)) {
-        let mappedGeos = response.geolocations.map(geo => {
-          const coords = getPreciseCoordinates(
-            geo.OfficeName || geo.officeName || '',
-            Number(geo.Latitude),
-            Number(geo.Longitude)
-          );
-          return {
-            ...geo,
-            Latitude: coords.latitude,
-            Longitude: coords.longitude,
-          };
-        });
-
-        // Add predefined test locations if they are not already returned by API
-        const predefined = [
-          { pkGeoId: 101, OfficeName: 'Texto MBP', Latitude: textoLat, Longitude: textoLng, RadiusMeters: 25, IsActive: false },
-          { pkGeoId: 102, OfficeName: 'Koparkhairne', Latitude: koparkhairneLat, Longitude: koparkhairneLng, RadiusMeters: 25, IsActive: false },
-          { pkGeoId: 103, OfficeName: 'Texto', Latitude: textoLat, Longitude: textoLng, RadiusMeters: 25, IsActive: false },
-        ];
-
-        predefined.forEach(pre => {
-          const exists = mappedGeos.some(geo => (geo.OfficeName || '').toLowerCase().includes(pre.OfficeName.toLowerCase()));
-          if (!exists) {
-            mappedGeos.push(pre as any);
-          }
-        });
+        const mappedGeos = response.geolocations.map(geo => ({
+          ...geo,
+          Latitude: Number(geo.Latitude),
+          Longitude: Number(geo.Longitude),
+          RadiusMeters: Number(geo.RadiusMeters),
+        }));
 
         setGeolocationsList(mappedGeos);
 
@@ -415,6 +369,7 @@ const AttendanceScreen = () => {
       const loadData = async () => {
         if (isMounted) {
           setIsLoading(true);
+          updateGreeting();
           await fetchConfig();
           await fetchStatusAndName();
         }
@@ -425,6 +380,7 @@ const AttendanceScreen = () => {
       // Auto refresh every 10 seconds while the screen is focused
       const interval = setInterval(() => {
         if (isMounted) {
+          updateGreeting();
           fetchStatusAndName();
         }
       }, 10000);
@@ -433,7 +389,7 @@ const AttendanceScreen = () => {
         isMounted = false;
         clearInterval(interval);
       };
-    }, [fetchConfig, fetchStatusAndName])
+    }, [fetchConfig, fetchStatusAndName, updateGreeting])
   );
 
   const handleRefresh = useCallback(async () => {
@@ -971,7 +927,8 @@ const AttendanceScreen = () => {
               <View style={styles.avatarActiveDot} />
             </View>
             <View style={styles.brandingContainer}>
-              <Text style={styles.logoText}>{employeeName}</Text>
+              <Text style={styles.logoText}>{greeting}</Text>
+              <Text style={styles.logoName}>{employeeName}</Text>
               <Text style={styles.logoSubtext}>PREMIUM ENTERPRISE</Text>
             </View>
           </View>
@@ -1012,7 +969,7 @@ const AttendanceScreen = () => {
             </View>
             <View style={styles.idBadge}>
               <Text style={styles.idBadgeText}>
-                ID: #{COMPANY.office.id || 'SH-9284'}
+                ID: #{employeeName || 'EMP'}
               </Text>
             </View>
           </View>
@@ -1358,6 +1315,12 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(18),
     color: '#0F172A',
     letterSpacing: -0.5,
+  },
+  logoName: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: '#0F172A',
+    marginTop: moderateScale(2),
   },
   logoSubtext: {
     fontFamily: 'Outfit_700Bold',

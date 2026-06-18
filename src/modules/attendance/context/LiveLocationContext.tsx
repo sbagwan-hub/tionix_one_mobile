@@ -34,10 +34,7 @@ type LiveLocationContextValue = {
 const LiveLocationContext = createContext<LiveLocationContextValue | null>(null);
 
 export const LiveLocationProvider = ({ children }: { children: ReactNode }) => {
-  const [officeLocation, setOfficeLocation] = useState<Coordinates | null>({
-    latitude: COMPANY.office.latitude,
-    longitude: COMPANY.office.longitude,
-  });
+  const [officeLocation, setOfficeLocation] = useState<Coordinates | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [pingIntervalMs, setPingIntervalMs] = useState(DEFAULT_PING_MS);
   const [status, setStatusState] = useState<string>('Check OUT');
@@ -82,9 +79,11 @@ export const LiveLocationProvider = ({ children }: { children: ReactNode }) => {
         setPingIntervalMs(nextPingMs);
       } catch (error) {
         console.warn(
-          'Failed to load live location config:',
+          'Failed to load live location config, using defaults:',
           error instanceof Error ? error.message : error,
         );
+        // Use default ping interval if config fails to load
+        setPingIntervalMs(DEFAULT_PING_MS);
       }
     };
 

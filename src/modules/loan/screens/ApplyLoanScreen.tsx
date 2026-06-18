@@ -245,10 +245,29 @@ const ApplyLoanScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + moderateScale(40) }]}
       >
+        {/* Loan Details Card */}
         <AppCard style={styles.formCard}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Loan Details</Text>
+          </View>
+
+          <View style={styles.sectionDivider} />
           {/* Read Only Fields */}
-          <TextField label="Transaction Number" value={transactionNo} editable={false} selectTextOnFocus={false} />
-          <TextField label="Transaction Date" value={transactionDate} editable={false} selectTextOnFocus={false} />
+          <View style={styles.row}>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Transaction No</Text>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyText}>{transactionNo}</Text>
+              </View>
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Date</Text>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyText}>{transactionDate}</Text>
+              </View>
+            </View>
+          </View>
 
           {/* Employee Picker */}
           <Text style={styles.inputLabel}>Employee</Text>
@@ -277,36 +296,64 @@ const ApplyLoanScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           {/* Numeric Fields */}
-          <TextField
-            label="Loan Amount (INR)"
-            value={loanAmount}
-            onChangeText={setLoanAmount}
-            keyboardType="numeric"
-            placeholder="e.g. 50000"
-          />
+          <View style={styles.row}>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Loan Amount (₹)</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.currencySymbol}>₹</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={loanAmount}
+                  onChangeText={setLoanAmount}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Interest Rate (%)</Text>
+              <TextInput
+                style={styles.input}
+                value={interestRate}
+                onChangeText={setInterestRate}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+            </View>
+          </View>
 
-          <TextField
-            label="Voucher Number"
-            value={voucherNo}
-            onChangeText={setVoucherNo}
-            placeholder="e.g. VCH-9812"
-          />
+          <View style={styles.row}>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Installments</Text>
+              <TextInput
+                style={styles.input}
+                value={installments}
+                onChangeText={setInstallments}
+                keyboardType="numeric"
+                placeholder="Months"
+              />
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.inputLabel}>Voucher No</Text>
+              <TextInput
+                style={styles.input}
+                value={voucherNo}
+                onChangeText={setVoucherNo}
+                placeholder="Optional"
+              />
+            </View>
+          </View>
+        </AppCard>
 
-          <TextField
-            label="Interest Rate (%)"
-            value={interestRate}
-            onChangeText={setInterestRate}
-            keyboardType="numeric"
-            placeholder="e.g. 10.5"
-          />
+        {/* Repayment Settings Card */}
+        <AppCard style={styles.formCard}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Repayment Settings</Text>
+          </View>
 
-          <TextField
-            label="Number of Installments (Months)"
-            value={installments}
-            onChangeText={setInstallments}
-            keyboardType="numeric"
-            placeholder="e.g. 12"
-          />
+          <View style={styles.sectionDivider} />
 
           {/* Return Through Picker */}
           <Text style={styles.inputLabel}>Return Through</Text>
@@ -316,7 +363,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           {/* Deduction From Month Picker */}
-          <Text style={styles.inputLabel}>Deduction From Month</Text>
+          <Text style={styles.inputLabel}>Deduction Start Month</Text>
           <TouchableOpacity style={styles.pickerButton} onPress={() => setIsMonthPickerOpen(true)}>
             <Text style={styles.pickerButtonText}>{formatMonth(deductFromMonth)}</Text>
             <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
@@ -330,14 +377,15 @@ const ApplyLoanScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           {/* Remarks */}
-          <TextField
-            label="Remarks"
+          <Text style={styles.inputLabel}>Remarks</Text>
+          <TextInput
+            style={styles.remarksInput}
             value={remarks}
             onChangeText={setRemarks}
-            placeholder="Add comments or justification"
+            placeholder="Add comments or justification..."
             multiline
             numberOfLines={3}
-            style={styles.remarksInput}
+            textAlignVertical="top"
           />
         </AppCard>
 
@@ -692,6 +740,78 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     ...Theme.shadow.md,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
+  },
+  cardTitle: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    fontFamily: 'Outfit_700Bold',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: Theme.spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+  },
+  col: {
+    flex: 1,
+  },
+  readOnlyField: {
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  readOnlyText: {
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  input: {
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: Theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+  },
+  currencySymbol: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.primary,
+    marginRight: Theme.spacing.xs,
+  },
+  amountInput: {
+    flex: 1,
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    fontFamily: 'Outfit_700Bold',
+  },
   inputLabel: {
     ...Typography.label,
     fontSize: moderateScale(11),
@@ -721,9 +841,17 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   remarksInput: {
+    backgroundColor: Colors.surfaceMuted,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    minHeight: moderateScale(80),
     textAlignVertical: 'top',
-    paddingTop: 10,
-    minHeight: moderateScale(70),
   },
   submitButton: {
     marginTop: Theme.spacing.sm,

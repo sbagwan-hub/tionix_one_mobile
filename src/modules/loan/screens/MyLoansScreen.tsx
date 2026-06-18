@@ -267,18 +267,25 @@ const MyLoansScreen = ({ navigation }: any) => {
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
           {/* Exclusive Offer Card Shimmer */}
-          <View style={[styles.exclusiveCard, { backgroundColor: Colors.primary }]}>
-            <View style={styles.exclusiveTag}>
-              <Shimmer width={60} height={14} borderRadius={4} />
-            </View>
-            <View style={styles.exclusiveContent}>
-              <Shimmer width="50%" height={20} borderRadius={4} style={{ marginBottom: 8 }} />
-              <Shimmer width="70%" height={14} borderRadius={3} />
-            </View>
-            <View style={styles.exclusiveIcon}>
-              <Shimmer width={32} height={32} borderRadius={16} />
-            </View>
-          </View>
+          <TouchableOpacity style={styles.exclusiveCard} activeOpacity={0.9}>
+            <LinearGradient
+              colors={['#FF8C00', '#FF4D1C']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.exclusiveGradient}
+            >
+              <View style={styles.exclusiveTag}>
+                <Shimmer width={60} height={14} borderRadius={4} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
+              </View>
+              <View style={styles.exclusiveContent}>
+                <Shimmer width="50%" height={20} borderRadius={4} style={{ marginBottom: 8 }} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
+                <Shimmer width="70%" height={14} borderRadius={3} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
+              </View>
+              <View style={styles.exclusiveIcon}>
+                <Shimmer width={32} height={32} borderRadius={16} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
 
           {/* Total Active Debt Shimmer */}
           <AppCard style={styles.debtCard}>

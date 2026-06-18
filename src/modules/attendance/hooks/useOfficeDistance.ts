@@ -83,7 +83,15 @@ export const useOfficeDistance = (officeLocation: Coordinates | null) => {
         subscription.remove();
       }
     };
-  }, [officeLocation]);
+  }, []); // Start tracking immediately regardless of office location
+
+  // Recalculate distance when office location changes
+  useEffect(() => {
+    if (employeeLocation && officeLocation) {
+      const distance = getDistance(employeeLocation, officeLocation, 1);
+      setDistanceMeters(distance);
+    }
+  }, [officeLocation, employeeLocation]);
 
   const isWithinRange =
     distanceMeters !== null; // Always allow punching from current location

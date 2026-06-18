@@ -321,20 +321,6 @@ const isAdminRole = (role?: string) => {
   return normalized === 'admin' || normalized === 'superadmin';
 };
 
-export const getDefaultGeolocations = (): GeolocationItem[] => [
-  {
-    pkGeoId: COMPANY.office.id,
-    OfficeName: COMPANY.office.name,
-    fkHLId: 0,
-    Latitude: COMPANY.office.latitude,
-    Longitude: COMPANY.office.longitude,
-    RadiusMeters: COMPANY.office.radiusMeters,
-    IsActive: true,
-    CreatedAt: '',
-    officeName: COMPANY.office.name,
-  },
-];
-
 export const getGeolocations = async (): Promise<GeolocationResponse> => {
   const session = await getAuthSession();
 
@@ -342,26 +328,12 @@ export const getGeolocations = async (): Promise<GeolocationResponse> => {
     throw new Error('Authentication required. Please log in again.');
   }
 
-  // Regular employees cannot access the admin geolocations API.
-  if (!isAdminRole(session.role)) {
-    return {
-      success: true,
-      geolocations: getDefaultGeolocations(),
-    };
-  }
-
   try {
     return await apiRequest<GeolocationResponse>(API_ENDPOINTS.geolocations, {
       method: 'GET',
     });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 403) {
-      return {
-        success: true,
-        geolocations: getDefaultGeolocations(),
-      };
-    }
-
+    console.error('Failed to fetch geolocations from API:', error);
     throw error;
   }
 };

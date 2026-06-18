@@ -145,6 +145,13 @@ export const apiRequest = async <T>(
     const message =
       error instanceof Error ? error.message : 'Unable to reach the server. Check your connection.';
 
+    console.error('[apiClient] Detailed error:', {
+      url,
+      method,
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     logApiError(url, message, error);
     throw new ApiError(message);
   } finally {
