@@ -94,7 +94,7 @@ export const useOfficeDistance = (officeLocation: Coordinates | null) => {
   }, [officeLocation, employeeLocation]);
 
   const isWithinRange =
-    distanceMeters !== null; // Always allow punching from current location
+    employeeLocation !== null; // Allow punching if employee location is available
 
   return {
     employeeLocation,

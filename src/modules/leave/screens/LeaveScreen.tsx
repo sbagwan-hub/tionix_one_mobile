@@ -328,20 +328,6 @@ const LeaveScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      {/* Header matching Mockup */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.brandingLogo}>Xone</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.downloadReportBtn} onPress={handleDownloadReport} activeOpacity={0.7}>
-              <Ionicons name="download-outline" size={moderateScale(20)} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: moderateScale(110) + insets.bottom }]}
@@ -502,6 +488,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: moderateScale(10),
+  },
+  headerTitle: {
+    ...Typography.heading,
+    fontSize: moderateScale(18),
+    color: Colors.text,
   },
   menuIconButton: {
     width: moderateScale(36),

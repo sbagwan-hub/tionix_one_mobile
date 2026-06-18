@@ -125,29 +125,6 @@ const NotificationScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Normal Appbar */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>Notifications</Text>
-          
-          <TouchableOpacity
-            style={styles.markAllReadTextButton}
-            onPress={markAllAsRead}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.markAllReadText}>Mark all as read</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-
       {/* Categories Filter Tabs Row */}
       <View style={styles.filterWrapper}>
         <ScrollView

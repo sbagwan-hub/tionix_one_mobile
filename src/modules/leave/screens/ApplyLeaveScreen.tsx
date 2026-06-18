@@ -760,25 +760,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Header matching Mockup */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={moderateScale(24)} color="#8C3D2B" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Apply for Leave</Text>
-          <View style={styles.avatarContainer}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarInitials}>{userInitials}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </SafeAreaView>
-
       <LinearGradient
         colors={['#FFF5F2', '#F8FAFC']}
         style={styles.gradientBg}

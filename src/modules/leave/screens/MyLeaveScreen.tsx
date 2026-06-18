@@ -53,7 +53,7 @@ const formatDateRange = (startDate: string, endDate: string) => {
   return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 };
 
-const MyLeaveScreen = ({ navigation }: any) => {
+const MyLeaveScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,23 +156,6 @@ const MyLeaveScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb1} />
         <View style={styles.bannerBlurOrb2} />
       </View>
-
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Leave</Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleDownloadReport}>
-            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.monthLabel}>{currentYear}</Text>
-          <Text style={styles.headerSubtitle}>Track your leave requests, approvals, and history.</Text>
-        </View>
-      </SafeAreaView>
 
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>

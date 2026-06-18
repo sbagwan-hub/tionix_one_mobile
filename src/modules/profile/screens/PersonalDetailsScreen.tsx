@@ -341,17 +341,7 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      {/* Floating Header */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.profileHeaderContent}>
+      <View style={styles.profileHeaderContent}>
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.avatarWrapper}
@@ -382,7 +372,6 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
             </View>
           </View>
         </View>
-      </SafeAreaView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}

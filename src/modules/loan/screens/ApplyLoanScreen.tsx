@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import AppCard from '../../../components/AppCard';
@@ -100,7 +99,6 @@ const ApplyLoanScreen = ({ navigation }: any) => {
   const [isMethodPickerOpen, setIsMethodPickerOpen] = useState(false);
 
   // EMI Schedule Preview States
-  const [expandedInstallments, setExpandedInstallments] = useState<Record<number, boolean>>({});
 
   const monthOptions = useMemo(() => generateNext12Months(), []);
 
@@ -150,13 +148,6 @@ const ApplyLoanScreen = ({ navigation }: any) => {
       return null;
     }
   }, [loanAmount, interestRate, installments, calcMethod, deductFromMonth]);
-
-  const toggleInstallment = (instNo: number) => {
-    setExpandedInstallments((prev) => ({
-      ...prev,
-      [instNo]: !prev[instNo],
-    }));
-  };
 
   const handleApplyLoan = async () => {
     if (!selectedEmp) {
@@ -222,87 +213,53 @@ const ApplyLoanScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <View style={styles.bannerContainer}>
-        <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
-          style={styles.bannerGradient}
-        />
-        <View style={styles.bannerBlurOrb1} />
-        <View style={styles.bannerBlurOrb2} />
-      </View>
-
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Apply for Loan</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-      </SafeAreaView>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + moderateScale(40) }]}
       >
+        {/* Employee Summary Card */}
+        <TouchableOpacity
+          style={styles.employeeCard}
+          disabled={!isAdmin}
+          onPress={() => isAdmin && setIsEmpPickerOpen(true)}
+        >
+          <View style={styles.employeeIconContainer}>
+            <Ionicons name="person-outline" size={moderateScale(24)} color={Colors.primary} />
+          </View>
+          <View style={styles.employeeInfo}>
+            <Text style={styles.employeeName}>{selectedEmp?.name || 'Employee Name'}</Text>
+            <Text style={styles.employeeLabel}>Employee</Text>
+          </View>
+          <View style={styles.refBadge}>
+            <Text style={styles.refBadgeText}>REF NO</Text>
+            <Text style={styles.refBadgeValue}>{transactionNo.split('/')[2] || '----'}</Text>
+          </View>
+          {isAdmin && <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />}
+        </TouchableOpacity>
+
         {/* Loan Details Card */}
-        <AppCard style={styles.formCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
-            <Text style={styles.cardTitle}>Loan Details</Text>
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="document-text-outline" size={20} color={Colors.text} />
+            <Text style={styles.cardTitleText}>Loan Details</Text>
+            <Text style={styles.cardDate}>{transactionDate}</Text>
           </View>
 
-          <View style={styles.sectionDivider} />
-          {/* Read Only Fields */}
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text style={styles.inputLabel}>Transaction No</Text>
-              <View style={styles.readOnlyField}>
-                <Text style={styles.readOnlyText}>{transactionNo}</Text>
-              </View>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.inputLabel}>Date</Text>
-              <View style={styles.readOnlyField}>
-                <Text style={styles.readOnlyText}>{transactionDate}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Employee Picker */}
-          <Text style={styles.inputLabel}>Employee</Text>
-          <TouchableOpacity
-            style={[styles.pickerButton, !isAdmin && styles.pickerDisabled]}
-            disabled={!isAdmin}
-            onPress={() => setIsEmpPickerOpen(true)}
-          >
-            {isLoadingEmployees ? (
-              <Shimmer width="60%" height={16} borderRadius={4} />
-            ) : (
-              <>
-                <Text style={styles.pickerButtonText}>
-                  {selectedEmp ? selectedEmp.name : 'Select Employee'}
-                </Text>
-                {isAdmin && <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />}
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Loan Type Picker */}
-          <Text style={styles.inputLabel}>Loan Type</Text>
-          <TouchableOpacity style={styles.pickerButton} onPress={() => setIsTypePickerOpen(true)}>
-            <Text style={styles.pickerButtonText}>{loanType}</Text>
+          {/* Loan Type */}
+          <Text style={styles.label}>Loan Type</Text>
+          <TouchableOpacity style={styles.dropdown} onPress={() => setIsTypePickerOpen(true)}>
+            <Text style={styles.dropdownText}>{loanType}</Text>
             <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Numeric Fields */}
+          {/* Loan Amount + Interest Rate */}
           <View style={styles.row}>
             <View style={styles.col}>
-              <Text style={styles.inputLabel}>Loan Amount (₹)</Text>
-              <View style={styles.amountInputContainer}>
+              <Text style={styles.label}>Loan Amount</Text>
+              <View style={styles.inputContainer}>
                 <Text style={styles.currencySymbol}>₹</Text>
                 <TextInput
-                  style={styles.amountInput}
+                  style={styles.input}
                   value={loanAmount}
                   onChangeText={setLoanAmount}
                   keyboardType="numeric"
@@ -312,7 +269,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
               </View>
             </View>
             <View style={styles.col}>
-              <Text style={styles.inputLabel}>Interest Rate (%)</Text>
+              <Text style={styles.label}>Interest Rate (%)</Text>
               <TextInput
                 style={styles.input}
                 value={interestRate}
@@ -323,9 +280,10 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             </View>
           </View>
 
+          {/* Installments + Voucher No */}
           <View style={styles.row}>
             <View style={styles.col}>
-              <Text style={styles.inputLabel}>Installments</Text>
+              <Text style={styles.label}>Installments</Text>
               <TextInput
                 style={styles.input}
                 value={installments}
@@ -335,7 +293,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
               />
             </View>
             <View style={styles.col}>
-              <Text style={styles.inputLabel}>Voucher No</Text>
+              <Text style={styles.label}>Voucher No</Text>
               <TextInput
                 style={styles.input}
                 value={voucherNo}
@@ -344,42 +302,57 @@ const ApplyLoanScreen = ({ navigation }: any) => {
               />
             </View>
           </View>
-        </AppCard>
+        </View>
 
         {/* Repayment Settings Card */}
-        <AppCard style={styles.formCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-            <Text style={styles.cardTitle}>Repayment Settings</Text>
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="calendar-outline" size={20} color={Colors.text} />
+            <Text style={styles.cardTitleText}>Repayment Settings</Text>
           </View>
 
-          <View style={styles.sectionDivider} />
+          {/* Return Through - Segmented Buttons */}
+          <Text style={styles.label}>Return Through</Text>
+          <View style={styles.segmentedContainer}>
+            {RETURN_METHODS.map((method) => (
+              <TouchableOpacity
+                key={method}
+                style={[
+                  styles.segmentButton,
+                  returnThrough === method && styles.segmentButtonActive,
+                ]}
+                onPress={() => setReturnThrough(method as any)}
+              >
+                <Text
+                  style={[
+                    styles.segmentButtonText,
+                    returnThrough === method && styles.segmentButtonTextActive,
+                  ]}
+                >
+                  {method}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          {/* Return Through Picker */}
-          <Text style={styles.inputLabel}>Return Through</Text>
-          <TouchableOpacity style={styles.pickerButton} onPress={() => setIsReturnPickerOpen(true)}>
-            <Text style={styles.pickerButtonText}>{returnThrough}</Text>
+          {/* Deduction Start Month */}
+          <Text style={styles.label}>Start Month</Text>
+          <TouchableOpacity style={styles.dropdown} onPress={() => setIsMonthPickerOpen(true)}>
+            <Text style={styles.dropdownText}>{formatMonth(deductFromMonth)}</Text>
             <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Deduction From Month Picker */}
-          <Text style={styles.inputLabel}>Deduction Start Month</Text>
-          <TouchableOpacity style={styles.pickerButton} onPress={() => setIsMonthPickerOpen(true)}>
-            <Text style={styles.pickerButtonText}>{formatMonth(deductFromMonth)}</Text>
-            <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
-          </TouchableOpacity>
-
-          {/* Calculation Method Picker */}
-          <Text style={styles.inputLabel}>Calculation Method</Text>
-          <TouchableOpacity style={styles.pickerButton} onPress={() => setIsMethodPickerOpen(true)}>
-            <Text style={styles.pickerButtonText}>{calcMethod}</Text>
+          {/* Calculation Method */}
+          <Text style={styles.label}>Calculation Method</Text>
+          <TouchableOpacity style={styles.dropdown} onPress={() => setIsMethodPickerOpen(true)}>
+            <Text style={styles.dropdownText}>{calcMethod}</Text>
             <Ionicons name="chevron-down-outline" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Remarks */}
-          <Text style={styles.inputLabel}>Remarks</Text>
+          <Text style={styles.label}>Remarks</Text>
           <TextInput
-            style={styles.remarksInput}
+            style={styles.textarea}
             value={remarks}
             onChangeText={setRemarks}
             placeholder="Add comments or justification..."
@@ -387,110 +360,63 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             numberOfLines={3}
             textAlignVertical="top"
           />
-        </AppCard>
+        </View>
 
-        {/* Real-time EMI Preview Section */}
+        {/* Repayment Schedule Card */}
         {emiPreview ? (
-          <View style={styles.previewContainer}>
-            <Text style={styles.previewHeading}>Live EMI Preview</Text>
-            
-            <AppCard style={styles.summaryCard}>
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>Loan Principal</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(emiPreview.principal_amount))}</Text>
-                </View>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>Total Interest</Text>
-                  <Text style={[styles.summaryValue, { color: Colors.primary }]}>
-                    {formatCurrency(parseFloat(emiPreview.interest_amount))}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>Monthly EMI</Text>
-                  <Text style={[styles.summaryValue, { fontSize: moderateScale(18), color: Colors.success }]}>
-                    {calcMethod === 'Remaining Balance Calculation'
-                      ? `${formatCurrency(parseFloat(emiPreview.monthly_emi))} (Avg)`
-                      : formatCurrency(parseFloat(emiPreview.monthly_emi))}
-                  </Text>
-                </View>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryLabel}>Total Payable</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(emiPreview.total_payable_amount))}</Text>
-                </View>
-              </View>
-            </AppCard>
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="list-outline" size={20} color={Colors.text} />
+              <Text style={styles.cardTitleText}>Repayment Schedule</Text>
+            </View>
 
-            <Text style={styles.scheduleTitle}>Amortization Schedule Preview</Text>
-            {emiPreview.schedule.map((inst) => {
-              const isExpanded = !!expandedInstallments[inst.inst_no];
-              return (
-                <TouchableOpacity
-                  key={inst.inst_no}
-                  activeOpacity={0.9}
-                  onPress={() => toggleInstallment(inst.inst_no)}
-                >
-                  <AppCard style={styles.instCard}>
-                    <View style={styles.instHeader}>
-                      <View style={styles.instHeaderLeft}>
-                        <View style={styles.instBadge}>
-                          <Text style={styles.instBadgeText}>#{inst.inst_no}</Text>
-                        </View>
-                        <Text style={styles.instMonthText}>{formatMonth(inst.inst_month)}</Text>
-                      </View>
-                      <View style={styles.instHeaderRight}>
-                        <Text style={styles.instEmiText}>{formatCurrency(parseFloat(inst.total_payable))}</Text>
-                        <Ionicons
-                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={16}
-                          color={Colors.textSecondary}
-                          style={{ marginLeft: 6 }}
-                        />
-                      </View>
-                    </View>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <Text style={styles.tableHeaderText}>Month</Text>
+              <Text style={styles.tableHeaderText}>Principal</Text>
+              <Text style={styles.tableHeaderText}>Interest</Text>
+              <Text style={styles.tableHeaderText}>EMI</Text>
+            </View>
 
-                    {isExpanded && (
-                      <View style={styles.instDetails}>
-                        <View style={styles.instDetailRow}>
-                          <Text style={styles.instDetailLabel}>Principal Portion</Text>
-                          <Text style={styles.instDetailVal}>{formatCurrency(parseFloat(inst.principal_amount))}</Text>
-                        </View>
-                        <View style={styles.instDetailRow}>
-                          <Text style={styles.instDetailLabel}>Interest Portion</Text>
-                          <Text style={styles.instDetailVal}>{formatCurrency(parseFloat(inst.interest_amount))}</Text>
-                        </View>
-                        <View style={styles.instDetailRow}>
-                          <Text style={styles.instDetailLabel}>Additional Interest</Text>
-                          <Text style={styles.instDetailVal}>{formatCurrency(parseFloat(inst.add_interest_amount))}</Text>
-                        </View>
-                        <View style={styles.detailDivider} />
-                        <View style={styles.instDetailRow}>
-                          <Text style={[styles.instDetailLabel, { fontWeight: '700', color: Colors.text }]}>
-                            Total Monthly Pay
-                          </Text>
-                          <Text style={[styles.instDetailVal, { fontWeight: '800', color: Colors.text }]}>
-                            {formatCurrency(parseFloat(inst.total_payable))}
-                          </Text>
-                        </View>
-                        <View style={styles.instDetailRow}>
-                          <Text style={styles.instDetailLabel}>Remaining Principal Balance</Text>
-                          <Text style={styles.instDetailVal}>{formatCurrency(parseFloat(inst.bal_principal))}</Text>
-                        </View>
-                      </View>
-                    )}
-                  </AppCard>
-                </TouchableOpacity>
-              );
-            })}
+            {/* Table Rows */}
+            {emiPreview.schedule.map((inst) => (
+              <View key={inst.inst_no} style={styles.tableRow}>
+                <Text style={styles.tableCellText}>{formatMonth(inst.inst_month)}</Text>
+                <Text style={styles.tableCellText}>{formatCurrency(parseFloat(inst.principal_amount))}</Text>
+                <Text style={styles.tableCellText}>{formatCurrency(parseFloat(inst.interest_amount))}</Text>
+                <Text style={[styles.tableCellText, styles.tableCellEmi]}>
+                  {formatCurrency(parseFloat(inst.total_payable))}
+                </Text>
+              </View>
+            ))}
+
+            {/* Total Row */}
+            <View style={styles.tableTotalRow}>
+              <Text style={styles.tableTotalLabel}>Total</Text>
+              <Text style={styles.tableTotalText}>
+                {formatCurrency(parseFloat(emiPreview.principal_amount))}
+              </Text>
+              <Text style={styles.tableTotalText}>
+                {formatCurrency(parseFloat(emiPreview.interest_amount))}
+              </Text>
+              <Text style={[styles.tableTotalText, styles.tableTotalEmi]}>
+                {formatCurrency(parseFloat(emiPreview.total_payable_amount))}
+              </Text>
+            </View>
+
+            {/* Remaining Balance Row */}
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceLabel}>Remaining Balance</Text>
+              <Text style={styles.balanceValue}>
+                {formatCurrency(parseFloat(emiPreview.schedule[emiPreview.schedule.length - 1]?.bal_principal || 0))}
+              </Text>
+            </View>
           </View>
         ) : (
-          <View style={styles.previewEmptyContainer}>
+          <View style={styles.emptyState}>
             <Ionicons name="calculator-outline" size={moderateScale(32)} color={Colors.borderStrong} />
-            <Text style={styles.previewEmptyText}>
-              Enter loan amount, installments, and interest rate to see live amortization preview.
+            <Text style={styles.emptyStateText}>
+              Enter loan details to see repayment schedule
             </Text>
           </View>
         )}
@@ -530,7 +456,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                     {emp.contact_name} ({emp.emp_code})
                   </Text>
                   {selectedEmp?.id === String(emp.pk_emp_id) && (
-                    <Ionicons name="checkmark" size={18} color={Colors.primary} />
+                    <Ionicons name="checkmark" size={18} color="#D92D20" />
                   )}
                 </TouchableOpacity>
               ))}
@@ -560,7 +486,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                   }}
                 >
                   <Text style={[styles.modalItemText, loanType === type && styles.modalItemTextActive]}>{type}</Text>
-                  {loanType === type && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  {loanType === type && <Ionicons name="checkmark" size={18} color="#D92D20" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -589,7 +515,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                   }}
                 >
                   <Text style={[styles.modalItemText, returnThrough === method && styles.modalItemTextActive]}>{method}</Text>
-                  {returnThrough === method && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  {returnThrough === method && <Ionicons name="checkmark" size={18} color="#D92D20" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -620,7 +546,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                   <Text style={[styles.modalItemText, deductFromMonth === opt.value && styles.modalItemTextActive]}>
                     {opt.label}
                   </Text>
-                  {deductFromMonth === opt.value && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  {deductFromMonth === opt.value && <Ionicons name="checkmark" size={18} color="#D92D20" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -649,7 +575,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                   }}
                 >
                   <Text style={[styles.modalItemText, calcMethod === method && styles.modalItemTextActive]}>{method}</Text>
-                  {calcMethod === method && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                  {calcMethod === method && <Ionicons name="checkmark" size={18} color="#D92D20" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -667,39 +593,10 @@ const ApplyLoanScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
-  },
-  bannerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: moderateScale(180),
-    overflow: 'hidden',
-  },
-  bannerGradient: {
-    flex: 1,
-  },
-  bannerBlurOrb1: {
-    position: 'absolute',
-    top: -moderateScale(50),
-    left: -moderateScale(50),
-    width: moderateScale(150),
-    height: moderateScale(150),
-    borderRadius: moderateScale(75),
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
-  },
-  bannerBlurOrb2: {
-    position: 'absolute',
-    top: moderateScale(40),
-    right: -moderateScale(60),
-    width: moderateScale(200),
-    height: moderateScale(200),
-    borderRadius: moderateScale(100),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: '#F7F4F3',
   },
   header: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#F7F4F3',
     paddingBottom: Theme.spacing.sm,
   },
   headerRow: {
@@ -733,29 +630,142 @@ const styles = StyleSheet.create({
     paddingTop: Theme.spacing.md,
     gap: Theme.spacing.md,
   },
-  formCard: {
-    padding: Theme.spacing.md,
+  // Employee Summary Card
+  employeeCard: {
     backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-  },
-  cardHeader: {
+    borderRadius: moderateScale(24),
+    padding: Theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Theme.spacing.sm,
-    marginBottom: Theme.spacing.sm,
+    justifyContent: 'space-between',
+    ...Theme.shadow.sm,
   },
-  cardTitle: {
+  employeeIconContainer: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(12),
+    backgroundColor: '#FFF4E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Theme.spacing.md,
+  },
+  employeeInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  employeeName: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  employeeLabel: {
+    ...Typography.caption,
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  refBadge: {
+    backgroundColor: '#FFF4E5',
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.sm,
+    alignItems: 'center',
+  },
+  refBadgeText: {
+    ...Typography.caption,
+    fontSize: moderateScale(10),
+    color: '#D92D20',
+    fontWeight: '700',
+  },
+  refBadgeValue: {
+    ...Typography.heading,
+    fontSize: moderateScale(14),
+    color: '#D92D20',
+    fontWeight: '700',
+  },
+  // Card Styles
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: moderateScale(24),
+    padding: Theme.spacing.md,
+    ...Theme.shadow.sm,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  cardTitleText: {
     ...Typography.heading,
     fontSize: moderateScale(16),
     color: Colors.text,
     fontFamily: 'Outfit_700Bold',
+    marginLeft: Theme.spacing.sm,
+    flex: 1,
   },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
+  cardDate: {
+    ...Typography.caption,
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+  },
+  // Form Elements
+  label: {
+    ...Typography.label,
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+    marginBottom: Theme.spacing.xs,
+    marginLeft: 4,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F5',
+    borderRadius: moderateScale(14),
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(14),
     marginBottom: Theme.spacing.md,
+  },
+  dropdownText: {
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  input: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: moderateScale(14),
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(14),
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: moderateScale(14),
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(14),
+  },
+  currencySymbol: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: '#D92D20',
+    marginRight: Theme.spacing.xs,
+  },
+  textarea: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: moderateScale(14),
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: moderateScale(14),
+    ...Typography.body,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    minHeight: moderateScale(80),
+    textAlignVertical: 'top',
   },
   row: {
     flexDirection: 'row',
@@ -764,235 +774,130 @@ const styles = StyleSheet.create({
   col: {
     flex: 1,
   },
-  readOnlyField: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(12),
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  readOnlyText: {
-    ...Typography.body,
-    fontSize: moderateScale(14),
-    color: Colors.text,
-    fontFamily: 'Outfit_600SemiBold',
-  },
-  input: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(12),
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Typography.body,
-    fontSize: moderateScale(14),
-    color: Colors.text,
-  },
-  amountInputContainer: {
+  // Segmented Buttons
+  segmentedContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(12),
-  },
-  currencySymbol: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.primary,
-    marginRight: Theme.spacing.xs,
-  },
-  amountInput: {
-    flex: 1,
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.text,
-    fontFamily: 'Outfit_700Bold',
-  },
-  inputLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(11),
-    color: Colors.textSecondary,
-    marginBottom: Theme.spacing.sm,
-    marginLeft: 4,
-  },
-  pickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(14),
+    backgroundColor: '#F5F5F5',
+    borderRadius: moderateScale(14),
+    padding: moderateScale(4),
     marginBottom: Theme.spacing.md,
   },
-  pickerDisabled: {
-    opacity: 0.8,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-  },
-  pickerButtonText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(16),
-    color: Colors.text,
-  },
-  remarksInput: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: moderateScale(12),
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Typography.body,
-    fontSize: moderateScale(14),
-    color: Colors.text,
-    minHeight: moderateScale(80),
-    textAlignVertical: 'top',
-  },
-  submitButton: {
-    marginTop: Theme.spacing.sm,
-    marginBottom: Theme.spacing.lg,
-  },
-  previewContainer: {
-    gap: Theme.spacing.sm,
-    marginTop: Theme.spacing.sm,
-  },
-  previewHeading: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.text,
-    marginLeft: 4,
-    marginBottom: 2,
-  },
-  summaryCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.md,
-    borderWidth: 0,
-    ...Theme.shadow.sm,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: moderateScale(4),
-  },
-  summaryCol: {
+  segmentButton: {
     flex: 1,
+    paddingVertical: moderateScale(10),
+    alignItems: 'center',
+    borderRadius: moderateScale(10),
   },
-  summaryLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  summaryValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: Theme.spacing.sm,
-  },
-  scheduleTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-    marginLeft: 4,
-    marginTop: Theme.spacing.md,
-    marginBottom: 2,
-  },
-  instCard: {
+  segmentButtonActive: {
     backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.sm,
-    borderWidth: 0,
     ...Theme.shadow.sm,
   },
-  instHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  instHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
-  },
-  instBadge: {
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.sm,
-  },
-  instBadgeText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  instMonthText: {
-    ...Typography.body,
-    fontSize: moderateScale(14),
-    fontFamily: 'Outfit_600SemiBold',
-    color: Colors.text,
-  },
-  instHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  instEmiText: {
-    ...Typography.heading,
-    fontSize: moderateScale(14),
-    color: Colors.text,
-  },
-  instDetails: {
-    marginTop: Theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: Theme.spacing.sm,
-    gap: 8,
-  },
-  instDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  instDetailLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  instDetailVal: {
+  segmentButtonText: {
     ...Typography.body,
     fontSize: moderateScale(13),
-    color: Colors.text,
+    color: Colors.textSecondary,
     fontFamily: 'Outfit_600SemiBold',
   },
-  detailDivider: {
-    height: 0.5,
-    backgroundColor: Colors.border,
-    marginVertical: 4,
+  segmentButtonTextActive: {
+    color: '#D92D20',
   },
-  previewEmptyContainer: {
+  // Table Styles
+  tableHeader: {
+    flexDirection: 'row',
+    paddingBottom: Theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    marginBottom: Theme.spacing.sm,
+  },
+  tableHeaderText: {
+    flex: 1,
+    ...Typography.caption,
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: Theme.spacing.sm,
+  },
+  tableCellText: {
+    flex: 1,
+    ...Typography.body,
+    fontSize: moderateScale(12),
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  tableCellEmi: {
+    color: '#D92D20',
+    fontWeight: '700',
+  },
+  tableTotalRow: {
+    flexDirection: 'row',
+    marginTop: Theme.spacing.sm,
+    paddingTop: Theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  tableTotalLabel: {
+    flex: 1,
+    ...Typography.caption,
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  tableTotalText: {
+    flex: 1,
+    ...Typography.body,
+    fontSize: moderateScale(12),
+    color: Colors.text,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  tableTotalEmi: {
+    color: '#D92D20',
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  balanceLabel: {
+    ...Typography.body,
+    fontSize: moderateScale(13),
+    color: Colors.textSecondary,
+  },
+  balanceValue: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: '#D92D20',
+    fontWeight: '700',
+  },
+  // Empty State
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: Theme.spacing.xl,
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: Theme.borderRadius.xl,
+    backgroundColor: Colors.white,
+    borderRadius: moderateScale(24),
     gap: Theme.spacing.sm,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Colors.borderStrong,
   },
-  previewEmptyText: {
+  emptyStateText: {
     ...Typography.body,
     fontSize: moderateScale(13),
     color: Colors.textMuted,
     textAlign: 'center',
   },
+  submitButton: {
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.lg,
+  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -1000,12 +905,11 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: Theme.borderRadius.xl * 2,
-    borderTopRightRadius: Theme.borderRadius.xl * 2,
+    borderTopLeftRadius: moderateScale(24),
+    borderTopRightRadius: moderateScale(24),
+    paddingTop: Theme.spacing.lg,
     paddingHorizontal: Theme.spacing.lg,
-    paddingTop: Theme.spacing.md,
-    paddingBottom: moderateScale(30),
-    ...Theme.shadow.floating,
+    paddingBottom: Theme.spacing.lg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1015,33 +919,33 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     ...Typography.heading,
-    fontSize: moderateScale(17),
+    fontSize: moderateScale(18),
     color: Colors.text,
   },
   modalClose: {
-    width: moderateScale(30),
-    height: moderateScale(30),
-    borderRadius: moderateScale(15),
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: Colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalItem: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: Theme.spacing.md,
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   modalItemText: {
     ...Typography.body,
     fontSize: moderateScale(15),
-    color: Colors.textSecondary,
+    color: Colors.text,
   },
   modalItemTextActive: {
-    color: Colors.primary,
-    fontFamily: 'Outfit_700Bold',
+    color: '#D92D20',
+    fontWeight: '700',
   },
 });
 

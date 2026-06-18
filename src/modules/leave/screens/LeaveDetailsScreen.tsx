@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,12 +19,13 @@ import { moderateScale } from '../../../utils/responsive';
 import { LeaveRequest, LeaveStatus } from '../services/leave';
 import Toast from 'react-native-toast-message';
 import { downloadReport } from '../../../utils/reportDownloader';
+import { Share } from 'react-native';
 
-const statusTone: Record<LeaveStatus, { color: string; bg: string; icon: string }> = {
-  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
-  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline' },
-  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline' },
-  Cancelled: { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.12)', icon: 'ban-outline' },
+const statusTone: Record<LeaveStatus, { color: string; bg: string; icon: string; label: string }> = {
+  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline', label: 'STATUS PENDING' },
+  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline', label: 'STATUS APPROVED' },
+  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline', label: 'STATUS REJECTED' },
+  Cancelled: { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.12)', icon: 'ban-outline', label: 'STATUS CANCELLED' },
 };
 
 const formatDate = (value: string) => {
@@ -122,6 +124,17 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
     }
   };
 
+  const handleShare = async () => {
+    try {
+      const message = `Leave Request Details:\n\nID: #${leaveItem.id.slice(-6).toUpperCase()}\nType: ${leaveItem.leaveType}\nDuration: ${leaveItem.days} Day${leaveItem.days === 1 ? '' : 's'}\nFrom: ${formatDate(leaveItem.startDate)}\nTo: ${formatDate(leaveItem.endDate)}\nStatus: ${leaveItem.status}`;
+      await Share.share({
+        message,
+      });
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to share leave details.');
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -135,115 +148,73 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Request Details</Text>
-          <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadReport}>
-            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.requestNoLabel}>ID: #{leaveItem.id.slice(-6).toUpperCase()}</Text>
-          <Text style={styles.headerSubtitle}>Details of your applied leave record.</Text>
-        </View>
-      </SafeAreaView>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + moderateScale(80) }]}
       >
         {/* Status Card */}
         <AppCard style={styles.statusCard}>
-          <View style={[styles.statusIconFrame, { backgroundColor: tone.bg }]}>
-            <Ionicons name={tone.icon as any} size={moderateScale(24)} color={tone.color} />
+          <View style={styles.statusHeader}>
+            <View style={[styles.statusIconFrame, { backgroundColor: tone.bg }]}>
+              <Ionicons name={tone.icon as any} size={moderateScale(28)} color={tone.color} />
+            </View>
+            <View style={styles.statusInfo}>
+              <Text style={[styles.statusLabel, { color: tone.color }]}>{tone.label}</Text>
+              <Text style={styles.statusSubtext}>Reviewing Request</Text>
+            </View>
           </View>
-          <View style={styles.statusInfo}>
-            <Text style={styles.statusLabel}>Request Status</Text>
-            <Text style={[styles.statusText, { color: tone.color }]}>{leaveItem.status}</Text>
-          </View>
-        </AppCard>
-
-        {/* Details Grid Card */}
-        <AppCard style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Leave Period & Type</Text>
-          
-          <View style={styles.divider} />
-
-          <View style={styles.detailsGrid}>
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Leave Type</Text>
-                <Text style={styles.gridValue}>{leaveItem.leaveType}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Duration</Text>
-                <Text style={styles.gridValue}>
-                  {leaveItem.days} Day{leaveItem.days === 1 ? '' : 's'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>From Date</Text>
-                <Text style={styles.gridValue}>{formatDate(leaveItem.startDate)}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>To Date</Text>
-                <Text style={styles.gridValue}>{formatDate(leaveItem.endDate)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Working Type</Text>
-                <Text style={styles.gridValue}>
-                  {leaveItem.isHalfDay ? 'Half Day' : 'Full Day'}
-                </Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Applied On</Text>
-                <Text style={styles.gridValue}>{formatAppliedDate(leaveItem.appliedOn)}</Text>
-              </View>
-            </View>
+          <View style={styles.statusDivider} />
+          <View style={styles.statusFooter}>
+            <Ionicons name="calendar-outline" size={moderateScale(14)} color={Colors.textSecondary} />
+            <Text style={styles.submittedText}>Submitted {formatAppliedDate(leaveItem.appliedOn)}</Text>
           </View>
         </AppCard>
 
-        {/* Days in Range List Card */}
+        {/* Leave Info Cards */}
+        <View style={styles.infoCardsRow}>
+          <AppCard style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>LEAVE TYPE</Text>
+            <Text style={styles.infoCardValue}>{leaveItem.leaveType}</Text>
+          </AppCard>
+          <AppCard style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>DURATION</Text>
+            <Text style={styles.infoCardValue}>{leaveItem.days.toFixed(1)} Days</Text>
+          </AppCard>
+        </View>
+
+        <AppCard style={styles.timeframeCard}>
+          <Text style={styles.infoCardLabel}>TIMEFRAME</Text>
+          <Text style={styles.timeframeValue}>{formatDate(leaveItem.startDate)} — {formatDate(leaveItem.endDate)}</Text>
+        </AppCard>
+
+        {/* Schedule Breakdown */}
         {dates.length > 0 && (
-          <AppCard style={styles.daysListCard}>
-            <Text style={styles.sectionTitle}>Days Included</Text>
+          <AppCard style={styles.scheduleCard}>
+            <View style={styles.scheduleHeader}>
+              <Text style={styles.sectionTitle}>Schedule Breakdown</Text>
+              <View style={styles.unitsBadge}>
+                <Text style={styles.unitsBadgeText}>{dates.length} UNITS</Text>
+              </View>
+            </View>
             <View style={styles.divider} />
             <View style={styles.rangeDaysContainer}>
               {dates.map((dateStr) => {
                 const dateObj = new Date(`${dateStr}T00:00:00`);
-                const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
                 const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 
                 return (
                   <View key={dateStr} style={styles.rangeDayRow}>
                     <View style={styles.rangeDayInfo}>
-                      <View style={styles.checkmarkIcon}>
-                        <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-                      </View>
                       <View style={styles.rangeDayTextGroup}>
-                        <Text style={styles.rangeDayLabel}>{dayLabel}</Text>
-                        <Text style={styles.rangeDateLabel}>{dateLabel}</Text>
+                        <Text style={styles.rangeDayLabel}>{dateLabel} {dayLabel}</Text>
+                        <Text style={styles.rangeDateLabel}>Full Working Day</Text>
                       </View>
                     </View>
                     <View style={styles.rangeDayBadges}>
                       <View style={styles.rangePill}>
                         <Text style={styles.rangePillText}>
-                          {leaveItem.isHalfDay ? 'Half Day' : 'Full Day'}
-                        </Text>
-                      </View>
-                      <View style={[styles.rangePill, { backgroundColor: 'rgba(255, 77, 28, 0.08)' }]}>
-                        <Text style={[styles.rangePillText, { color: Colors.primary }]}>
-                          {leaveItem.leaveType.replace(' Leave', '')}
+                          {leaveItem.isHalfDay ? 'HALF DAY' : 'FULL DAY'}
                         </Text>
                       </View>
                     </View>
@@ -254,26 +225,49 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
           </AppCard>
         )}
 
-        {/* Reason Card */}
-        <AppCard style={styles.reasonCard}>
-          <Text style={styles.sectionTitle}>Justification / Reason</Text>
+        {/* Employee Remarks */}
+        <AppCard style={styles.remarksCard}>
+          <Text style={styles.sectionTitle}>Employee Remarks</Text>
           <View style={styles.divider} />
-          <Text style={styles.reasonText}>
-            {leaveItem.reason || 'No reason specified for this request.'}
-          </Text>
+          <View style={styles.remarksBox}>
+            <Text style={styles.remarksText}>
+              {leaveItem.reason || 'No reason specified for this request.'}
+            </Text>
+          </View>
         </AppCard>
 
-        {/* Cancel Action Button (Only show if Pending) */}
-        {leaveItem.status === 'Pending' && (
+        {/* Manager Feedback */}
+        <AppCard style={styles.feedbackCard}>
+          <Text style={styles.sectionTitle}>Manager Feedback</Text>
+          <View style={styles.divider} />
+          <View style={styles.feedbackBox}>
+            <Text style={styles.feedbackText}>
+              {leaveItem.managerComment || 'Awaiting manager\'s comment...'}
+            </Text>
+          </View>
+        </AppCard>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancelRequest}
+            style={styles.pdfButton}
+            onPress={handleDownloadReport}
             activeOpacity={0.8}
           >
-            <Ionicons name="trash-outline" size={moderateScale(18)} color={Colors.error} />
-            <Text style={styles.cancelButtonText}>Cancel Leave Request</Text>
+            <Ionicons name="document-text-outline" size={moderateScale(18)} color={Colors.primary} />
+            <Text style={styles.pdfButtonText}>PDF</Text>
           </TouchableOpacity>
-        )}
+          {leaveItem.status === 'Pending' && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelRequest}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close-outline" size={moderateScale(18)} color={Colors.error} />
+              <Text style={styles.cancelButtonText}>Cancel Request</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -335,9 +329,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
-  downloadButton: {
-    width: moderateScale(40),
-    height: moderateScale(40),
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
+  },
+  iconButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
     borderRadius: moderateScale(10),
     backgroundColor: Colors.white,
     alignItems: 'center',
@@ -345,28 +344,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
+  profilePicture: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
   headerTitle: {
     ...Typography.heading,
     fontSize: moderateScale(18),
     color: Colors.text,
-  },
-  headerSpacer: {
-    width: moderateScale(40),
-  },
-  headerContent: {
-    paddingHorizontal: Theme.spacing.lg,
-    marginBottom: Theme.spacing.sm,
-  },
-  requestNoLabel: {
-    ...Typography.heading,
-    color: Colors.text,
-    fontSize: moderateScale(30),
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: moderateScale(2),
   },
   content: {
     paddingHorizontal: Theme.spacing.lg,
@@ -374,9 +365,6 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.md,
   },
   statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.md,
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
@@ -384,10 +372,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.md,
   },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.md,
+  },
   statusIconFrame: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(12),
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -395,22 +388,69 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    letterSpacing: 1,
+  },
+  statusSubtext: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: moderateScale(12),
+    marginTop: 2,
+  },
+  statusDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Theme.spacing.sm,
+  },
+  statusFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+  },
+  submittedText: {
     ...Typography.caption,
     color: Colors.textSecondary,
     fontSize: moderateScale(11),
   },
-  statusText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(16),
-    marginTop: 2,
+  infoCardsRow: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
   },
-  detailsCard: {
+  infoCard: {
+    flex: 1,
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
     borderWidth: 0.5,
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.md,
+  },
+  infoCardLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontSize: moderateScale(10),
+    letterSpacing: 0.5,
+  },
+  infoCardValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginTop: 4,
+  },
+  timeframeCard: {
+    padding: Theme.spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Theme.shadow.md,
+  },
+  timeframeValue: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    marginTop: 4,
   },
   sectionTitle: {
     fontFamily: 'Outfit_700Bold',
@@ -424,28 +464,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginVertical: Theme.spacing.sm,
   },
-  detailsGrid: {
-    gap: Theme.spacing.md,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  gridCol: {
-    flex: 1,
-  },
-  gridLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontSize: moderateScale(10),
-  },
-  gridValue: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(14),
-    color: Colors.text,
-    marginTop: 2,
-  },
-  reasonCard: {
+  scheduleCard: {
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
@@ -453,13 +472,84 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.03)',
     ...Theme.shadow.md,
   },
-  reasonText: {
+  scheduleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unitsBadge: {
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(4),
+    borderRadius: moderateScale(12),
+  },
+  unitsBadgeText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: Colors.primary,
+  },
+  remarksCard: {
+    padding: Theme.spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Theme.shadow.md,
+  },
+  remarksBox: {
+    backgroundColor: Colors.surfaceMuted,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+  },
+  remarksText: {
     ...Typography.body,
     color: Colors.textSecondary,
     lineHeight: 22,
     fontSize: moderateScale(13),
   },
+  feedbackCard: {
+    padding: Theme.spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Theme.shadow.md,
+  },
+  feedbackBox: {
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  feedbackText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+    fontSize: moderateScale(13),
+    fontStyle: 'italic',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+  },
+  pdfButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Theme.spacing.xs,
+    backgroundColor: Colors.primary,
+    borderRadius: Theme.borderRadius.md,
+    paddingVertical: moderateScale(12),
+  },
+  pdfButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.white,
+  },
   cancelButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -468,7 +558,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: Theme.borderRadius.md,
     paddingVertical: moderateScale(12),
-    marginTop: Theme.spacing.sm,
     backgroundColor: Colors.white,
   },
   cancelButtonText: {
@@ -496,19 +585,13 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   rangeDayInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
-  },
-  checkmarkIcon: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    flex: 1,
   },
   rangeDayTextGroup: {
     flexDirection: 'column',
   },
   rangeDayLabel: {
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Outfit_600SemiBold',
     fontSize: moderateScale(13),
     color: Colors.text,
   },

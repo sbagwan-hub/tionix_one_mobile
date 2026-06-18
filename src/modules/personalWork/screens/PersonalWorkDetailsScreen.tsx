@@ -182,21 +182,6 @@ const PersonalWorkDetailsScreen = ({ route, navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Request Details</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.requestNoLabel}>ID: #{String(request.pk_pw_id).padStart(6, '0')}</Text>
-          <Text style={styles.headerSubtitle}>Details of your applied personal work record.</Text>
-        </View>
-      </SafeAreaView>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + moderateScale(80) }]}

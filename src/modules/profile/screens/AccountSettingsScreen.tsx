@@ -55,24 +55,6 @@ const AccountSettingsScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Settings</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="shield-checkmark" size={moderateScale(32)} color={Colors.primary} />
-          </View>
-          <Text style={styles.heroTitle}>Security & Preferences</Text>
-          <Text style={styles.heroSubtitle}>Manage account security, attendance preferences, and device settings.</Text>
-        </View>
-      </SafeAreaView>
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <AppCard style={styles.settingsCard}>
           <Text style={styles.sectionTitle}>Preferences</Text>

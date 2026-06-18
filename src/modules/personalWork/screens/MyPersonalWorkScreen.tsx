@@ -157,21 +157,6 @@ const MyPersonalWorkScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Personal Work</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.yearLabel}>{currentYear}</Text>
-          <Text style={styles.headerSubtitle}>Request and track short leaves for personal work.</Text>
-        </View>
-      </SafeAreaView>
-
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />

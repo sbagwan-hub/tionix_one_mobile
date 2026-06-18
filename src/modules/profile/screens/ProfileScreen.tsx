@@ -273,13 +273,6 @@ const ProfileScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        {/* Top Navigation Bar */}
-        <View style={styles.topNav}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
-      </SafeAreaView>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: moderateScale(120) + insets.bottom }]}

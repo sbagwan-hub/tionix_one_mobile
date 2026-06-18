@@ -249,21 +249,6 @@ const MyLoansScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Header */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <View style={styles.profilePic}>
-              <Ionicons name="person" size={moderateScale(20)} color={Colors.white} />
-            </View>
-            <Text style={styles.brandName}>Xone</Text>
-          </View>
-          <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadReport}>
-            <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
           {/* Exclusive Offer Card Shimmer */}
@@ -491,19 +476,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Theme.spacing.sm,
   },
-  profilePic: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(20),
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandName: {
+  headerTitle: {
     ...Typography.heading,
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(18),
     color: Colors.text,
-    fontFamily: 'Outfit_700Bold',
   },
   downloadButton: {
     width: moderateScale(40),

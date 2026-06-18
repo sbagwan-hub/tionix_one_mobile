@@ -527,21 +527,6 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
         <View style={styles.bannerBlurOrb2} />
       </View>
 
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Apply Personal Work</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.dateLabel}>{requestDate}</Text>
-          <Text style={styles.headerSubtitle}>Request a short break for personal work.</Text>
-        </View>
-      </SafeAreaView>
-
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

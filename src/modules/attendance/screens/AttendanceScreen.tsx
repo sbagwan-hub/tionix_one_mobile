@@ -320,11 +320,13 @@ const AttendanceScreen = () => {
 
       const session = await getAuthSession();
       const response = await getAttendanceStatus(session?.user?.fkEmpId);
+      console.log('Attendance Status Response:', response);
       if (response && response.success) {
         let currentPunchStatus: 'IN' | 'OUT' | 'BREAK' = 'OUT';
 
         if (response.status) {
           const statusText = response.status.toLowerCase().trim();
+          console.log('Status text:', statusText);
           if (statusText.includes('break')) {
             currentPunchStatus = 'BREAK';
           } else if (
@@ -337,13 +339,21 @@ const AttendanceScreen = () => {
           ) {
             currentPunchStatus = 'IN';
           } else {
+            // "Not Checked In" or any other status means user is OUT
             currentPunchStatus = 'OUT';
           }
         }
 
+        console.log('Current punch status:', currentPunchStatus);
         setStatus(currentPunchStatus);
         setLiveStatus(currentPunchStatus === 'BREAK' ? 'Break' : currentPunchStatus === 'IN' ? 'Check IN' : 'Check OUT');
         setTodayBreakTime(response.todayBreak || '00h 00m');
+        
+        // Also set todayWork if available from backend
+        if (response.todayWork) {
+          // Could be used for display if needed
+          console.log('Today work time:', response.todayWork);
+        }
       }
 
       await fetchRecentLogs();
@@ -1309,30 +1319,34 @@ const styles = StyleSheet.create({
   },
   brandingContainer: {
     justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   logoText: {
     fontFamily: 'Outfit_800ExtraBold',
     fontSize: moderateScale(18),
     color: '#0F172A',
     letterSpacing: -0.5,
+    lineHeight: moderateScale(22),
   },
   logoName: {
     fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(16),
     color: '#0F172A',
     marginTop: moderateScale(2),
+    lineHeight: moderateScale(20),
   },
   logoSubtext: {
     fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(8),
     color: Colors.textMuted,
     letterSpacing: 1.2,
-    marginTop: moderateScale(1),
+    marginTop: moderateScale(2),
+    textTransform: 'uppercase',
+    lineHeight: moderateScale(10),
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: moderateScale(12),
   },
   headerIconButton: {
     width: moderateScale(44),

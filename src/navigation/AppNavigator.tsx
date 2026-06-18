@@ -133,10 +133,70 @@ const MainTabs = () => {
           headerShown: false,
         }}
       >
-        <Tab.Screen name="Attendance" component={AttendanceScreen} />
-        <Tab.Screen name="Leave" component={LeaveScreen} />
-        <Tab.Screen name="Loans" component={MyLoansScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
+        <Tab.Screen 
+          name="Attendance" 
+          component={AttendanceScreen} 
+          options={{ 
+            headerShown: true,
+            title: 'Attendance',
+            headerStyle: {
+              backgroundColor: Colors.white,
+            },
+            headerTintColor: Colors.text,
+            headerTitleStyle: {
+              fontSize: moderateScale(18),
+              fontWeight: '600' as const,
+            },
+          }} 
+        />
+        <Tab.Screen 
+          name="Leave" 
+          component={LeaveScreen} 
+          options={{ 
+            headerShown: true,
+            title: 'Leave Balance',
+            headerStyle: {
+              backgroundColor: Colors.white,
+            },
+            headerTintColor: Colors.text,
+            headerTitleStyle: {
+              fontSize: moderateScale(18),
+              fontWeight: '600' as const,
+            },
+          }} 
+        />
+        <Tab.Screen 
+          name="Loans" 
+          component={MyLoansScreen} 
+          options={{ 
+            headerShown: true,
+            title: 'My Loans',
+            headerStyle: {
+              backgroundColor: Colors.white,
+            },
+            headerTintColor: Colors.text,
+            headerTitleStyle: {
+              fontSize: moderateScale(18),
+              fontWeight: '600' as const,
+            },
+          }} 
+        />
+        <Tab.Screen 
+          name="Profile" 
+          component={ProfileScreen} 
+          options={{ 
+            headerShown: true,
+            title: 'Profile',
+            headerStyle: {
+              backgroundColor: Colors.white,
+            },
+            headerTintColor: Colors.text,
+            headerTitleStyle: {
+              fontSize: moderateScale(18),
+              fontWeight: '600' as const,
+            },
+          }} 
+        />
       </Tab.Navigator>
     </LiveLocationProvider>
   );
@@ -172,25 +232,109 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        <Stack.Screen name="MainTabs" component={MainTabs} />
-        <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
-        <Stack.Screen name="MyAttendance" component={MyAttendanceScreen} />
-        <Stack.Screen name="MyLeave" component={MyLeaveScreen} />
-        <Stack.Screen name="ApplyLeave" component={ApplyLeaveScreen} />
-        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-        <Stack.Screen name="LeaveDetails" component={LeaveDetailsScreen} />
-        <Stack.Screen name="MyPersonalWork" component={MyPersonalWorkScreen} />
-        <Stack.Screen name="ApplyPersonalWork" component={ApplyPersonalWorkScreen} />
-        <Stack.Screen name="PersonalWorkDetails" component={PersonalWorkDetailsScreen} />
-        <Stack.Screen name="MyLoans" component={MyLoansScreen} />
-        <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
-        <Stack.Screen name="LoanDetails" component={LoanDetailsScreen} />
-        <Stack.Screen name="Notifications" component={NotificationScreen} />
+      <Stack.Navigator 
+        initialRouteName="Splash" 
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: Colors.white,
+          },
+          headerTintColor: Colors.text,
+          headerTitleStyle: {
+            fontSize: moderateScale(18),
+            fontWeight: '600' as const,
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Splash" 
+          component={SplashScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="Onboarding" 
+          component={OnboardingScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="ForgotPassword" 
+          component={ForgotPasswordScreen} 
+          options={{ title: 'Forgot Password' }} 
+        />
+        <Stack.Screen 
+          name="MainTabs" 
+          component={MainTabs} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="PersonalDetails" 
+          component={PersonalDetailsScreen} 
+          options={{ title: 'Personal Details' }} 
+        />
+        <Stack.Screen 
+          name="MyAttendance" 
+          component={MyAttendanceScreen} 
+          options={{ title: 'My Attendance' }} 
+        />
+        <Stack.Screen 
+          name="MyLeave" 
+          component={MyLeaveScreen} 
+          options={{ title: 'My Leave' }} 
+        />
+        <Stack.Screen 
+          name="ApplyLeave" 
+          component={ApplyLeaveScreen} 
+          options={{ title: 'Apply for Leave' }} 
+        />
+        <Stack.Screen 
+          name="AccountSettings" 
+          component={AccountSettingsScreen} 
+          options={{ title: 'Account Settings' }} 
+        />
+        <Stack.Screen 
+          name="LeaveDetails" 
+          component={LeaveDetailsScreen} 
+          options={{ title: 'Leave Details' }} 
+        />
+        <Stack.Screen 
+          name="MyPersonalWork" 
+          component={MyPersonalWorkScreen} 
+          options={{ title: 'Personal Work' }} 
+        />
+        <Stack.Screen 
+          name="ApplyPersonalWork" 
+          component={ApplyPersonalWorkScreen} 
+          options={{ title: 'Apply Personal Work' }} 
+        />
+        <Stack.Screen 
+          name="PersonalWorkDetails" 
+          component={PersonalWorkDetailsScreen} 
+          options={{ title: 'Request Details' }} 
+        />
+        <Stack.Screen 
+          name="MyLoans" 
+          component={MyLoansScreen} 
+          options={{ title: 'My Loans' }} 
+        />
+        <Stack.Screen 
+          name="ApplyLoan" 
+          component={ApplyLoanScreen} 
+          options={{ title: 'Apply for Loan' }} 
+        />
+        <Stack.Screen 
+          name="LoanDetails" 
+          component={LoanDetailsScreen} 
+          options={{ title: 'Loan Details' }} 
+        />
+        <Stack.Screen 
+          name="Notifications" 
+          component={NotificationScreen} 
+          options={{ title: 'Notifications' }} 
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

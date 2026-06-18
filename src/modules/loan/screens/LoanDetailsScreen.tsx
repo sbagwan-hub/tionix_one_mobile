@@ -167,21 +167,6 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
     );
   }
 
-  // Header Component
-  const HeaderRow = () => (
-    <SafeAreaView edges={['top']} style={styles.header}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back-outline" size={moderateScale(22)} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Loan Details</Text>
-        <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadReport}>
-          <Ionicons name="download-outline" size={moderateScale(22)} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-
   // Metadata Card Component
   const LoanMetaCard = () => (
     <AppCard style={styles.metaCard}>
@@ -384,8 +369,6 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
         <View style={styles.bannerBlurOrb1} />
         <View style={styles.bannerBlurOrb2} />
       </View>
-
-      <HeaderRow />
 
       {isTablet ? (
         /* Tablet Landscape Side-by-Side Split Amortization View */

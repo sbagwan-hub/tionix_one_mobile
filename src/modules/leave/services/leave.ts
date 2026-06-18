@@ -26,6 +26,7 @@ export type LeaveRequest = {
   status: LeaveStatus;
   appliedOn: string;
   isHalfDay?: boolean;
+  managerComment?: string;
 };
 
 export type ApplyLeavePayload = {
