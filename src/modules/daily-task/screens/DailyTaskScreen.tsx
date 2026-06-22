@@ -20,7 +20,7 @@ import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { getDailyTasks, updateTaskStatus, DailyTask, TaskStatus } from '../services/dailyTask';
+import { getDailyTasks, updateTaskStatus, DailyTask, TaskStatus } from '../services/daily-task.service';
 
 const statusConfig: Record<TaskStatus, { color: string; bg: string; icon: string }> = {
   Pending: { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.10)', icon: 'time-outline' },

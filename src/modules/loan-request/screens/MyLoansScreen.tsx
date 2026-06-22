@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
-  Image,
+  Modal,
 } from 'react-native';
 import { downloadReport } from '../../../utils/reportDownloader';
 import Shimmer from '../../../components/Shimmer';
@@ -26,9 +26,9 @@ import { getLoans, NormalizedLoan } from '../services/loan';
 import { useFocusEffect } from '@react-navigation/native';
 
 const statusTone = {
-  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
-  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline' },
-  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline' },
+  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.08)', icon: 'time-outline' },
+  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.08)', icon: 'checkmark-circle-outline' },
+  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.08)', icon: 'close-circle-outline' },
 };
 
 const formatCurrency = (amount: number) => {
@@ -37,6 +37,22 @@ const formatCurrency = (amount: number) => {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(amount);
+};
+
+const formatDate = (value: string) => {
+  try {
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return value;
+  }
 };
 
 const formatMonth = (value: string) => {
@@ -55,6 +71,7 @@ const MyLoansScreen = ({ navigation, route }: any) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyVisible, setHistoryVisible] = useState(false);
 
   const handleDownloadReport = async () => {
     try {
@@ -84,7 +101,6 @@ const MyLoansScreen = ({ navigation, route }: any) => {
     } catch (err) {
       console.error('Error fetching loans:', err);
       setError(err instanceof Error ? err.message : 'Unable to connect to the server.');
-      // Set empty loans array to allow UI to render
       setLoans([]);
     } finally {
       setIsLoading(false);
@@ -94,15 +110,9 @@ const MyLoansScreen = ({ navigation, route }: any) => {
 
   useFocusEffect(
     useCallback(() => {
-      if (route?.params?.refresh) {
-        fetchLoans();
-      } else {
-        fetchLoans();
-      }
-    }, [fetchLoans, route?.params?.refresh])
+      fetchLoans();
+    }, [fetchLoans])
   );
-
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   const stats = useMemo(() => {
     const pending = loans.filter((item) => item.status === 'Pending').length;
@@ -123,7 +133,6 @@ const MyLoansScreen = ({ navigation, route }: any) => {
     const totalDebt = approvedLoans.reduce((sum, item) => sum + item.loanAmount, 0);
     const availableLimit = 25000 - totalDebt;
     
-    // Find next repayment date from approved loans
     let nextRepayment = 'N/A';
     const today = new Date();
     for (const loan of approvedLoans) {
@@ -131,7 +140,7 @@ const MyLoansScreen = ({ navigation, route }: any) => {
         const [year, month] = loan.deductFromMonth.split('-');
         const loanDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
         if (loanDate > today) {
-          nextRepayment = loanDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          nextRepayment = loanDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
           break;
         }
       } catch {}
@@ -145,7 +154,6 @@ const MyLoansScreen = ({ navigation, route }: any) => {
   }, [loans]);
 
   const currentLoans = useMemo(() => {
-    // Show all loans (Pending and Approved) so newly applied loans are visible
     const allLoans = loans.filter((item) => item.status === 'Approved' || item.status === 'Pending');
     return allLoans.map((loan) => {
       const paidPercentage = loan.status === 'Approved' ? Math.round(Math.random() * 80) + 10 : 0;
@@ -182,24 +190,6 @@ const MyLoansScreen = ({ navigation, route }: any) => {
     }).filter(Boolean);
   }, [loans]);
 
-  const statCards = useMemo(
-    () => [
-      {
-        label: 'Pending',
-        value: stats.pending,
-        icon: 'time-outline',
-        tone: Colors.warning,
-      },
-      {
-        label: 'Approved',
-        value: stats.approvedCount,
-        icon: 'checkmark-circle-outline',
-        tone: Colors.success,
-      },
-    ],
-    [stats]
-  );
-
   const openApplyLoan = () => {
     navigation.navigate('ApplyLoan');
   };
@@ -211,20 +201,18 @@ const MyLoansScreen = ({ navigation, route }: any) => {
       {/* Custom AppBar */}
       <AppBar title="My Loans" />
 
+      {/* Background Gradients */}
+      <View style={styles.bannerContainer}>
+        <LinearGradient
+          colors={['rgba(255, 77, 28, 0.12)', 'rgba(255, 77, 28, 0.0)']}
+          style={styles.bannerGradient}
+        />
+        <View style={styles.bannerBlurOrb1} />
+        <View style={styles.bannerBlurOrb2} />
+      </View>
+
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
-          {/* Total Active Debt Shimmer */}
-          <AppCard style={styles.debtCard}>
-            <Shimmer width={40} height={40} borderRadius={10} />
-            <View style={styles.debtContent}>
-              <Shimmer width="40%" height={12} borderRadius={3} />
-              <Shimmer width="50%" height={24} borderRadius={4} style={{ marginTop: 4 }} />
-              <View style={styles.debtDetails}>
-                <Shimmer width="40%" height={10} borderRadius={2} />
-                <Shimmer width="30%" height={10} borderRadius={2} />
-              </View>
-            </View>
-          </AppCard>
 
           {/* Current Loans Shimmer */}
           <Text style={styles.sectionTitle}>Current Loans</Text>
@@ -255,13 +243,6 @@ const MyLoansScreen = ({ navigation, route }: any) => {
               </View>
             </AppCard>
           ))}
-
-          {/* Health Score Shimmer */}
-          <AppCard style={styles.healthCard}>
-            <Shimmer width="30%" height={14} borderRadius={3} />
-            <Shimmer width={60} height={32} borderRadius={4} style={{ marginTop: 8 }} />
-            <Shimmer width="70%" height={12} borderRadius={3} style={{ marginTop: 4 }} />
-          </AppCard>
         </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -296,28 +277,29 @@ const MyLoansScreen = ({ navigation, route }: any) => {
               />
             }
           >
-            {/* Total Active Debt Card */}
-            <AppCard style={styles.debtCard}>
-              <View style={styles.debtIcon}>
-                <Ionicons name="card-outline" size={moderateScale(24)} color={Colors.primary} />
-              </View>
-              <View style={styles.debtContent}>
-                <Text style={styles.debtLabel}>Total Active Debt</Text>
-                <Text style={styles.debtAmount}>{formatCurrency(debtSummary.totalDebt)}</Text>
-                <View style={styles.debtDetails}>
-                  <Text style={styles.debtDetail}>Available: {formatCurrency(debtSummary.availableLimit)}</Text>
-                  <Text style={styles.debtDetail}>Next: {debtSummary.nextRepayment}</Text>
-                </View>
-              </View>
-            </AppCard>
 
             {/* Current Loans Section */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Current Loans</Text>
-              <TouchableOpacity onPress={() => {}}>
-                <Text style={styles.seeHistoryText}>See History</Text>
-              </TouchableOpacity>
+              <View style={styles.sectionActionsRow}>
+                <TouchableOpacity onPress={() => setHistoryVisible(true)} activeOpacity={0.8} style={styles.seeHistoryContainer}>
+                  <Ionicons name="time-outline" size={moderateScale(12)} color={Colors.primary} />
+                  <Text style={styles.seeHistoryText}>History</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openApplyLoan} activeOpacity={0.9}>
+                  <LinearGradient
+                    colors={Colors.primaryGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.sectionActionContainer}
+                  >
+                    <Ionicons name="add" size={moderateScale(12)} color={Colors.white} />
+                    <Text style={styles.sectionAction}>APPLY LOAN</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
+
             {currentLoans.length === 0 ? (
               <AppCard style={styles.emptyCard}>
                 <Ionicons name="card-outline" size={moderateScale(40)} color={Colors.textMuted} />
@@ -325,54 +307,77 @@ const MyLoansScreen = ({ navigation, route }: any) => {
                 <Text style={styles.emptySubtitle}>You don't have any active loans at the moment.</Text>
               </AppCard>
             ) : (
-              currentLoans.map((loan: any) => (
-                <TouchableOpacity
-                  key={loan.id || loan.pk_lr_id}
-                  activeOpacity={0.85}
-                  onPress={() => loan.id && typeof loan.id === 'string' && loan.id.startsWith('mock-') ? {} : navigation.navigate('LoanDetails', { loanId: loan.id || loan.pk_lr_id })}
-                >
-                  <AppCard style={styles.loanCard}>
-                    <View style={styles.loanCardTop}>
-                      <View style={[styles.loanIconContainer, { backgroundColor: loan.loanType === 'Asset Purchase' ? 'rgba(0, 102, 255, 0.08)' : 'rgba(255, 77, 28, 0.08)' }]}>
+              currentLoans.map((loan: any) => {
+                const tone = statusTone[loan.status as 'Pending' | 'Approved' | 'Rejected'] || { color: Colors.textSecondary };
+                const isAsset = loan.loanType === 'Asset Purchase';
+                return (
+                  <TouchableOpacity
+                    key={loan.id || loan.pk_lr_id}
+                    activeOpacity={0.85}
+                    onPress={() => loan.id && typeof loan.id === 'string' && loan.id.startsWith('mock-') ? {} : navigation.navigate('LoanDetails', { loanId: loan.id || loan.pk_lr_id })}
+                  >
+                    <AppCard style={[styles.loanCard, { borderLeftWidth: moderateScale(4), borderLeftColor: tone.color }]}>
+                      <View style={styles.loanCardTop}>
+                        <LinearGradient
+                          colors={isAsset ? ['#3B82F6', '#1D4ED8'] as const : ['#FFA040', '#FF4D1C'] as const}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.loanIconGradientContainer}
+                        >
+                          <Ionicons
+                            name={isAsset ? 'car-outline' : 'person-outline'}
+                            size={moderateScale(18)}
+                            color={Colors.white}
+                          />
+                        </LinearGradient>
+                        <View style={styles.loanMetaContainer}>
+                          <Text style={styles.loanTitle}>{loan.loanType}</Text>
+                          <Text style={styles.loanNoText}>{loan.loanNo}</Text>
+                        </View>
+                        <View style={styles.loanAmountContainer}>
+                          <Text style={styles.loanRemainingText}>{formatCurrency(loan.remaining)}</Text>
+                          <Text style={styles.loanAmountLabel}>REMAINING</Text>
+                        </View>
                         <Ionicons
-                          name={loan.loanType === 'Asset Purchase' ? 'car-outline' : 'person-outline'}
-                          size={moderateScale(20)}
-                          color={loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary}
+                          name="chevron-forward"
+                          size={moderateScale(16)}
+                          color={Colors.textMuted}
+                          style={styles.loanChevron}
                         />
                       </View>
-                      <View style={styles.loanMetaContainer}>
-                        <Text style={styles.loanTitle}>{loan.loanType}</Text>
-                        <Text style={styles.loanNoText}>{loan.loanNo}</Text>
+                      <View style={styles.loanProgressRow}>
+                        <Text style={styles.progressLabel}>Progress</Text>
+                        <Text style={[styles.progressPercentageText, { color: isAsset ? '#3B82F6' : '#FF4D1C' }]}>
+                          {loan.paidPercentage}% Paid
+                        </Text>
                       </View>
-                      <View style={styles.loanAmountContainer}>
-                        <Text style={styles.loanRemainingText}>{formatCurrency(loan.remaining)}</Text>
-                        <Text style={styles.loanAmountLabel}>REMAINING</Text>
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBackground}>
+                          <View style={[
+                            styles.progressFill,
+                            {
+                              width: `${loan.paidPercentage}%`,
+                              backgroundColor: isAsset ? '#3B82F6' : '#FF4D1C'
+                            }
+                          ]} />
+                        </View>
                       </View>
-                    </View>
-                    <View style={styles.loanProgressRow}>
-                      <Text style={styles.progressLabel}>Progress</Text>
-                      <Text style={[styles.progressPercentageText, { color: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]}>
-                        {loan.paidPercentage}% Paid
-                      </Text>
-                    </View>
-                    <View style={styles.progressContainer}>
-                      <View style={styles.progressBackground}>
-                        <View style={[styles.progressFill, { width: `${loan.paidPercentage}%`, backgroundColor: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]} />
-                      </View>
-                    </View>
-                  </AppCard>
-                </TouchableOpacity>
-              ))
+                    </AppCard>
+                  </TouchableOpacity>
+                );
+              })
             )}
 
             {/* Upcoming Repayments Section */}
             <Text style={styles.sectionTitle}>Upcoming Repayments</Text>
             {upcomingRepayments.length === 0 ? (
-              <AppCard style={styles.emptyCard}>
-                <Ionicons name="calendar-outline" size={moderateScale(40)} color={Colors.textMuted} />
-                <Text style={styles.emptyTitle}>No Upcoming Repayments</Text>
-                <Text style={styles.emptySubtitle}>You have no scheduled repayments at this time.</Text>
-              </AppCard>
+              <View style={styles.repaymentsWidgetEmpty}>
+                <View style={styles.repaymentsWidgetEmptyIconContainer}>
+                  <Ionicons name="calendar-outline" size={moderateScale(24)} color="#94A3B8" />
+                </View>
+                <Text style={styles.repaymentsWidgetEmptyTitle}>No Upcoming Repayments</Text>
+                <Text style={styles.repaymentsWidgetEmptySubtitle}>You have no scheduled repayments at this time.</Text>
+              </View>
             ) : (
               upcomingRepayments.map((repayment: any) => (
                 <AppCard key={repayment.id} style={styles.repaymentCard}>
@@ -393,31 +398,95 @@ const MyLoansScreen = ({ navigation, route }: any) => {
                 </AppCard>
               ))
             )}
-
-            {/* Health Score Card */}
-            {loans.length > 0 && (
-              <AppCard style={styles.healthCard}>
-                <Text style={styles.healthLabel}>Health Score</Text>
-                <Text style={styles.healthScore}>{stats.totalApprovedAmount > 0 ? '750' : 'N/A'}</Text>
-                <Text style={styles.healthStatus}>
-                  {stats.totalApprovedAmount > 0 
-                    ? 'Good - Keep up with your repayments' 
-                    : 'No active loans to track'}
-                </Text>
-              </AppCard>
-            )}
           </ScrollView>
         </View>
       )}
 
-      {/* Floating Action Button (FAB) - Apply Loan */}
-      <TouchableOpacity
-        style={[styles.fabButton, { bottom: moderateScale(24) }]}
-        activeOpacity={0.85}
-        onPress={openApplyLoan}
+
+
+      {/* Loan History Bottom Sheet Modal */}
+      <Modal
+        visible={historyVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setHistoryVisible(false)}
       >
-        <Ionicons name="add" size={moderateScale(28)} color={Colors.white} />
-      </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalDismissArea} 
+            activeOpacity={1} 
+            onPress={() => setHistoryVisible(false)} 
+          />
+          <View style={styles.modalContentContainer}>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalHeaderTitleRow}>
+                <Ionicons name="time-outline" size={moderateScale(20)} color={Colors.primary} />
+                <Text style={styles.modalTitleText}>Loan Request History</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setHistoryVisible(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={moderateScale(22)} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              {loans.length === 0 ? (
+                <View style={styles.modalEmptyState}>
+                  <Ionicons name="card-outline" size={moderateScale(40)} color={Colors.textMuted} />
+                  <Text style={styles.modalEmptyTitle}>No History Available</Text>
+                </View>
+              ) : (
+                loans.map((loan) => {
+                  const status = loan.status;
+                  const tone = statusTone[status] || { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.08)', icon: 'ban-outline' };
+                  const isAsset = loan.loanType === 'Asset Purchase';
+                  
+                  return (
+                    <TouchableOpacity
+                      key={loan.id}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setHistoryVisible(false);
+                        if (loan.id && typeof loan.id === 'string' && loan.id.startsWith('mock-')) return;
+                        navigation.navigate('LoanDetails', { loanId: loan.id });
+                      }}
+                      style={[styles.historyItemCard, { borderLeftColor: tone.color, borderLeftWidth: moderateScale(4) }]}
+                    >
+                      <View style={styles.historyItemMain}>
+                        <View style={[styles.loanIconContainer, { backgroundColor: isAsset ? 'rgba(0, 102, 255, 0.08)' : 'rgba(255, 77, 28, 0.08)', width: moderateScale(36), height: moderateScale(36), marginRight: moderateScale(10) }]}>
+                          <Ionicons
+                            name={isAsset ? 'car-outline' : 'person-outline'}
+                            size={moderateScale(18)}
+                            color={isAsset ? '#0066FF' : Colors.primary}
+                          />
+                        </View>
+                        <View style={styles.historyItemMeta}>
+                          <Text style={styles.historyItemType}>{loan.loanType}</Text>
+                          <Text style={styles.historyItemNo}>{loan.loanNo}</Text>
+                          <Text style={styles.historyItemDate}>Applied: {formatDate(loan.appliedOn || loan.loanDate)}</Text>
+                        </View>
+                        <View style={styles.historyItemRight}>
+                          <Text style={styles.historyItemAmount}>{formatCurrency(loan.loanAmount)}</Text>
+                          <View style={[styles.statusPill, { backgroundColor: tone.bg, paddingHorizontal: moderateScale(8), paddingVertical: moderateScale(2), marginTop: moderateScale(4) }]}>
+                            <Text style={[styles.logStatus, { color: tone.color, fontSize: moderateScale(8) }]}>{status.toUpperCase()}</Text>
+                          </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={moderateScale(14)} color={Colors.textMuted} style={styles.chevron} />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -425,85 +494,114 @@ const MyLoansScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  header: {
-    backgroundColor: Colors.background,
-    paddingBottom: Theme.spacing.md,
+  bannerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: moderateScale(220),
+    overflow: 'hidden',
+    zIndex: -1,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
+  bannerGradient: {
+    flex: 1,
   },
-  headerTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.text,
+  bannerBlurOrb1: {
+    position: 'absolute',
+    top: -moderateScale(40),
+    left: -moderateScale(40),
+    width: moderateScale(180),
+    height: moderateScale(180),
+    borderRadius: moderateScale(90),
+    backgroundColor: 'rgba(255, 179, 0, 0.08)',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
-  },
-  downloadButton: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(20),
-    backgroundColor: Colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
+  bannerBlurOrb2: {
+    position: 'absolute',
+    top: moderateScale(20),
+    right: -moderateScale(50),
+    width: moderateScale(220),
+    height: moderateScale(220),
+    borderRadius: moderateScale(110),
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
   },
   content: {
     paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.md,
     gap: Theme.spacing.md,
   },
-  exclusiveCard: {
-    borderRadius: Theme.borderRadius.xxl,
-    overflow: 'hidden',
+  premiumDebtCard: {
+    borderRadius: moderateScale(24),
+    padding: moderateScale(20),
     ...Theme.shadow.floating,
-    marginBottom: Theme.spacing.md,
   },
-  exclusiveGradient: {
-    padding: Theme.spacing.lg,
-    position: 'relative',
+  premiumCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: moderateScale(16),
   },
-  exclusiveTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: moderateScale(12),
-    paddingVertical: moderateScale(4),
-    borderRadius: Theme.borderRadius.pill,
-    marginBottom: Theme.spacing.sm,
+  premiumCardBrand: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
   },
-  exclusiveTagText: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
-    color: Colors.white,
-    fontWeight: '700',
-    letterSpacing: 1,
+  premiumCardChip: {
+    opacity: 0.85,
   },
-  exclusiveContent: {
-    flex: 1,
-  },
-  exclusiveTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.white,
+  premiumCardAmountSection: {
     marginBottom: moderateScale(4),
   },
-  exclusiveSubtitle: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: 'rgba(255,255,255,0.9)',
+  premiumDebtHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  exclusiveIcon: {
-    position: 'absolute',
-    right: Theme.spacing.lg,
-    top: '50%',
-    marginTop: -moderateScale(16),
+  premiumDebtLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+  },
+  premiumDebtAmount: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(30),
+    color: '#FFFFFF',
+    marginTop: moderateScale(4),
+  },
+  premiumDebtIconContainer: {
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(12),
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  premiumDebtDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: moderateScale(14),
+  },
+  premiumDebtDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  premiumDebtDetailCol: {
+    flex: 1,
+  },
+  premiumDebtDetailLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: '#64748B',
+    letterSpacing: 0.8,
+  },
+  premiumDebtDetailVal: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#FFFFFF',
+    marginTop: moderateScale(2),
   },
   debtCard: {
     flexDirection: 'row',
@@ -515,38 +613,13 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     ...Theme.shadow.md,
   },
-  debtIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(12),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   debtContent: {
     flex: 1,
-  },
-  debtLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(12),
-    color: Colors.textSecondary,
-    marginBottom: moderateScale(2),
-  },
-  debtAmount: {
-    ...Typography.heading,
-    fontSize: moderateScale(24),
-    color: Colors.text,
-    fontFamily: 'Outfit_700Bold',
   },
   debtDetails: {
     flexDirection: 'row',
     gap: Theme.spacing.md,
     marginTop: moderateScale(4),
-  },
-  debtDetail: {
-    ...Typography.caption,
-    fontSize: moderateScale(11),
-    color: Colors.textMuted,
   },
   emptyCard: {
     padding: Theme.spacing.xl,
@@ -556,6 +629,39 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.xl,
     borderWidth: 0,
     ...Theme.shadow.md,
+  },
+  repaymentsWidgetEmpty: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(20),
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    paddingVertical: moderateScale(24),
+    paddingHorizontal: moderateScale(16),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: moderateScale(4),
+  },
+  repaymentsWidgetEmptyIconContainer: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(12),
+  },
+  repaymentsWidgetEmptyTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#475569',
+    marginBottom: moderateScale(4),
+  },
+  repaymentsWidgetEmptySubtitle: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: moderateScale(12),
+    color: '#94A3B8',
+    textAlign: 'center',
   },
   emptyTitle: {
     ...Typography.heading,
@@ -578,11 +684,40 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.sm,
     marginBottom: Theme.spacing.xs,
   },
+  sectionActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+  },
+  sectionActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+    paddingVertical: moderateScale(6),
+    paddingHorizontal: moderateScale(12),
+    borderRadius: moderateScale(12),
+    ...Theme.shadow.sm,
+  },
+  sectionAction: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.white,
+    letterSpacing: 0.5,
+  },
+  seeHistoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    paddingVertical: moderateScale(6),
+    paddingHorizontal: moderateScale(12),
+    borderRadius: moderateScale(12),
+  },
   seeHistoryText: {
-    ...Typography.label,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
     color: Colors.primary,
-    fontSize: moderateScale(12),
-    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.5,
   },
   loanCardTop: {
     flexDirection: 'row',
@@ -595,6 +730,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Theme.spacing.sm,
+  },
+  loanIconGradientContainer: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(10),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Theme.spacing.sm,
+  },
+  loanChevron: {
+    marginLeft: moderateScale(10),
   },
   loanMetaContainer: {
     flex: 1,
@@ -666,7 +812,7 @@ const styles = StyleSheet.create({
     marginTop: moderateScale(2),
   },
   sectionTitle: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(16),
     color: Colors.text,
     marginTop: Theme.spacing.sm,
@@ -676,8 +822,9 @@ const styles = StyleSheet.create({
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Theme.shadow.sm,
   },
   loanCardHeader: {
     flexDirection: 'row',
@@ -685,23 +832,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Theme.spacing.sm,
   },
-  loanTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
-    color: Colors.text,
-    fontFamily: 'Outfit_600SemiBold',
+  repaymentLeft: {
+    flex: 1,
   },
-  loanRemaining: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.primary,
-    fontFamily: 'Outfit_600SemiBold',
+  loanTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
   },
   progressContainer: {
     marginVertical: Theme.spacing.sm,
   },
   progressBackground: {
-    height: moderateScale(8),
+    height: moderateScale(6),
     backgroundColor: Colors.surfaceMuted,
     borderRadius: Theme.borderRadius.pill,
     overflow: 'hidden',
@@ -711,11 +854,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Theme.borderRadius.pill,
   },
-  loanPaid: {
-    ...Typography.caption,
-    fontSize: moderateScale(11),
-    color: Colors.textMuted,
-  },
   repaymentCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -723,74 +861,35 @@ const styles = StyleSheet.create({
     padding: Theme.spacing.md,
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-  },
-  repaymentLeft: {
-    flex: 1,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Theme.shadow.sm,
   },
   repaymentTitle: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(14),
     color: Colors.text,
-    fontFamily: 'Outfit_600SemiBold',
-  },
-  repaymentDate: {
-    ...Typography.caption,
-    fontSize: moderateScale(12),
-    color: Colors.textMuted,
-    marginTop: moderateScale(2),
   },
   repaymentRight: {
     alignItems: 'flex-end',
   },
   repaymentAmount: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(16),
     color: Colors.text,
-    fontFamily: 'Outfit_700Bold',
-  },
-  repaymentStatus: {
-    paddingHorizontal: moderateScale(8),
-    paddingVertical: moderateScale(4),
-    borderRadius: Theme.borderRadius.sm,
-    marginTop: moderateScale(4),
   },
   repaymentStatusText: {
-    ...Typography.label,
-    fontSize: moderateScale(9),
-    fontWeight: '700',
-  },
-  healthCard: {
-    padding: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-  },
-  healthLabel: {
-    ...Typography.label,
-    fontSize: moderateScale(12),
-    color: Colors.textSecondary,
-  },
-  healthScore: {
-    ...Typography.heading,
-    fontSize: moderateScale(32),
-    color: Colors.success,
     fontFamily: 'Outfit_700Bold',
-    marginTop: moderateScale(4),
-  },
-  healthStatus: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
-    color: Colors.textSecondary,
-    marginTop: moderateScale(4),
+    fontSize: moderateScale(9),
+    letterSpacing: 0.5,
+    marginTop: moderateScale(2),
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     gap: Theme.spacing.sm,
+    backgroundColor: Colors.white,
   },
   loadingText: {
     ...Typography.body,
@@ -802,6 +901,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Theme.spacing.xl,
     gap: Theme.spacing.md,
+    backgroundColor: Colors.white,
   },
   errorText: {
     ...Typography.body,
@@ -821,9 +921,9 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Theme.spacing.xxl,
+    alignItems: 'center',
+    padding: Theme.spacing.xxl,
     gap: Theme.spacing.sm,
   },
   emptyText: {
@@ -849,15 +949,135 @@ const styles = StyleSheet.create({
     width: moderateScale(56),
     height: moderateScale(56),
     borderRadius: moderateScale(28),
-    backgroundColor: Colors.primary,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
     ...Theme.shadow.floating,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
     elevation: 8,
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: moderateScale(28),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Modal Bottom Sheet Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalDismissArea: {
+    flex: 1,
+  },
+  modalContentContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: moderateScale(24),
+    borderTopRightRadius: moderateScale(24),
+    maxHeight: '75%',
+    paddingBottom: moderateScale(24),
+    ...Theme.shadow.floating,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: moderateScale(16),
+    paddingHorizontal: moderateScale(20),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+  },
+  modalTitleText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+  },
+  modalCloseBtn: {
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalScrollContent: {
+    paddingHorizontal: moderateScale(20),
+    paddingTop: moderateScale(16),
+    gap: moderateScale(12),
+  },
+  modalEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: moderateScale(40),
+  },
+  modalEmptyTitle: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: Colors.textMuted,
+    marginTop: moderateScale(8),
+  },
+  historyItemCard: {
+    backgroundColor: Colors.white,
+    borderRadius: moderateScale(16),
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+    ...Theme.shadow.sm,
+  },
+  historyItemMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(12),
+    paddingHorizontal: moderateScale(12),
+  },
+  historyItemMeta: {
+    flex: 1,
+  },
+  historyItemType: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: Colors.text,
+  },
+  historyItemNo: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  historyItemDate: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  historyItemRight: {
+    alignItems: 'flex-end',
+    marginRight: moderateScale(6),
+  },
+  historyItemAmount: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+  },
+  statusPill: {
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(2),
+    borderRadius: moderateScale(6),
+  },
+  logStatus: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(8),
+    letterSpacing: 0.3,
+  },
+  chevron: {
+    marginLeft: moderateScale(2),
   },
 });
 

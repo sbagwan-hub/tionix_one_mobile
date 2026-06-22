@@ -283,13 +283,13 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // ERP Leave Balances
-  const [balances, setBalances] = useState({
-    annual: 0.0,
-    paidHoliday: 0.0,
-    sick: 0.0,
-    paidCasual: 0.0,
-    unpaidCasual: 0.0,
-  });
+  const [leaveBalances, setLeaveBalances] = useState<LeaveType[]>([
+    { id: 'annual', label: 'Annual Leave', icon: 'ribbon-outline', remaining: 0, total: 0 },
+    { id: 'paid-holiday', label: 'Paid Holiday', icon: 'calendar-outline', remaining: 0, total: 0 },
+    { id: 'sick', label: 'Sick Leave', icon: 'medkit-outline', remaining: 0, total: 0 },
+    { id: 'paid-casual', label: 'Paid Casual Leave', icon: 'sunny-outline', remaining: 0, total: 0 },
+    { id: 'unpaid-casual', label: 'Unpaid Casual Leave', icon: 'wallet-outline', remaining: 0, total: 0 },
+  ]);
 
   // Init metadata and balances
   useEffect(() => {
@@ -314,29 +314,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
       try {
         const fetchedBalances = await getLeaveBalances();
-        const updated = {
-          annual: 0.0,
-          paidHoliday: 0.0,
-          sick: 0.0,
-          paidCasual: 0.0,
-          unpaidCasual: 0.0,
-        };
-        fetchedBalances.forEach(item => {
-          const remaining = item.remaining ?? 0;
-          const id = item.id.toLowerCase();
-          if (id === 'annual' || id === 'earned') {
-            updated.annual = remaining;
-          } else if (id === 'sick') {
-            updated.sick = remaining;
-          } else if (id === 'paid-casual') {
-            updated.paidCasual = remaining;
-          } else if (id === 'paid-holiday') {
-            updated.paidHoliday = remaining;
-          } else if (id === 'unpaid-casual' || id === 'unpaid') {
-            updated.unpaidCasual = remaining;
-          }
-        });
-        setBalances(updated);
+        setLeaveBalances(fetchedBalances);
       } catch (e) {
         console.warn('Failed to load leave balances', e);
       }
@@ -493,6 +471,27 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         return sum + 1.0;
       }, 0);
   }, [rangeDates]);
+
+  // Total Sick Leave days selected (form + drafts)
+  const totalSickLeaveDays = useMemo(() => {
+    let count = 0;
+    if (selectedLeaveType.label.toLowerCase().includes('sick')) {
+      count += activeFormDays;
+    }
+    draftList.forEach(draft => {
+      if (draft.leaveTypeLabel.toLowerCase().includes('sick')) {
+        if (draft.rangeDates && draft.rangeDates.length > 0) {
+          const checked = draft.rangeDates.filter(d => d.isSelected);
+          checked.forEach(d => {
+            count += (d.workingType === 'First Half' || d.workingType === 'Second Half') ? 0.5 : 1.0;
+          });
+        } else {
+          count += (draft.workingType === 'First Half' || draft.workingType === 'Second Half') ? 0.5 : 1.0;
+        }
+      }
+    });
+    return count;
+  }, [selectedLeaveType, activeFormDays, draftList]);
 
   const handleToggleRangeDate = (index: number) => {
     setRangeDates(prev => {
@@ -664,10 +663,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
 
-    // Check if attachment is required for sick leave
-    const isSickLeave = selectedLeaveType.label.toLowerCase().includes('sick');
-    if (isSickLeave && !attachmentUploaded) {
-      setErrorMessage('Attachment is compulsory for Sick Leave. Please upload a document.');
+    // Check if attachment is required for sick leave of more than 1 day
+    if (totalSickLeaveDays > 1.0 && !attachmentUploaded) {
+      setErrorMessage('Attachment is compulsory for Sick Leave of more than 1 day. Please upload a document.');
       return;
     }
 
@@ -809,33 +807,66 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
             keyboardShouldPersistTaps="handled"
           >
             {/* Leave Balances Horizontal Preview Cards */}
-            <View style={styles.balancesPreviewRow}>
-              {/* Annual Card */}
-              <View style={styles.miniBalanceCard}>
-                <Text style={styles.miniCardLabel}>ANNUAL</Text>
-                <Text style={styles.miniCardValueAnnual}>
-                  {String(Math.round(balances.annual)).padStart(2, '0')}
-                  <Text style={styles.miniCardDaysLabel}> DAYS</Text>
-                </Text>
-                <View style={styles.miniCardProgressBg}>
-                  <View style={[styles.miniCardProgressFill, { backgroundColor: '#FF4D1C', width: '56%' }]} />
-                </View>
-                <Ionicons name="airplane-outline" size={moderateScale(40)} color="rgba(255, 77, 28, 0.04)" style={styles.miniCardWatermark} />
-              </View>
+            {/* Leave Balances Horizontal Preview Cards */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.balancesPreviewRow}
+              style={{ marginBottom: moderateScale(4) }}
+            >
+              {leaveBalances.map(type => {
+                const remaining = type.remaining ?? 0;
+                const total = type.total ?? 0;
+                const progress = total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
+                const progressPercent = `${Math.round(progress * 100)}%`;
 
-              {/* Sick Card */}
-              <View style={styles.miniBalanceCard}>
-                <Text style={styles.miniCardLabel}>SICK</Text>
-                <Text style={styles.miniCardValueSick}>
-                  {String(Math.round(balances.sick)).padStart(2, '0')}
-                  <Text style={styles.miniCardDaysLabel}> DAYS</Text>
-                </Text>
-                <View style={styles.miniCardProgressBg}>
-                  <View style={[styles.miniCardProgressFill, { backgroundColor: '#3B82F6', width: '60%' }]} />
-                </View>
-                <Ionicons name="briefcase-outline" size={moderateScale(40)} color="rgba(59, 130, 246, 0.04)" style={styles.miniCardWatermark} />
-              </View>
-            </View>
+                const cardConfig = (() => {
+                  const labelLower = type.label.toLowerCase();
+                  if (labelLower.includes('annual') || labelLower.includes('earned')) {
+                    return {
+                      color: '#FF4D1C',
+                      icon: 'airplane-outline' as const,
+                    };
+                  }
+                  if (labelLower.includes('sick')) {
+                    return {
+                      color: '#3B82F6',
+                      icon: 'medkit-outline' as const,
+                    };
+                  }
+                  if (labelLower.includes('casual')) {
+                    return {
+                      color: '#10B981',
+                      icon: 'sunny-outline' as const,
+                    };
+                  }
+                  if (labelLower.includes('holiday')) {
+                    return {
+                      color: '#EC4899',
+                      icon: 'calendar-outline' as const,
+                    };
+                  }
+                  return {
+                    color: '#6366F1',
+                    icon: 'wallet-outline' as const,
+                  };
+                })();
+
+                return (
+                  <View key={type.id} style={styles.miniBalanceCard}>
+                    <Text style={styles.miniCardLabel}>{type.label.toUpperCase()}</Text>
+                    <Text style={[styles.miniCardValue, { color: cardConfig.color }]}>
+                      {String(Math.round(remaining)).padStart(2, '0')}
+                      <Text style={styles.miniCardDaysLabel}> DAYS</Text>
+                    </Text>
+                    <View style={styles.miniCardProgressBg}>
+                      <View style={[styles.miniCardProgressFill, { backgroundColor: cardConfig.color, width: progressPercent as any }]} />
+                    </View>
+                    <Ionicons name={cardConfig.icon} size={moderateScale(40)} color={`${cardConfig.color}07`} style={styles.miniCardWatermark} />
+                  </View>
+                );
+              })}
+            </ScrollView>
 
             {/* Main Form Card Wrapper */}
             <View style={styles.mainFormCard}>
@@ -964,7 +995,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
               {/* 5. Attachment Upload */}
               <View style={styles.fieldSection}>
                 <Text style={styles.fieldLabel}>
-                  ATTACHMENT {selectedLeaveType.label.toLowerCase().includes('sick') ? '(REQUIRED)' : '(OPTIONAL)'}
+                  ATTACHMENT {totalSickLeaveDays > 1.0 ? '(REQUIRED)' : '(OPTIONAL)'}
                 </Text>
                 <TouchableOpacity style={styles.uploadBox} onPress={handleAttachmentUpload} activeOpacity={0.8}>
                   <View style={styles.uploadIconBadge}>
@@ -1250,7 +1281,7 @@ const styles = StyleSheet.create({
     gap: moderateScale(12),
   },
   miniBalanceCard: {
-    flex: 1,
+    width: moderateScale(130),
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(18),
     padding: moderateScale(14),
@@ -1269,15 +1300,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: moderateScale(2),
   },
-  miniCardValueAnnual: {
+  miniCardValue: {
     fontFamily: 'Outfit_800ExtraBold',
     fontSize: moderateScale(26),
-    color: '#FF4D1C',
-  },
-  miniCardValueSick: {
-    fontFamily: 'Outfit_800ExtraBold',
-    fontSize: moderateScale(26),
-    color: '#0066FF',
   },
   miniCardDaysLabel: {
     fontFamily: 'Outfit_600SemiBold',

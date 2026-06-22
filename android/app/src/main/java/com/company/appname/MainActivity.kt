@@ -1,4 +1,4 @@
-package com.anonymous.attendanceapp
+package com.company.appname
 
 import android.os.Build
 import android.os.Bundle

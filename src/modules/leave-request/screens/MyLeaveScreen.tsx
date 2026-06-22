@@ -25,10 +25,27 @@ import { moderateScale } from '../../../utils/responsive';
 import { getLeaveHistory, LeaveRequest, LeaveStatus } from '../services/leave';
 
 const statusTone: Record<LeaveStatus, { color: string; bg: string; icon: string }> = {
-  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
-  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline' },
-  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline' },
-  Cancelled: { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.12)', icon: 'ban-outline' },
+  Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.08)', icon: 'time-outline' },
+  Approved: { color: Colors.success, bg: 'rgba(16, 185, 129, 0.08)', icon: 'checkmark-circle-outline' },
+  Rejected: { color: Colors.error, bg: 'rgba(239, 68, 68, 0.08)', icon: 'close-circle-outline' },
+  Cancelled: { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.08)', icon: 'ban-outline' },
+};
+
+const getLeaveTypeConfig = (leaveType: string) => {
+  const type = leaveType.toLowerCase();
+  if (type.includes('sick')) {
+    return { icon: 'medkit-outline', color: '#0EA5E9', bg: '#F0F9FF', gradient: ['#38BDF8', '#0EA5E9'] as const };
+  }
+  if (type.includes('casual')) {
+    return { icon: 'cafe-outline', color: '#F59E0B', bg: '#FFFBEB', gradient: ['#FBBF24', '#F59E0B'] as const };
+  }
+  if (type.includes('annual')) {
+    return { icon: 'airplane-outline', color: '#FF4D1C', bg: '#FFF5F2', gradient: ['#FFA040', '#FF4D1C'] as const };
+  }
+  if (type.includes('holiday')) {
+    return { icon: 'calendar-outline', color: '#EC4899', bg: '#FDF2F8', gradient: ['#F472B6', '#EC4899'] as const };
+  }
+  return { icon: 'document-text-outline', color: '#6366F1', bg: '#EEF2FF', gradient: ['#818CF8', '#6366F1'] as const };
 };
 
 const formatDate = (value: string) => {
@@ -103,19 +120,31 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
         label: 'Pending',
         value: String(summary.pending).padStart(2, '0'),
         icon: 'time-outline',
-        tone: Colors.warning,
+        tone: '#FFB300', // Amber/gold
+        bg: '#FFFDF5', // Warm light amber tint
+        border: 'rgba(255, 179, 0, 0.22)',
+        iconBg: '#FFFFFF',
+        shadow: 'rgba(255, 179, 0, 0.15)',
       },
       {
         label: 'Approved',
         value: String(summary.approved).padStart(2, '0'),
         icon: 'checkmark-circle-outline',
-        tone: Colors.success,
+        tone: '#10B981', // Success Emerald green
+        bg: '#F0FDF4', // Crisp light green tint
+        border: 'rgba(16, 185, 129, 0.22)',
+        iconBg: '#FFFFFF',
+        shadow: 'rgba(16, 185, 129, 0.15)',
       },
       {
         label: 'Rejected',
         value: String(summary.rejected).padStart(2, '0'),
         icon: 'close-circle-outline',
-        tone: Colors.error,
+        tone: '#EF4444', // Danger Red
+        bg: '#FEF2F2', // Soft light red tint
+        border: 'rgba(239, 68, 68, 0.22)',
+        iconBg: '#FFFFFF',
+        shadow: 'rgba(239, 68, 68, 0.15)',
       },
     ],
     [summary],
@@ -125,6 +154,25 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
     return history
       .filter(item => item.status === 'Approved')
       .reduce((total, item) => total + item.days, 0);
+  }, [history]);
+
+  const groupedHistory = useMemo(() => {
+    const groups: Record<string, LeaveRequest[]> = {};
+    history.forEach(item => {
+      const key = item.startDate;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+    });
+
+    // Sort the groups by date descending
+    return Object.keys(groups)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      .map(date => ({
+        date,
+        requests: groups[date],
+      }));
   }, [history]);
 
   const openApplyLeave = () => {
@@ -154,7 +202,7 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
 
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.12)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -163,37 +211,38 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
 
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
-          {/* Insight Card Shimmer */}
-          <AppCard style={styles.insightCard}>
-            <Shimmer width={moderateScale(48)} height={moderateScale(48)} borderRadius={moderateScale(10)} />
-            <View style={{ flex: 1, gap: 5 }}>
-              <Shimmer width="40%" height={12} borderRadius={3} />
-              <Shimmer width="60%" height={18} borderRadius={4} />
-            </View>
-          </AppCard>
-
           {/* Summary Row Shimmer */}
           <View style={styles.summaryRow}>
             {[1, 2, 3].map(i => (
-              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center' }]}>
-                <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(10)} style={{ marginBottom: Theme.spacing.sm }} />
+              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center', borderColor: '#F1F5F9', borderWidth: 1 }]}>
+                <Shimmer width={moderateScale(34)} height={moderateScale(34)} borderRadius={10} style={{ marginBottom: Theme.spacing.sm }} />
                 <Shimmer width="60%" height={moderateScale(22)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
                 <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
               </View>
             ))}
           </View>
 
+          {/* Insight Card Shimmer */}
+          <AppCard style={styles.insightCard}>
+            <Shimmer width={moderateScale(42)} height={moderateScale(42)} borderRadius={moderateScale(12)} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Shimmer width="40%" height={12} borderRadius={3} />
+              <Shimmer width="60%" height={18} borderRadius={4} />
+            </View>
+          </AppCard>
+
           {/* Section Title Shimmer */}
           <View style={styles.sectionHeader}>
-            <Shimmer width="40%" height={20} borderRadius={4} />
+            <Shimmer width="45%" height={20} borderRadius={4} />
+            <Shimmer width="25%" height={28} borderRadius={12} />
           </View>
 
           {/* Leave List Items Shimmer */}
           {[1, 2, 3].map(i => (
             <AppCard key={i} style={[styles.logCard, { padding: Theme.spacing.md, gap: Theme.spacing.sm, flexDirection: 'row', alignItems: 'center' }]}>
               <View style={{ flex: 1, gap: 6 }}>
-                <Shimmer width="60%" height={16} borderRadius={4} />
-                <Shimmer width="40%" height={12} borderRadius={3} />
+                <Shimmer width="65%" height={16} borderRadius={4} />
+                <Shimmer width="45%" height={12} borderRadius={3} />
                 <Shimmer width="80%" height={10} borderRadius={2} />
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
@@ -224,34 +273,67 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
             />
           }
         >
+          {/* Glowing Status Cards */}
           <View style={styles.summaryRow}>
             {summaryCards.map(item => (
-              <AppCard key={item.label} style={styles.summaryCard}>
-                <View style={[styles.summaryIcon, { backgroundColor: `${item.tone}12` }]}>
-                  <Ionicons name={item.icon as any} size={moderateScale(20)} color={item.tone} />
+              <View
+                key={item.label}
+                style={[
+                  styles.summaryCard,
+                  { 
+                    backgroundColor: item.bg, 
+                    borderColor: item.border,
+                    shadowColor: item.shadow,
+                  }
+                ]}
+              >
+                <View style={styles.summaryIconContainer}>
+                  <Ionicons name={item.icon as any} size={moderateScale(16)} color={item.tone} />
                 </View>
-                <Text style={styles.summaryValue}>{item.value}</Text>
-                <Text style={styles.summaryLabel}>{item.label}</Text>
-              </AppCard>
+                <Text style={[styles.summaryValue, { color: item.tone }]}>{item.value}</Text>
+                <Text style={[styles.summaryLabel, { color: item.tone }]} numberOfLines={1}>
+                  {item.label.toUpperCase()}
+                </Text>
+              </View>
             ))}
           </View>
 
-          <AppCard style={styles.insightCard}>
-            <View style={styles.insightIcon}>
-              <Ionicons name="calendar-clear-outline" size={moderateScale(24)} color={Colors.primary} />
+          {/* Premium approved leave banner */}
+          <LinearGradient
+            colors={['#FF4D1C', '#FF8C00']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.insightCard}
+          >
+            <View style={styles.insightIconContainer}>
+              <Ionicons name="calendar-outline" size={moderateScale(20)} color={Colors.primary} />
             </View>
             <View style={styles.insightCopy}>
-              <Text style={styles.insightTitle}>Approved leave days</Text>
+              <Text style={styles.insightTitle}>Approved Leave Days</Text>
               <Text style={styles.insightText}>
-                You have taken {totalApprovedDays} approved day{totalApprovedDays === 1 ? '' : 's'} so far.
+                You have taken approved days off so far this year.
               </Text>
             </View>
-          </AppCard>
+            <View style={styles.insightCounterBadge}>
+              <Text style={styles.insightCounterText}>
+                {String(totalApprovedDays).padStart(2, '0')}
+              </Text>
+            </View>
+          </LinearGradient>
 
+          {/* Redesigned Section Header with Action Button */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Requests</Text>
-            <TouchableOpacity onPress={openApplyLeave} activeOpacity={0.85}>
-              <Text style={styles.sectionAction}>Apply leave</Text>
+            <TouchableOpacity onPress={openApplyLeave} activeOpacity={0.9}>
+              <LinearGradient
+                colors={Colors.primaryGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sectionActionContainer}
+              >
+                <Ionicons name="add" size={moderateScale(14)} color={Colors.white} />
+                <Text style={styles.sectionAction}>APPLY LEAVE</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -264,38 +346,111 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
             </View>
           ) : (
-            history.map(item => {
-              const tone = statusTone[item.status];
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('LeaveDetails', { leaveItem: item })}
-                >
-                  <AppCard style={styles.logCard}>
-                    <View style={[styles.logAccentBar, { backgroundColor: tone.color }]} />
-                    <View style={styles.logContent}>
-                      <View style={styles.logBody}>
-                        <Text style={styles.logDate}>{item.leaveType}</Text>
-                        <Text style={styles.logTime}>{formatDateRange(item.startDate, item.endDate)}</Text>
-                        {item.reason ? (
-                          <Text style={styles.logReason} numberOfLines={1}>
-                            {item.reason}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <View style={styles.logMeta}>
-                        <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
-                          <Text style={[styles.logStatus, { color: tone.color }]}>{item.status}</Text>
+            groupedHistory.map(group => {
+              if (group.requests.length === 1) {
+                const item = group.requests[0];
+                const tone = statusTone[item.status] || { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.08)', icon: 'ban-outline' };
+                const typeConfig = getLeaveTypeConfig(item.leaveType);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('LeaveDetails', { leaveItem: item })}
+                  >
+                    <View style={[styles.logCard, { borderLeftWidth: moderateScale(4), borderLeftColor: tone.color }]}>
+                      <View style={styles.logContent}>
+                        <LinearGradient
+                          colors={typeConfig.gradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.logTypeIconContainer}
+                        >
+                          <Ionicons name={typeConfig.icon as any} size={moderateScale(16)} color={Colors.white} />
+                        </LinearGradient>
+                        <View style={styles.logBody}>
+                          <Text style={styles.logTitle}>{item.leaveType}</Text>
+                          <Text style={styles.logDateRange}>{formatDateRange(item.startDate, item.endDate)}</Text>
+                          {item.reason ? (
+                            <Text style={styles.logReason} numberOfLines={1}>
+                              {item.reason}
+                            </Text>
+                          ) : null}
                         </View>
-                        <Text style={styles.logHours}>
-                          {item.days} day{item.days === 1 ? '' : 's'}
-                        </Text>
+                        <View style={styles.logMeta}>
+                          <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
+                            <Text style={[styles.logStatus, { color: tone.color }]}>{item.status.toUpperCase()}</Text>
+                          </View>
+                          <Text style={styles.logDays}>
+                            {item.days} Day{item.days === 1 ? '' : 's'}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={moderateScale(16)} color={Colors.textMuted} style={styles.chevron} />
                       </View>
                     </View>
-                  </AppCard>
-                </TouchableOpacity>
-              );
+                  </TouchableOpacity>
+                );
+              } else {
+                return (
+                  <View key={group.date} style={styles.groupedCard}>
+                    <View style={styles.groupedCardHeader}>
+                      <Ionicons name="calendar-sharp" size={moderateScale(14)} color={Colors.primary} />
+                      <Text style={styles.groupedCardDateText}>{formatDate(group.date)}</Text>
+                      <View style={styles.groupedCountBadge}>
+                        <Text style={styles.groupedCountText}>{group.requests.length} Requests</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.groupedRequestsList}>
+                      {group.requests.map((item, idx) => {
+                        const tone = statusTone[item.status] || { color: Colors.textSecondary, bg: 'rgba(148, 163, 184, 0.08)', icon: 'ban-outline' };
+                        const typeConfig = getLeaveTypeConfig(item.leaveType);
+                        return (
+                          <View key={item.id}>
+                            {idx > 0 && <View style={styles.groupedDivider} />}
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={() => navigation.navigate('LeaveDetails', { leaveItem: item })}
+                              style={styles.groupedRequestRow}
+                            >
+                              <View style={[styles.groupedRowAccentBar, { backgroundColor: tone.color }]} />
+                              <View style={styles.groupedRowContent}>
+                                <LinearGradient
+                                  colors={typeConfig.gradient}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                  style={[styles.logTypeIconContainer, { width: moderateScale(34), height: moderateScale(34), marginRight: moderateScale(10) }]}
+                                >
+                                  <Ionicons name={typeConfig.icon as any} size={moderateScale(14)} color={Colors.white} />
+                                </LinearGradient>
+                                <View style={styles.logBody}>
+                                  <Text style={[styles.logTitle, { fontSize: moderateScale(13) }]}>{item.leaveType}</Text>
+                                  <Text style={[styles.logDateRange, { fontSize: moderateScale(10), marginTop: 1 }]}>
+                                    {item.startDate === item.endDate ? 'Full Day' : formatDateRange(item.startDate, item.endDate)}
+                                  </Text>
+                                  {item.reason ? (
+                                    <Text style={[styles.logReason, { fontSize: moderateScale(9), marginTop: 2 }]} numberOfLines={1}>
+                                      {item.reason}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={styles.logMeta}>
+                                  <View style={[styles.statusPill, { backgroundColor: tone.bg, paddingHorizontal: moderateScale(6), paddingVertical: moderateScale(2) }]}>
+                                    <Text style={[styles.logStatus, { color: tone.color, fontSize: moderateScale(7) }]}>{item.status.toUpperCase()}</Text>
+                                  </View>
+                                  <Text style={[styles.logDays, { fontSize: moderateScale(10) }]}>
+                                    {item.days} Day{item.days === 1 ? '' : 's'}
+                                  </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={moderateScale(14)} color={Colors.textMuted} style={styles.chevron} />
+                              </View>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              }
             })
           )}
         </ScrollView>
@@ -307,14 +462,14 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#F8FAFC',
   },
   bannerContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: moderateScale(280),
+    height: moderateScale(220),
     overflow: 'hidden',
     zIndex: -1,
   },
@@ -323,65 +478,21 @@ const styles = StyleSheet.create({
   },
   bannerBlurOrb1: {
     position: 'absolute',
-    top: -moderateScale(50),
-    left: -moderateScale(50),
-    width: moderateScale(200),
-    height: moderateScale(200),
-    borderRadius: moderateScale(100),
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
+    top: -moderateScale(40),
+    left: -moderateScale(40),
+    width: moderateScale(180),
+    height: moderateScale(180),
+    borderRadius: moderateScale(90),
+    backgroundColor: 'rgba(255, 179, 0, 0.08)',
   },
   bannerBlurOrb2: {
     position: 'absolute',
-    top: moderateScale(40),
-    right: -moderateScale(60),
-    width: moderateScale(250),
-    height: moderateScale(250),
-    borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
-  },
-  header: {
-    backgroundColor: 'transparent',
-    paddingBottom: Theme.spacing.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
-    marginBottom: Theme.spacing.lg,
-  },
-  backButton: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(10),
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  headerTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.text,
-  },
-  headerSpacer: {
-    width: moderateScale(40),
-  },
-  headerContent: {
-    paddingHorizontal: Theme.spacing.lg,
-    marginBottom: Theme.spacing.sm,
-  },
-  monthLabel: {
-    ...Typography.heading,
-    color: Colors.text,
-    fontSize: moderateScale(34),
-    letterSpacing: -1,
-  },
-  headerSubtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: moderateScale(4),
+    top: moderateScale(20),
+    right: -moderateScale(50),
+    width: moderateScale(220),
+    height: moderateScale(220),
+    borderRadius: moderateScale(110),
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
   },
   content: {
     paddingHorizontal: Theme.spacing.lg,
@@ -396,61 +507,84 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
+    justifyContent: 'center',
+    paddingVertical: moderateScale(14),
+    paddingHorizontal: moderateScale(6),
+    borderRadius: moderateScale(18),
+    borderWidth: 1.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  summaryIcon: {
-    width: moderateScale(40),
-    height: moderateScale(40),
+  summaryIconContainer: {
+    width: moderateScale(34),
+    height: moderateScale(34),
     borderRadius: moderateScale(10),
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Theme.spacing.sm,
+    marginBottom: moderateScale(6),
+    ...Theme.shadow.sm,
   },
   summaryValue: {
-    ...Typography.heading,
+    fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(22),
-    color: Colors.text,
+    lineHeight: moderateScale(26),
   },
   summaryLabel: {
-    ...Typography.label,
-    marginTop: moderateScale(2),
-    color: Colors.textMuted,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    letterSpacing: 0.5,
+    marginTop: moderateScale(1),
   },
   insightCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Theme.spacing.md,
-    padding: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
+    padding: moderateScale(16),
+    borderRadius: moderateScale(20),
+    overflow: 'hidden',
     ...Theme.shadow.md,
   },
-  insightIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+  insightIconContainer: {
+    width: moderateScale(42),
+    height: moderateScale(42),
+    borderRadius: moderateScale(12),
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Theme.shadow.sm,
   },
   insightCopy: {
     flex: 1,
+    zIndex: 2,
   },
   insightTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.text,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(15),
+    color: Colors.white,
   },
   insightText: {
-    ...Typography.caption,
-    marginTop: moderateScale(4),
-    lineHeight: moderateScale(18),
-    color: Colors.textSecondary,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    marginTop: moderateScale(3),
+    lineHeight: moderateScale(15),
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  insightCounterBadge: {
+    width: moderateScale(46),
+    height: moderateScale(46),
+    borderRadius: moderateScale(23),
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadow.sm,
+  },
+  insightCounterText: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(16),
+    color: Colors.primary,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -460,70 +594,94 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.xs,
   },
   sectionTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
     color: Colors.text,
   },
+  sectionActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+    paddingVertical: moderateScale(8),
+    paddingHorizontal: moderateScale(14),
+    borderRadius: moderateScale(14),
+    ...Theme.shadow.sm,
+  },
   sectionAction: {
-    ...Typography.label,
-    color: Colors.primary,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.white,
+    letterSpacing: 0.5,
   },
   logCard: {
     flexDirection: 'row',
     backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
+    borderRadius: moderateScale(16),
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     overflow: 'hidden',
-    ...Theme.shadow.md,
-  },
-  logAccentBar: {
-    width: moderateScale(4),
+    ...Theme.shadow.sm,
   },
   logContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Theme.spacing.md,
+    paddingVertical: moderateScale(12),
+    paddingHorizontal: moderateScale(12),
+  },
+  logTypeIconContainer: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: moderateScale(12),
+    ...Theme.shadow.sm,
   },
   logBody: {
     flex: 1,
+    paddingRight: moderateScale(6),
   },
-  logDate: {
-    ...Typography.heading,
-    fontSize: moderateScale(15),
+  logTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
     color: Colors.text,
   },
-  logTime: {
-    ...Typography.body,
-    fontSize: moderateScale(13),
+  logDateRange: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
     color: Colors.textSecondary,
     marginTop: moderateScale(2),
   },
   logReason: {
-    ...Typography.caption,
+    fontFamily: 'Outfit_400Regular',
+    fontSize: moderateScale(10),
     color: Colors.textMuted,
-    marginTop: moderateScale(4),
-    textTransform: 'none',
-    letterSpacing: 0,
+    marginTop: moderateScale(3),
   },
   logMeta: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginRight: moderateScale(4),
   },
   statusPill: {
-    paddingHorizontal: moderateScale(10),
-    paddingVertical: moderateScale(4),
-    borderRadius: Theme.borderRadius.pill,
-    marginBottom: moderateScale(4),
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(3),
+    borderRadius: moderateScale(6),
+    marginBottom: moderateScale(3),
   },
   logStatus: {
-    ...Typography.label,
-    fontSize: moderateScale(10),
-    fontWeight: '800',
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(8),
+    letterSpacing: 0.3,
   },
-  logHours: {
-    ...Typography.heading,
-    fontSize: moderateScale(13),
+  logDays: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
     color: Colors.text,
+  },
+  chevron: {
+    marginLeft: moderateScale(2),
   },
   loadingContainer: {
     flex: 1,
@@ -580,6 +738,64 @@ const styles = StyleSheet.create({
     ...Typography.subheading,
     color: Colors.primary,
     fontSize: moderateScale(13),
+  },
+  groupedCard: {
+    backgroundColor: Colors.white,
+    borderRadius: moderateScale(18),
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+    ...Theme.shadow.sm,
+  },
+  groupedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(12),
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: moderateScale(6),
+  },
+  groupedCardDateText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: Colors.text,
+    flex: 1,
+  },
+  groupedCountBadge: {
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    paddingVertical: moderateScale(3),
+    paddingHorizontal: moderateScale(8),
+    borderRadius: moderateScale(8),
+  },
+  groupedCountText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.primary,
+  },
+  groupedRequestsList: {
+    backgroundColor: Colors.white,
+  },
+  groupedRequestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  groupedRowAccentBar: {
+    width: moderateScale(4),
+    alignSelf: 'stretch',
+  },
+  groupedRowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(12),
+  },
+  groupedDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: moderateScale(16),
   },
 });
 

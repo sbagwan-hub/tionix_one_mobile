@@ -19,7 +19,7 @@ import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { createDailyTask, CreateTaskDto, TaskStatus } from '../services/dailyTask';
+import { createDailyTask, CreateTaskDto, TaskStatus } from '../services/daily-task.service';
 import { getAuthSession } from '../../auth/services/auth';
 
 const AddDailyTaskScreen = ({ navigation }: any) => {
@@ -147,6 +147,7 @@ const AddDailyTaskScreen = ({ navigation }: any) => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'default' : 'default'}
                   onChange={handleDateChange}
+                  accentColor={Colors.primary}
                 />
               )}
             </View>
@@ -167,6 +168,7 @@ const AddDailyTaskScreen = ({ navigation }: any) => {
                   mode="time"
                   display={Platform.OS === 'ios' ? 'default' : 'default'}
                   onChange={handleTimeChange}
+                  accentColor={Colors.primary}
                 />
               )}
             </View>

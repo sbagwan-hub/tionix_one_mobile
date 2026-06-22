@@ -17,6 +17,7 @@ import MyAttendanceScreen from '../modules/attendance/screens/MyAttendanceScreen
 import MyLeaveScreen from '../modules/leave-request/screens/MyLeaveScreen';
 import LeaveDetailsScreen from '../modules/leave-request/screens/LeaveDetailsScreen';
 import AccountSettingsScreen from '../modules/profile/screens/AccountSettingsScreen';
+import HelpSupportScreen from '../modules/profile/screens/HelpSupportScreen';
 import ApplyLeaveScreen from '../modules/leave-request/screens/ApplyLeaveScreen';
 import MyPersonalWorkScreen from '../modules/personal-work/screens/MyPersonalWorkScreen';
 import ApplyPersonalWorkScreen from '../modules/personal-work/screens/ApplyPersonalWorkScreen';
@@ -91,6 +92,9 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         } else if (route.name === 'Leave') {
           iconName = isFocused ? 'calendar' : 'calendar-outline';
           customLabel = 'LEAVE';
+        } else if (route.name === 'Loan') {
+          iconName = isFocused ? 'cash' : 'cash-outline';
+          customLabel = 'LOAN';
         } else if (route.name === 'DailyTask') {
           iconName = isFocused ? 'list' : 'list-outline';
           customLabel = 'TASK';
@@ -144,6 +148,13 @@ const MainTabs = () => {
         <Tab.Screen
           name="Leave"
           component={LeaveScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Tab.Screen
+          name="Loan"
+          component={MyLoansScreen}
           options={{
             headerShown: false,
           }}
@@ -282,6 +293,11 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="AccountSettings" 
           component={AccountSettingsScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="HelpSupport" 
+          component={HelpSupportScreen} 
           options={{ headerShown: false }} 
         />
         <Stack.Screen 

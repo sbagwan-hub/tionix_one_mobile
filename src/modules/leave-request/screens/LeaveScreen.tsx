@@ -177,7 +177,7 @@ const HistoryCard = ({ item }: { item: LeaveRequest }) => {
   const dateRange = formatDateRange(item.startDate, item.endDate);
 
   return (
-    <View style={styles.historyCardContainer}>
+    <View style={[styles.historyCardContainer, { borderLeftWidth: moderateScale(4), borderLeftColor: tone.textColor }]}>
       <View style={[styles.historyCardIconBg, { backgroundColor: tone.badgeColor }]}>
         <Ionicons name={tone.iconName as any} size={moderateScale(22)} color={tone.textColor} />
       </View>
@@ -339,6 +339,33 @@ const LeaveScreen = ({ navigation }: any) => {
           <RefreshControl refreshing={refreshing} onRefresh={() => loadLeaveData(true)} tintColor={Colors.primary} />
         }
       >
+        {/* Welcome Profile Header Section */}
+        <View style={styles.welcomeSection}>
+          <View style={styles.welcomeLeft}>
+            <View style={styles.avatarContainer}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitials}>{userInitials}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.welcomeTextColumn}>
+              <Text style={styles.welcomeSubtitle}>HRMS DASHBOARD</Text>
+              <Text style={styles.welcomeTitle}>{employeeName}</Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.downloadReportBtn} 
+            onPress={handleDownloadReport}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="download-outline" size={moderateScale(20)} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Leave Balance Horizontal Slider */}
         <View style={styles.balanceContainer}>
           {showBalanceShimmer ? (
@@ -412,27 +439,28 @@ const LeaveScreen = ({ navigation }: any) => {
           )}
         </View>
 
-        {/* Break Banner Card matching Mockup */}
-        <TouchableOpacity style={styles.breakBannerCard} onPress={openApplyLeave} activeOpacity={0.9}>
-          <View style={styles.breakBannerIconContainer}>
-            <Ionicons name="compass-outline" size={moderateScale(22)} color="#FF4D1C" />
-          </View>
-          <Text style={styles.breakBannerTitle}>Ready for a break?</Text>
-          <Text style={styles.breakBannerSubtitle}>
-            Plan your next adventure and secure your dates today.
-          </Text>
-          <Text style={styles.breakBannerActionText}>APPLY NOW</Text>
+        {/* Premium Redesigned Break Banner Card */}
+        <TouchableOpacity onPress={openApplyLeave} activeOpacity={0.9}>
+          <LinearGradient
+            colors={['#FF4D1C', '#D92D20']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.breakBannerCard}
+          >
+            <View style={styles.breakBannerContent}>
+              <View style={styles.breakBannerTextWrap}>
+                <Text style={styles.breakBannerTitle}>Ready for a break?</Text>
+                <Text style={styles.breakBannerSubtitle}>
+                  Plan your next adventure and secure your dates today.
+                </Text>
+              </View>
+              <View style={styles.breakBannerActionBtn}>
+                <Ionicons name="arrow-forward" size={moderateScale(20)} color={Colors.primary} />
+              </View>
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Floating Action Button (FAB) - Apply Leave */}
-      <TouchableOpacity
-        style={[styles.fabButton, { bottom: moderateScale(24) }]}
-        activeOpacity={0.85}
-        onPress={openApplyLeave}
-      >
-        <Ionicons name="add" size={moderateScale(28)} color={Colors.white} />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -509,31 +537,36 @@ const styles = StyleSheet.create({
     gap: moderateScale(12),
   },
   downloadReportBtn: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(18),
-    backgroundColor: '#F8FAFC',
+    width: moderateScale(38),
+    height: moderateScale(38),
+    borderRadius: moderateScale(19),
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    ...Theme.shadow.sm,
   },
   avatarContainer: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(18),
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 77, 28, 0.15)',
   },
   avatar: {
     width: '100%',
     height: '100%',
   },
   avatarPlaceholder: {
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitials: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(15),
     color: Colors.primary,
   },
   content: {
@@ -541,18 +574,30 @@ const styles = StyleSheet.create({
     gap: moderateScale(22),
   },
   welcomeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Theme.spacing.lg,
+    marginTop: Theme.spacing.sm,
+  },
+  welcomeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(12),
+  },
+  welcomeTextColumn: {
+    justifyContent: 'center',
   },
   welcomeSubtitle: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(10),
+    fontSize: moderateScale(9),
     color: Colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: moderateScale(4),
+    letterSpacing: 1.2,
+    marginBottom: moderateScale(2),
   },
   welcomeTitle: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(24),
+    fontSize: moderateScale(18),
     color: '#0F172A',
   },
   balanceContainer: {
@@ -733,47 +778,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: moderateScale(20),
   },
   breakBannerCard: {
-    backgroundColor: 'rgba(255, 77, 28, 0.05)',
-    borderRadius: moderateScale(24),
-    paddingVertical: moderateScale(24),
-    paddingHorizontal: moderateScale(16),
-    marginHorizontal: Theme.spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 77, 28, 0.08)',
-  },
-  breakBannerIconContainer: {
-    width: moderateScale(40),
-    height: moderateScale(40),
     borderRadius: moderateScale(20),
-    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    padding: moderateScale(18),
+    marginHorizontal: Theme.spacing.lg,
+    ...Theme.shadow.md,
+  },
+  breakBannerContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: moderateScale(12),
+    justifyContent: 'space-between',
+    gap: moderateScale(12),
+  },
+  breakBannerTextWrap: {
+    flex: 1,
   },
   breakBannerTitle: {
-    fontFamily: 'Outfit_800ExtraBold',
-    fontSize: moderateScale(18),
-    color: '#8C3D2B',
-    textAlign: 'center',
-    marginBottom: moderateScale(6),
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: '#FFFFFF',
+    marginBottom: moderateScale(4),
   },
   breakBannerSubtitle: {
     fontFamily: 'Outfit_500Medium',
-    fontSize: moderateScale(12),
-    color: '#8C3D2B',
-    textAlign: 'center',
-    opacity: 0.85,
-    paddingHorizontal: moderateScale(16),
-    marginBottom: moderateScale(14),
+    fontSize: moderateScale(11),
+    color: 'rgba(255, 255, 255, 0.82)',
+    lineHeight: moderateScale(15),
   },
-  breakBannerActionText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(12),
-    color: '#8C3D2B',
-    textDecorationLine: 'underline',
-    letterSpacing: 0.8,
+  breakBannerActionBtn: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadow.sm,
   },
   fabButton: {
     position: 'absolute',

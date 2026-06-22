@@ -168,6 +168,19 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
     );
   }
 
+  // Grid col helper component
+  const MetaGridCol = ({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) => (
+    <View style={styles.metaGridColContainer}>
+      <View style={styles.metaColIconWrapper}>
+        <Ionicons name={icon as any} size={moderateScale(16)} color={color || Colors.textSecondary} />
+      </View>
+      <View style={styles.metaColTextWrapper}>
+        <Text style={styles.metaLabel}>{label}</Text>
+        <Text style={styles.metaValue} numberOfLines={1}>{value}</Text>
+      </View>
+    </View>
+  );
+
   // Metadata Card Component
   const LoanMetaCard = () => (
     <AppCard style={styles.metaCard}>
@@ -182,54 +195,36 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      <View style={styles.metaDivider} />
+      <LinearGradient
+        colors={['rgba(255, 77, 28, 0.08)', 'rgba(255, 77, 28, 0.02)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.metaHeroContainer}
+      >
+        <Text style={styles.metaHeroLabel}>LOAN AMOUNT APPROVED</Text>
+        <Text style={styles.metaHeroAmount}>{formatCurrency(loan.loan_amount)}</Text>
+      </LinearGradient>
 
       {/* Grid Fields */}
       <View style={styles.metaGrid}>
         <View style={styles.metaRow}>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Employee</Text>
-            <Text style={styles.metaValue}>{loan.employee_name || 'Current Employee'}</Text>
-          </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Loan Amount</Text>
-            <Text style={[styles.metaValue, { color: Colors.primary, fontFamily: 'Outfit_700Bold' }]}>
-              {formatCurrency(loan.loan_amount)}
-            </Text>
-          </View>
+          <MetaGridCol icon="person-outline" label="Employee" value={loan.employee_name || 'Current Employee'} />
+          <MetaGridCol icon="trending-up-outline" label="Interest Rate" value={`${loan.interest_rate || '0.00'} %`} />
         </View>
 
         <View style={styles.metaRow}>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Interest Rate</Text>
-            <Text style={styles.metaValue}>{loan.interest_rate || '0.00'} %</Text>
-          </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Tenure</Text>
-            <Text style={styles.metaValue}>{loan.installments} Months</Text>
-          </View>
+          <MetaGridCol icon="calendar-outline" label="Tenure" value={`${loan.installments} Months`} />
+          <MetaGridCol icon="receipt-outline" label="Voucher Number" value={loan.voucher_no || 'N/A'} />
         </View>
 
         <View style={styles.metaRow}>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Voucher Number</Text>
-            <Text style={styles.metaValue}>{loan.voucher_no || 'N/A'}</Text>
-          </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Deduction Start</Text>
-            <Text style={styles.metaValue}>{formatMonth(loan.deduct_from_month)}</Text>
-          </View>
+          <MetaGridCol icon="time-outline" label="Deduction Start" value={formatMonth(loan.deduct_from_month)} />
+          <MetaGridCol icon="wallet-outline" label="Return Through" value={loan.return_through} />
         </View>
 
         <View style={styles.metaRow}>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Return Through</Text>
-            <Text style={styles.metaValue}>{loan.return_through}</Text>
-          </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Calculation Method</Text>
-            <Text style={styles.metaValue}>{loan.calc_method}</Text>
-          </View>
+          <MetaGridCol icon="calculator-outline" label="Calculation Method" value={loan.calc_method} />
+          <View style={{ flex: 1 }} />
         </View>
 
         {loan.remarks && (
@@ -253,41 +248,53 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
   const RepaymentSummaryCard = () => {
     if (!summary) return null;
     return (
-      <AppCard style={styles.summaryCard}>
+      <View style={styles.summaryContainer}>
         <Text style={styles.summaryHeading}>Repayment Summary</Text>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Return Amount</Text>
-              <Text style={[styles.summaryValue, { color: Colors.primary }]}>
+        
+        {/* Main Card (Payable & Interest) */}
+        <AppCard style={styles.summaryMainCard}>
+          <View style={styles.summaryMainRow}>
+            <View style={{ flex: 1.2 }}>
+              <Text style={styles.summaryCardLabel}>TOTAL PAYABLE</Text>
+              <Text style={[styles.summaryCardValue, { color: Colors.primary, fontSize: moderateScale(18) }]}>
                 {formatCurrency(summary.totalReturnAmount)}
               </Text>
             </View>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Interest</Text>
-              <Text style={styles.summaryValue}>
+            <View style={styles.summaryMainDivider} />
+            <View style={{ flex: 1, paddingLeft: moderateScale(16) }}>
+              <Text style={styles.summaryCardLabel}>TOTAL INTEREST</Text>
+              <Text style={[styles.summaryCardValue, { fontSize: moderateScale(16) }]}>
                 {formatCurrency(summary.totalInterest)}
               </Text>
             </View>
           </View>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Paid</Text>
-              <Text style={[styles.summaryValue, { color: Colors.success }]}>
-                {formatCurrency(summary.totalPaidAmount)}
-              </Text>
-              <Text style={styles.summarySubLabel}>{summary.paidCount} Paid</Text>
+        </AppCard>
+
+        {/* Paid & Outstanding Cards Grid */}
+        <View style={styles.summaryGridRow}>
+          <View style={[styles.summaryStatusCard, styles.summaryPaidCard]}>
+            <View style={styles.summaryStatusIconRow}>
+              <Ionicons name="checkmark-circle" size={moderateScale(18)} color={Colors.success} />
+              <Text style={[styles.summaryStatusLabel, { color: Colors.success }]}>PAID</Text>
             </View>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Outstanding</Text>
-              <Text style={[styles.summaryValue, { color: Colors.warning }]}>
-                {formatCurrency(summary.totalPendingAmount)}
-              </Text>
-              <Text style={styles.summarySubLabel}>{summary.pendingCount} Pending</Text>
+            <Text style={[styles.summaryStatusAmount, { color: '#0F5132' }]}>
+              {formatCurrency(summary.totalPaidAmount)}
+            </Text>
+            <Text style={styles.summaryStatusSubText}>{summary.paidCount} Paid</Text>
+          </View>
+
+          <View style={[styles.summaryStatusCard, styles.summaryPendingCard]}>
+            <View style={styles.summaryStatusIconRow}>
+              <Ionicons name="time" size={moderateScale(18)} color={Colors.warning} />
+              <Text style={[styles.summaryStatusLabel, { color: Colors.warning }]}>OUTSTANDING</Text>
             </View>
+            <Text style={[styles.summaryStatusAmount, { color: '#664D03' }]}>
+              {formatCurrency(summary.totalPendingAmount)}
+            </Text>
+            <Text style={styles.summaryStatusSubText}>{summary.pendingCount} Pending</Text>
           </View>
         </View>
-      </AppCard>
+      </View>
     );
   };
 
@@ -297,6 +304,7 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
       <Text style={styles.scheduleHeading}>Amortization Schedule</Text>
       {loan.schedule.map((inst) => {
         const isExpanded = !!expandedInstallments[inst.inst_no];
+        const isPaid = inst.status !== 'Pending' && !!inst.status;
         return (
           <TouchableOpacity
             key={inst.inst_no}
@@ -310,6 +318,11 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
                     <Text style={styles.instBadgeText}>#{inst.inst_no}</Text>
                   </View>
                   <Text style={styles.instMonthText}>{formatMonth(inst.inst_month)}</Text>
+                  <View style={[styles.instStatusBadge, { backgroundColor: isPaid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(142, 142, 147, 0.08)' }]}>
+                    <Text style={[styles.instStatusBadgeText, { color: isPaid ? Colors.success : Colors.textMuted }]}>
+                      {isPaid ? 'PAID' : 'PENDING'}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.instHeaderRight}>
                   <Text style={styles.instEmiText}>{formatCurrency(inst.total_payable)}</Text>
@@ -512,6 +525,28 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(10),
     fontWeight: '800',
   },
+  metaHeroContainer: {
+    borderRadius: moderateScale(16),
+    paddingVertical: moderateScale(16),
+    paddingHorizontal: moderateScale(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: moderateScale(12),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 77, 28, 0.1)',
+  },
+  metaHeroLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    color: Colors.primary,
+    letterSpacing: 1.2,
+  },
+  metaHeroAmount: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(28),
+    color: Colors.text,
+    marginTop: moderateScale(4),
+  },
   metaDivider: {
     height: 1,
     backgroundColor: Colors.border,
@@ -520,9 +555,29 @@ const styles = StyleSheet.create({
   metaGrid: {
     gap: Theme.spacing.md,
   },
+  metaGridColContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(10),
+  },
+  metaColIconWrapper: {
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(8),
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  metaColTextWrapper: {
+    flex: 1,
+  },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: Theme.spacing.sm,
   },
   metaCol: {
     flex: 1,
@@ -536,7 +591,7 @@ const styles = StyleSheet.create({
   },
   metaValue: {
     ...Typography.body,
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(13),
     fontFamily: 'Outfit_600SemiBold',
     color: Colors.text,
     marginTop: 2,
@@ -595,6 +650,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     color: Colors.text,
   },
+  instStatusBadge: {
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(2),
+    borderRadius: moderateScale(6),
+  },
+  instStatusBadgeText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(8),
+    letterSpacing: 0.3,
+  },
   instHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -605,11 +670,15 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   instDetails: {
-    marginTop: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: '#F1F5F9',
     paddingTop: Theme.spacing.sm,
+    paddingHorizontal: moderateScale(8),
     gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(8),
+    paddingVertical: moderateScale(10),
   },
   instDetailRow: {
     flexDirection: 'row',
@@ -679,49 +748,94 @@ const styles = StyleSheet.create({
   tabletRightCol: {
     flex: 6,
   },
-  summaryCard: {
-    padding: Theme.spacing.md,
+  summaryContainer: {
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.xs,
+  },
+  summaryMainCard: {
+    padding: moderateScale(16),
     backgroundColor: Colors.white,
     borderRadius: Theme.borderRadius.xl,
-    borderWidth: 0,
-    ...Theme.shadow.md,
-    marginTop: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Theme.shadow.sm,
+  },
+  summaryMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryMainDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: '#E2E8F0',
+  },
+  summaryCardLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  summaryCardValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginTop: 4,
+  },
+  summaryGridRow: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+  },
+  summaryStatusCard: {
+    flex: 1,
+    borderRadius: Theme.borderRadius.xl,
+    padding: moderateScale(14),
+    borderWidth: 1,
+    ...Theme.shadow.sm,
+  },
+  summaryPaidCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: 'rgba(16, 185, 129, 0.15)',
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  summaryPendingCard: {
+    backgroundColor: '#FFFDF5',
+    borderColor: 'rgba(245, 158, 11, 0.15)',
+    shadowColor: Colors.warning,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  summaryStatusIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
+  },
+  summaryStatusLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(9),
+    letterSpacing: 0.6,
+  },
+  summaryStatusAmount: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(15),
+    marginTop: moderateScale(8),
+  },
+  summaryStatusSubText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   summaryHeading: {
     ...Typography.heading,
     fontSize: moderateScale(15),
     color: Colors.text,
-    marginBottom: Theme.spacing.md,
-  },
-  summaryGrid: {
-    gap: Theme.spacing.md,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryCol: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...Typography.caption,
-    fontSize: moderateScale(11),
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  summaryValue: {
-    ...Typography.body,
-    fontSize: moderateScale(16),
-    fontFamily: 'Outfit_700Bold',
-    color: Colors.text,
-    marginTop: 2,
-  },
-  summarySubLabel: {
-    ...Typography.caption,
-    fontSize: moderateScale(10),
-    color: Colors.textMuted,
-    marginTop: 1,
+    marginBottom: Theme.spacing.xs,
   },
 });
 

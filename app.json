@@ -45,7 +45,7 @@
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.attendanceapp"
+      "package": "com.company.appname"
     },
     "plugins": [
       [

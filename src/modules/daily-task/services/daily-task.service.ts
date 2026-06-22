@@ -76,13 +76,8 @@ export const getDailyTasks = async (): Promise<DailyTask[]> => {
     });
 
     const tasks = response.data?.data || [];
-    
-    if (tasks.length > 0) {
-      await writeLocalTasks(fkEmpId, tasks);
-      return tasks;
-    }
-
-    return localTasks;
+    await writeLocalTasks(fkEmpId, tasks);
+    return tasks;
   } catch (error) {
     console.error('Error fetching daily tasks:', error);
     return localTasks;

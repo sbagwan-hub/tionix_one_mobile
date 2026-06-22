@@ -91,16 +91,10 @@ const menuItems = [
   },
   {
     id: '8',
-    title: 'Notification Settings',
-    subtitle: 'Custom alerts and email preferences',
-    icon: 'notifications-outline',
-    route: 'AccountSettings',
-  },
-  {
-    id: '9',
     title: 'Help & Support',
     subtitle: 'FAQs and direct support tickets',
     icon: 'help-circle-outline',
+    route: 'HelpSupport',
   },
 ];
 

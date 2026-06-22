@@ -19,7 +19,7 @@ import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { updateDailyTask, deleteDailyTask, UpdateTaskDto, TaskStatus, DailyTask } from '../services/dailyTask';
+import { updateDailyTask, deleteDailyTask, UpdateTaskDto, TaskStatus, DailyTask } from '../services/daily-task.service';
 
 const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
@@ -178,6 +178,7 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'default' : 'default'}
                   onChange={handleDateChange}
+                  accentColor={Colors.primary}
                 />
               )}
             </View>
@@ -198,6 +199,7 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
                   mode="time"
                   display={Platform.OS === 'ios' ? 'default' : 'default'}
                   onChange={handleTimeChange}
+                  accentColor={Colors.primary}
                 />
               )}
             </View>

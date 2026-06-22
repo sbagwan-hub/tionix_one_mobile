@@ -16,6 +16,15 @@ import {
 } from '@expo-google-fonts/outfit';
 import { setSessionExpiredHandler } from './src/services/sessionManager';
 import { clearAuthSession } from './src/modules/auth/services/auth';
+import {
+  registerBackgroundMessageHandler,
+  requestUserPermission,
+  getFCMToken,
+  initFCMListeners,
+} from './src/services/fcm.service';
+
+// Register background message handler early at file level
+registerBackgroundMessageHandler();
 
 function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -32,6 +41,17 @@ function App() {
       Font.loadAsync({ Ionicons: ioniconsFont }).catch(console.warn);
     }
 
+    // Initialize FCM
+    const setupFCM = async () => {
+      const hasPermission = await requestUserPermission();
+      if (hasPermission) {
+        await getFCMToken();
+      }
+    };
+    setupFCM();
+
+    const unsubscribeFCM = initFCMListeners();
+
     // Register session expired handler
     setSessionExpiredHandler(async () => {
       await clearAuthSession();
@@ -43,6 +63,10 @@ function App() {
         topOffset: 60,
       });
     });
+
+    return () => {
+      unsubscribeFCM();
+    };
   }, []);
 
   if (!fontsLoaded && !fontError) {
@@ -58,3 +82,4 @@ function App() {
 }
 
 export default App;
+
