@@ -330,6 +330,12 @@ const AttendanceScreen = () => {
           if (statusText.includes('break')) {
             currentPunchStatus = 'BREAK';
           } else if (
+            statusText.includes('not checked in') ||
+            statusText.includes('not checked')
+          ) {
+            // Explicitly handle "not checked in" status
+            currentPunchStatus = 'OUT';
+          } else if (
             statusText.includes('checked in') ||
             statusText.includes('punch in') ||
             statusText.includes('check in') ||
@@ -339,7 +345,7 @@ const AttendanceScreen = () => {
           ) {
             currentPunchStatus = 'IN';
           } else {
-            // "Not Checked In" or any other status means user is OUT
+            // Any other status means user is OUT
             currentPunchStatus = 'OUT';
           }
         }
@@ -387,13 +393,13 @@ const AttendanceScreen = () => {
 
       loadData();
 
-      // Auto refresh every 10 seconds while the screen is focused
+      // Auto refresh every 60 seconds while the screen is focused
       const interval = setInterval(() => {
         if (isMounted) {
           updateGreeting();
           fetchStatusAndName();
         }
-      }, 10000);
+      }, 60000);
 
       return () => {
         isMounted = false;
@@ -574,6 +580,23 @@ const AttendanceScreen = () => {
         'Please wait while we fetch your location to mark attendance.',
       );
       return;
+    }
+
+    // Check for duplicate punch on the same day
+    if (status === 'OUT') {
+      // Checking IN - check if already checked in today
+      const hasCheckedInToday = todayRecords.some((r: any) => r.Punch === 'Check IN');
+      if (hasCheckedInToday) {
+        Alert.alert('Already Checked In', 'You have already checked in today. You can only check in once per day.');
+        return;
+      }
+    } else {
+      // Checking OUT - check if already checked out today
+      const hasCheckedOutToday = todayRecords.some((r: any) => r.Punch === 'Check OUT');
+      if (hasCheckedOutToday) {
+        Alert.alert('Already Checked Out', 'You have already checked out today. You can only check out once per day.');
+        return;
+      }
     }
 
     setIsVerifying(true);
@@ -954,7 +977,7 @@ const AttendanceScreen = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(140) + insets.bottom }]}
+        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(140) }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

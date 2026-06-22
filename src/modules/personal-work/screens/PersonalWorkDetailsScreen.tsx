@@ -12,6 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import Toast from 'react-native-toast-message';
 import AppCard from '../../../components/AppCard';
 import { Colors, Theme } from '../../../theme/colors';
@@ -21,7 +22,7 @@ import {
   deletePersonalWorkRequest,
   getPersonalWorkDetails,
   PersonalWorkRequest,
-} from '../services/personalWork.service';
+} from '../services/personal-work.service';
 
 const statusTone: Record<string, { color: string; bg: string; icon: string }> = {
   Pending: { color: Colors.warning, bg: 'rgba(255, 179, 0, 0.10)', icon: 'time-outline' },
@@ -173,6 +174,9 @@ const PersonalWorkDetailsScreen = ({ route, navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Custom AppBar */}
+      <AppBar title="Request Details" showBackButton onBackPress={() => navigation.goBack()} />
+
       <View style={styles.bannerContainer}>
         <LinearGradient
           colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
@@ -306,6 +310,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(260),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,

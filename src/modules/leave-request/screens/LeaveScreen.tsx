@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AppCard from '../../../components/AppCard';
 import Shimmer from '../../../components/Shimmer';
+import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
@@ -318,6 +319,9 @@ const LeaveScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Custom AppBar */}
+      <AppBar title="Leave" />
+
       {/* Background Gradients */}
       <View style={styles.bannerContainer}>
         <LinearGradient
@@ -335,12 +339,6 @@ const LeaveScreen = ({ navigation }: any) => {
           <RefreshControl refreshing={refreshing} onRefresh={() => loadLeaveData(true)} tintColor={Colors.primary} />
         }
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeSubtitle}>WELCOME BACK, {welcomeName}</Text>
-          <Text style={styles.welcomeTitle}>Leave Balance</Text>
-        </View>
-
         {/* Leave Balance Horizontal Slider */}
         <View style={styles.balanceContainer}>
           {showBalanceShimmer ? (

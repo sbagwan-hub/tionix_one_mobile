@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
@@ -44,6 +45,9 @@ const AccountSettingsScreen = ({ navigation }: any) => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+      {/* Custom AppBar */}
+      <AppBar title="Account Settings" showBackButton onBackPress={() => navigation.goBack()} />
 
       {/* Stunning Background Banner */}
       <View style={styles.bannerContainer}>
@@ -135,6 +139,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(280),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,

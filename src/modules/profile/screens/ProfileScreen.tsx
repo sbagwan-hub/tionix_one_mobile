@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import Shimmer from '../../../components/Shimmer';
+import AppBar from '../../../components/AppBar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -262,6 +263,9 @@ const ProfileScreen = ({ navigation }: any) => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+      {/* Custom AppBar */}
+      <AppBar title="Profile" />
 
       {/* Background Banner */}
       <View style={styles.bannerContainer}>

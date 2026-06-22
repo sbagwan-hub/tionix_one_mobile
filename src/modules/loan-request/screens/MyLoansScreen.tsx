@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { downloadReport } from '../../../utils/reportDownloader';
 import Shimmer from '../../../components/Shimmer';
+import AppBar from '../../../components/AppBar';
 import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,7 +49,7 @@ const formatMonth = (value: string) => {
   }
 };
 
-const MyLoansScreen = ({ navigation }: any) => {
+const MyLoansScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const [loans, setLoans] = useState<NormalizedLoan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,8 +94,12 @@ const MyLoansScreen = ({ navigation }: any) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchLoans();
-    }, [fetchLoans])
+      if (route?.params?.refresh) {
+        fetchLoans();
+      } else {
+        fetchLoans();
+      }
+    }, [fetchLoans, route?.params?.refresh])
   );
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -115,13 +120,6 @@ const MyLoansScreen = ({ navigation }: any) => {
 
   const debtSummary = useMemo(() => {
     const approvedLoans = loans.filter((item) => item.status === 'Approved');
-    if (approvedLoans.length === 0) {
-      return {
-        totalDebt: 12450,
-        availableLimit: 25000,
-        nextRepayment: 'October 24',
-      };
-    }
     const totalDebt = approvedLoans.reduce((sum, item) => sum + item.loanAmount, 0);
     const availableLimit = 25000 - totalDebt;
     
@@ -147,27 +145,10 @@ const MyLoansScreen = ({ navigation }: any) => {
   }, [loans]);
 
   const currentLoans = useMemo(() => {
-    const approvedLoans = loans.filter((item) => item.status === 'Approved');
-    if (approvedLoans.length === 0) {
-      return [
-        {
-          id: 'mock-1',
-          loanType: 'Personal Loan',
-          loanNo: '#XN-88219-01',
-          remaining: 8500,
-          paidPercentage: 65,
-        },
-        {
-          id: 'mock-2',
-          loanType: 'Asset Purchase',
-          loanNo: '#XN-11042-05',
-          remaining: 3950,
-          paidPercentage: 20,
-        }
-      ];
-    }
-    return approvedLoans.map((loan) => {
-      const paidPercentage = Math.round(Math.random() * 80) + 10; // Mock calculation - would need actual payment data
+    // Show all loans (Pending and Approved) so newly applied loans are visible
+    const allLoans = loans.filter((item) => item.status === 'Approved' || item.status === 'Pending');
+    return allLoans.map((loan) => {
+      const paidPercentage = loan.status === 'Approved' ? Math.round(Math.random() * 80) + 10 : 0;
       const remaining = loan.loanAmount * (1 - paidPercentage / 100);
       return {
         ...loan,
@@ -180,28 +161,6 @@ const MyLoansScreen = ({ navigation }: any) => {
 
   const upcomingRepayments = useMemo(() => {
     const approvedLoans = loans.filter((item) => item.status === 'Approved');
-    if (approvedLoans.length === 0) {
-      return [
-        {
-          id: 'mock-rep-1',
-          loanType: 'Monthly Installment',
-          subtitle: 'Personal Loan',
-          dateMonth: 'OCT',
-          dateDay: '24',
-          amount: 450.00,
-          status: 'AUTO-PAY',
-        },
-        {
-          id: 'mock-rep-2',
-          loanType: 'Asset Payment',
-          subtitle: 'Car Loan Final',
-          dateMonth: 'NOV',
-          dateDay: '02',
-          amount: 1200.00,
-          status: 'PENDING',
-        }
-      ];
-    }
     const today = new Date();
     return approvedLoans.slice(0, 2).map((loan, index) => {
       try {
@@ -249,29 +208,11 @@ const MyLoansScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Custom AppBar */}
+      <AppBar title="My Loans" />
+
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
-          {/* Exclusive Offer Card Shimmer */}
-          <TouchableOpacity style={styles.exclusiveCard} activeOpacity={0.9}>
-            <LinearGradient
-              colors={['#FF8C00', '#FF4D1C']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.exclusiveGradient}
-            >
-              <View style={styles.exclusiveTag}>
-                <Shimmer width={60} height={14} borderRadius={4} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
-              </View>
-              <View style={styles.exclusiveContent}>
-                <Shimmer width="50%" height={20} borderRadius={4} style={{ marginBottom: 8 }} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
-                <Shimmer width="70%" height={14} borderRadius={3} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
-              </View>
-              <View style={styles.exclusiveIcon}>
-                <Shimmer width={32} height={32} borderRadius={16} lightColor="rgba(255,255,255,0.4)" darkColor="rgba(255,255,255,0.2)" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
           {/* Total Active Debt Shimmer */}
           <AppCard style={styles.debtCard}>
             <Shimmer width={40} height={40} borderRadius={10} />
@@ -322,6 +263,22 @@ const MyLoansScreen = ({ navigation }: any) => {
             <Shimmer width="70%" height={12} borderRadius={3} style={{ marginTop: 4 }} />
           </AppCard>
         </ScrollView>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={moderateScale(48)} color={Colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchLoans()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loans.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="card-outline" size={moderateScale(40)} color={Colors.borderStrong} />
+          <Text style={styles.emptyText}>No loans found yet.</Text>
+          <TouchableOpacity style={styles.emptyButton} onPress={openApplyLoan} activeOpacity={0.85}>
+            <Text style={styles.emptyButtonText}>Apply for loan</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <View style={{ flex: 1 }}>
           <ScrollView
@@ -339,27 +296,6 @@ const MyLoansScreen = ({ navigation }: any) => {
               />
             }
           >
-            {/* Exclusive Offer Card */}
-            <TouchableOpacity style={styles.exclusiveCard} onPress={openApplyLoan} activeOpacity={0.9}>
-              <LinearGradient
-                colors={['#FF8C00', '#FF4D1C']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.exclusiveGradient}
-              >
-                <View style={styles.exclusiveTag}>
-                  <Text style={styles.exclusiveTagText}>EXCLUSIVE OFFER</Text>
-                </View>
-                <View style={styles.exclusiveContent}>
-                  <Text style={styles.exclusiveTitle}>Apply for New Loan</Text>
-                  <Text style={styles.exclusiveSubtitle}>Approvals within 15 minutes</Text>
-                </View>
-                <View style={styles.exclusiveIcon}>
-                  <Ionicons name="checkmark-circle" size={moderateScale(32)} color={Colors.white} />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-
             {/* Total Active Debt Card */}
             <AppCard style={styles.debtCard}>
               <View style={styles.debtIcon}>
@@ -382,75 +318,106 @@ const MyLoansScreen = ({ navigation }: any) => {
                 <Text style={styles.seeHistoryText}>See History</Text>
               </TouchableOpacity>
             </View>
-            {currentLoans.map((loan: any) => (
-              <TouchableOpacity
-                key={loan.id}
-                activeOpacity={0.85}
-                onPress={() => loan.id.startsWith('mock-') ? {} : navigation.navigate('LoanDetails', { loanId: loan.id })}
-              >
-                <AppCard style={styles.loanCard}>
-                  <View style={styles.loanCardTop}>
-                    <View style={[styles.loanIconContainer, { backgroundColor: loan.loanType === 'Asset Purchase' ? 'rgba(0, 102, 255, 0.08)' : 'rgba(255, 77, 28, 0.08)' }]}>
-                      <Ionicons
-                        name={loan.loanType === 'Asset Purchase' ? 'car-outline' : 'person-outline'}
-                        size={moderateScale(20)}
-                        color={loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary}
-                      />
+            {currentLoans.length === 0 ? (
+              <AppCard style={styles.emptyCard}>
+                <Ionicons name="card-outline" size={moderateScale(40)} color={Colors.textMuted} />
+                <Text style={styles.emptyTitle}>No Current Loans</Text>
+                <Text style={styles.emptySubtitle}>You don't have any active loans at the moment.</Text>
+              </AppCard>
+            ) : (
+              currentLoans.map((loan: any) => (
+                <TouchableOpacity
+                  key={loan.id || loan.pk_lr_id}
+                  activeOpacity={0.85}
+                  onPress={() => loan.id && typeof loan.id === 'string' && loan.id.startsWith('mock-') ? {} : navigation.navigate('LoanDetails', { loanId: loan.id || loan.pk_lr_id })}
+                >
+                  <AppCard style={styles.loanCard}>
+                    <View style={styles.loanCardTop}>
+                      <View style={[styles.loanIconContainer, { backgroundColor: loan.loanType === 'Asset Purchase' ? 'rgba(0, 102, 255, 0.08)' : 'rgba(255, 77, 28, 0.08)' }]}>
+                        <Ionicons
+                          name={loan.loanType === 'Asset Purchase' ? 'car-outline' : 'person-outline'}
+                          size={moderateScale(20)}
+                          color={loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary}
+                        />
+                      </View>
+                      <View style={styles.loanMetaContainer}>
+                        <Text style={styles.loanTitle}>{loan.loanType}</Text>
+                        <Text style={styles.loanNoText}>{loan.loanNo}</Text>
+                      </View>
+                      <View style={styles.loanAmountContainer}>
+                        <Text style={styles.loanRemainingText}>{formatCurrency(loan.remaining)}</Text>
+                        <Text style={styles.loanAmountLabel}>REMAINING</Text>
+                      </View>
                     </View>
-                    <View style={styles.loanMetaContainer}>
-                      <Text style={styles.loanTitle}>{loan.loanType}</Text>
-                      <Text style={styles.loanNoText}>{loan.loanNo}</Text>
+                    <View style={styles.loanProgressRow}>
+                      <Text style={styles.progressLabel}>Progress</Text>
+                      <Text style={[styles.progressPercentageText, { color: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]}>
+                        {loan.paidPercentage}% Paid
+                      </Text>
                     </View>
-                    <View style={styles.loanAmountContainer}>
-                      <Text style={styles.loanRemainingText}>{formatCurrency(loan.remaining)}</Text>
-                      <Text style={styles.loanAmountLabel}>REMAINING</Text>
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBackground}>
+                        <View style={[styles.progressFill, { width: `${loan.paidPercentage}%`, backgroundColor: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]} />
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.loanProgressRow}>
-                    <Text style={styles.progressLabel}>Progress</Text>
-                    <Text style={[styles.progressPercentageText, { color: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]}>
-                      {loan.paidPercentage}% Paid
-                    </Text>
-                  </View>
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressBackground}>
-                      <View style={[styles.progressFill, { width: `${loan.paidPercentage}%`, backgroundColor: loan.loanType === 'Asset Purchase' ? '#0066FF' : Colors.primary }]} />
-                    </View>
-                  </View>
-                </AppCard>
-              </TouchableOpacity>
-            ))}
+                  </AppCard>
+                </TouchableOpacity>
+              ))
+            )}
 
             {/* Upcoming Repayments Section */}
             <Text style={styles.sectionTitle}>Upcoming Repayments</Text>
-            {upcomingRepayments.map((repayment: any) => (
-              <AppCard key={repayment.id} style={styles.repaymentCard}>
-                <View style={[styles.dateBox, { backgroundColor: repayment.status === 'AUTO-PAY' ? 'rgba(255, 77, 28, 0.05)' : 'rgba(142, 142, 147, 0.08)' }]}>
-                  <Text style={[styles.dateMonthText, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.textMuted }]}>{repayment.dateMonth}</Text>
-                  <Text style={styles.dateDayText}>{repayment.dateDay}</Text>
-                </View>
-                <View style={styles.repaymentMiddle}>
-                  <Text style={styles.repaymentTitle}>{repayment.loanType}</Text>
-                  <Text style={styles.repaymentSubtitle}>{repayment.subtitle}</Text>
-                </View>
-                <View style={styles.repaymentRight}>
-                  <Text style={[styles.repaymentAmount, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.text }]}>{formatCurrency(repayment.amount)}</Text>
-                  <Text style={[styles.repaymentStatusText, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.textMuted }]}>
-                    ✦ {repayment.status}
-                  </Text>
-                </View>
+            {upcomingRepayments.length === 0 ? (
+              <AppCard style={styles.emptyCard}>
+                <Ionicons name="calendar-outline" size={moderateScale(40)} color={Colors.textMuted} />
+                <Text style={styles.emptyTitle}>No Upcoming Repayments</Text>
+                <Text style={styles.emptySubtitle}>You have no scheduled repayments at this time.</Text>
               </AppCard>
-            ))}
+            ) : (
+              upcomingRepayments.map((repayment: any) => (
+                <AppCard key={repayment.id} style={styles.repaymentCard}>
+                  <View style={[styles.dateBox, { backgroundColor: repayment.status === 'AUTO-PAY' ? 'rgba(255, 77, 28, 0.05)' : 'rgba(142, 142, 147, 0.08)' }]}>
+                    <Text style={[styles.dateMonthText, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.textMuted }]}>{repayment.dateMonth}</Text>
+                    <Text style={styles.dateDayText}>{repayment.dateDay}</Text>
+                  </View>
+                  <View style={styles.repaymentMiddle}>
+                    <Text style={styles.repaymentTitle}>{repayment.loanType}</Text>
+                    <Text style={styles.repaymentSubtitle}>{repayment.subtitle}</Text>
+                  </View>
+                  <View style={styles.repaymentRight}>
+                    <Text style={[styles.repaymentAmount, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.text }]}>{formatCurrency(repayment.amount)}</Text>
+                    <Text style={[styles.repaymentStatusText, { color: repayment.status === 'AUTO-PAY' ? Colors.primary : Colors.textMuted }]}>
+                      ✦ {repayment.status}
+                    </Text>
+                  </View>
+                </AppCard>
+              ))
+            )}
 
             {/* Health Score Card */}
-            <AppCard style={styles.healthCard}>
-              <Text style={styles.healthLabel}>Health Score</Text>
-              <Text style={styles.healthScore}>850</Text>
-              <Text style={styles.healthStatus}>Excellent - On track for early repayment rewards</Text>
-            </AppCard>
+            {loans.length > 0 && (
+              <AppCard style={styles.healthCard}>
+                <Text style={styles.healthLabel}>Health Score</Text>
+                <Text style={styles.healthScore}>{stats.totalApprovedAmount > 0 ? '750' : 'N/A'}</Text>
+                <Text style={styles.healthStatus}>
+                  {stats.totalApprovedAmount > 0 
+                    ? 'Good - Keep up with your repayments' 
+                    : 'No active loans to track'}
+                </Text>
+              </AppCard>
+            )}
           </ScrollView>
         </View>
       )}
+
+      {/* Floating Action Button (FAB) - Apply Loan */}
+      <TouchableOpacity
+        style={[styles.fabButton, { bottom: moderateScale(24) }]}
+        activeOpacity={0.85}
+        onPress={openApplyLoan}
+      >
+        <Ionicons name="add" size={moderateScale(28)} color={Colors.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -461,25 +428,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: Colors.white,
-    paddingBottom: Theme.spacing.sm,
+    backgroundColor: Colors.background,
+    paddingBottom: Theme.spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Theme.spacing.sm,
     paddingHorizontal: Theme.spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Theme.spacing.sm,
   },
   headerTitle: {
     ...Typography.heading,
     fontSize: moderateScale(18),
     color: Colors.text,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
   },
   downloadButton: {
     width: moderateScale(40),
@@ -581,6 +547,29 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontSize: moderateScale(11),
     color: Colors.textMuted,
+  },
+  emptyCard: {
+    padding: Theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    borderWidth: 0,
+    ...Theme.shadow.md,
+  },
+  emptyTitle: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginTop: Theme.spacing.md,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  emptySubtitle: {
+    ...Typography.body,
+    fontSize: moderateScale(13),
+    color: Colors.textSecondary,
+    marginTop: Theme.spacing.xs,
+    textAlign: 'center',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -853,6 +842,22 @@ const styles = StyleSheet.create({
     ...Typography.subheading,
     color: Colors.primary,
     fontSize: moderateScale(13),
+  },
+  fabButton: {
+    position: 'absolute',
+    right: Theme.spacing.lg,
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    ...Theme.shadow.floating,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });
 

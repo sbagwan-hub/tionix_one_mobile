@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import * as ImagePicker from 'expo-image-picker';
 
 import {
@@ -331,364 +332,393 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* Stunning Background Banner */}
-      <View style={styles.bannerContainer}>
-        <LinearGradient
-          colors={['rgba(254, 0, 0, 0.15)', 'rgba(254, 0, 0, 0.0)']}
-          style={styles.bannerGradient}
-        />
-        <View style={styles.bannerBlurOrb1} />
-        <View style={styles.bannerBlurOrb2} />
-      </View>
-
-      <View style={styles.profileHeaderContent}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.avatarWrapper}
-            onPress={showImagePickerOptions}
-          >
-            <View style={styles.avatar}>
-              {profileImageUrl && !avatarImageError ? (
-                <Image
-                  source={{ uri: getFullImageUrl(profileImageUrl) || undefined }}
-                  style={styles.avatarImage}
-                  onError={() => setAvatarImageError(true)}
-                />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
-            </View>
-            <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={moderateScale(14)} color={Colors.white} />
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.name} numberOfLines={1}>{userName || 'Employee'}</Text>
-            <View style={styles.employeeBadge}>
-              <Text style={styles.employeeId}>
-                {profile?.empCode ? `ID: ${profile.empCode}` : (profile?.fkEmpId ? `ID: ${profile.fkEmpId}` : 'Update profile')}
-              </Text>
-            </View>
-          </View>
-        </View>
+      {/* Custom AppBar */}
+      <AppBar title="Personal Details" showBackButton onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        bounces={true}
+        scrollEventThrottle={16}
+        decelerationRate="normal"
       >
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Personal Details</Text>
-
-          {/* Floating Pill Inputs */}
-          <View style={[styles.pillInputContainer, isNameFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isNameFocused && styles.pillIconFocused]}>
-              <Ionicons name="person-outline" size={moderateScale(20)} color={isNameFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Full Name</Text>
-              <TextInput
-                value={userName}
-                onChangeText={setUserName}
-                placeholder="Enter full name"
-                placeholderTextColor={Colors.borderStrong}
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsNameFocused(true)}
-                onBlur={() => setIsNameFocused(false)}
-              />
-            </View>
+        {/* Premium Header with Glassmorphism */}
+        <View style={styles.headerContainer}>
+          <View style={styles.bannerContainer}>
+            <LinearGradient
+              colors={['rgba(255, 77, 28, 0.08)', 'rgba(255, 77, 28, 0.0)']}
+              style={styles.bannerGradient}
+            />
+            <View style={styles.bannerBlurOrb1} />
+            <View style={styles.bannerBlurOrb2} />
           </View>
-
-          <View style={[styles.pillInputContainer, isEmailFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isEmailFocused && styles.pillIconFocused]}>
-              <Ionicons name="mail-outline" size={moderateScale(20)} color={isEmailFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Email Address</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter email address"
-                placeholderTextColor={Colors.borderStrong}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsEmailFocused(true)}
-                onBlur={() => setIsEmailFocused(false)}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.pillInputContainer, isPhoneFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isPhoneFocused && styles.pillIconFocused]}>
-              <Ionicons name="call-outline" size={moderateScale(20)} color={isPhoneFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Phone Number</Text>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter phone number"
-                placeholderTextColor={Colors.borderStrong}
-                keyboardType="phone-pad"
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsPhoneFocused(true)}
-                onBlur={() => setIsPhoneFocused(false)}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.pillInputContainer, isDobFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isDobFocused && styles.pillIconFocused]}>
-              <Ionicons name="calendar-outline" size={moderateScale(20)} color={isDobFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Date of Birth (YYYY-MM-DD)</Text>
-              <TextInput
-                value={dob}
-                onChangeText={setDob}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.borderStrong}
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsDobFocused(true)}
-                onBlur={() => setIsDobFocused(false)}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.pillInputContainer, isBloodGroupFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isBloodGroupFocused && styles.pillIconFocused]}>
-              <Ionicons name="water-outline" size={moderateScale(20)} color={isBloodGroupFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Blood Group</Text>
-              <TextInput
-                value={bloodGroup}
-                onChangeText={setBloodGroup}
-                placeholder="Enter blood group"
-                placeholderTextColor={Colors.borderStrong}
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsBloodGroupFocused(true)}
-                onBlur={() => setIsBloodGroupFocused(false)}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.infoPill, { marginBottom: 16 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="male-female-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Gender</Text>
-              <Text style={styles.infoPillValue}>{profile?.gender || '-'}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoPill, { marginBottom: 16 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="heart-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Marital Status</Text>
-              <Text style={styles.infoPillValue}>{profile?.maritalStatus || '-'}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.pillInputContainer, isPresentAddressFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isPresentAddressFocused && styles.pillIconFocused]}>
-              <Ionicons name="location-outline" size={moderateScale(20)} color={isPresentAddressFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Present Address</Text>
-              <TextInput
-                value={presentAddress}
-                onChangeText={setPresentAddress}
-                placeholder="Enter present address"
-                placeholderTextColor={Colors.borderStrong}
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsPresentAddressFocused(true)}
-                onBlur={() => setIsPresentAddressFocused(false)}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.pillInputContainer, isPermanentAddressFocused && styles.pillInputFocused]}>
-            <View style={[styles.pillIcon, isPermanentAddressFocused && styles.pillIconFocused]}>
-              <Ionicons name="home-outline" size={moderateScale(20)} color={isPermanentAddressFocused ? Colors.primary : Colors.textMuted} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Permanent Address</Text>
-              <TextInput
-                value={permanentAddress}
-                onChangeText={setPermanentAddress}
-                placeholder="Enter permanent address"
-                placeholderTextColor={Colors.borderStrong}
-                style={styles.pillInput}
-                editable={!isLoading && !isSaving}
-                onFocus={() => setIsPermanentAddressFocused(true)}
-                onBlur={() => setIsPermanentAddressFocused(false)}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Employee Details</Text>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="id-card-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>User ID</Text>
-              <Text style={styles.infoPillValue}>{profile?.pkUserId || '-'}</Text>
-            </View>
-          </View>
-          {profile?.empCode ? (
-            <View style={[styles.infoPill, { marginBottom: 12 }]}>
-              <View style={styles.infoPillIcon}>
-                <Ionicons name="barcode-outline" size={moderateScale(22)} color={Colors.primary} />
+          
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.avatarContainer}
+              onPress={showImagePickerOptions}
+            >
+              <View style={[styles.avatarCircle, isSaving && styles.avatarDisabled]}>
+                {profileImageUrl && !avatarImageError ? (
+                  <Image
+                    source={{ uri: getFullImageUrl(profileImageUrl) || undefined }}
+                    style={styles.avatarImage}
+                    onError={() => setAvatarImageError(true)}
+                  />
+                ) : (
+                  <View style={styles.avatarInitialsContainer}>
+                    <Text style={styles.avatarInitials}>{initials}</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.pillInputWrapper}>
-                <Text style={styles.pillLabel}>Employee Code</Text>
-                <Text style={styles.infoPillValue}>{profile.empCode}</Text>
+              <View style={styles.editAvatarBadge}>
+                <Ionicons name="camera" size={moderateScale(14)} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.headerText}>
+              <Text style={styles.headerName} numberOfLines={1}>{userName || 'Employee'}</Text>
+              <Text style={styles.headerId}>
+                {profile?.empCode ? `ID: ${profile.empCode}` : (profile?.fkEmpId ? `ID: ${profile.fkEmpId}` : 'Update profile')}
+              </Text>
+              <View style={styles.statusBadge}>
+                <Ionicons name="checkmark-circle" size={moderateScale(12)} color={Colors.success} />
+                <Text style={styles.statusText}>Active Employee</Text>
               </View>
             </View>
-          ) : null}
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="calendar-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Date of Joining</Text>
-              <Text style={styles.infoPillValue}>{dojDisplay}</Text>
-            </View>
-          </View>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="git-branch-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Employment Type</Text>
-              <Text style={styles.infoPillValue}>{profile?.employmentType || '-'}</Text>
-            </View>
-          </View>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="time-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Experience</Text>
-              <Text style={styles.infoPillValue}>{profile?.experience || '-'}</Text>
-            </View>
           </View>
         </View>
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Statutory & Bank Details</Text>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="cash-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>Bank Account No.</Text>
-              <Text style={styles.infoPillValue}>{profile?.accountNo || '-'}</Text>
-            </View>
-          </View>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="business-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>PF Number</Text>
-              <Text style={styles.infoPillValue}>{profile?.pfNo || '-'}</Text>
-            </View>
-          </View>
-          <View style={[styles.infoPill, { marginBottom: 12 }]}>
-            <View style={styles.infoPillIcon}>
-              <Ionicons name="shield-checkmark-outline" size={moderateScale(22)} color={Colors.primary} />
-            </View>
-            <View style={styles.pillInputWrapper}>
-              <Text style={styles.pillLabel}>ESIC Number</Text>
-              <Text style={styles.infoPillValue}>{profile?.esicNo || '-'}</Text>
-            </View>
-          </View>
-        </View>
-
-        {errorMessage ? (
+        {/* Error Message */}
+        {errorMessage && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={moderateScale(20)} color={Colors.error} />
+            <Ionicons name="alert-circle" size={moderateScale(16)} color={Colors.error} />
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
-        ) : null}
+        )}
+
+        <View style={styles.formContainer}>
+          {/* Personal Information Section */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="person" size={moderateScale(18)} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={[styles.inputCard, isNameFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="person-outline" size={moderateScale(18)} color={isNameFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isNameFocused && styles.inputLabelFocused]}>Full Name</Text>
+                  <TextInput
+                    value={userName}
+                    onChangeText={setUserName}
+                    placeholder="Enter your full name"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.inputField}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsNameFocused(true)}
+                    onBlur={() => setIsNameFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.inputCard, isEmailFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="mail-outline" size={moderateScale(18)} color={isEmailFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isEmailFocused && styles.inputLabelFocused]}>Email Address</Text>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Enter your email"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.inputField}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsEmailFocused(true)}
+                    onBlur={() => setIsEmailFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.inputCard, isPhoneFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="call-outline" size={moderateScale(18)} color={isPhoneFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isPhoneFocused && styles.inputLabelFocused]}>Phone Number</Text>
+                  <TextInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="phone-pad"
+                    style={styles.inputField}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.inputCard, isDobFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="calendar-outline" size={moderateScale(18)} color={isDobFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isDobFocused && styles.inputLabelFocused]}>Date of Birth</Text>
+                  <TextInput
+                    value={dob}
+                    onChangeText={setDob}
+                    placeholder="DD/MM/YYYY"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.inputField}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsDobFocused(true)}
+                    onBlur={() => setIsDobFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.inputCard, isBloodGroupFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="water-outline" size={moderateScale(18)} color={isBloodGroupFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isBloodGroupFocused && styles.inputLabelFocused]}>Blood Group</Text>
+                  <TextInput
+                    value={bloodGroup}
+                    onChangeText={setBloodGroup}
+                    placeholder="e.g., A+, B-, O+"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.inputField}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsBloodGroupFocused(true)}
+                    onBlur={() => setIsBloodGroupFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Address Information Section */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="location" size={moderateScale(18)} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Address Information</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={[styles.inputCard, isPresentAddressFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="home-outline" size={moderateScale(18)} color={isPresentAddressFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isPresentAddressFocused && styles.inputLabelFocused]}>Present Address</Text>
+                  <TextInput
+                    value={presentAddress}
+                    onChangeText={setPresentAddress}
+                    placeholder="Enter your present address"
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.inputField, styles.textArea]}
+                    multiline
+                    numberOfLines={3}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsPresentAddressFocused(true)}
+                    onBlur={() => setIsPresentAddressFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.inputCard, isPermanentAddressFocused && styles.inputCardFocused]}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="business-outline" size={moderateScale(18)} color={isPermanentAddressFocused ? Colors.primary : Colors.textMuted} />
+                </View>
+                <View style={styles.inputContent}>
+                  <Text style={[styles.inputLabel, isPermanentAddressFocused && styles.inputLabelFocused]}>Permanent Address</Text>
+                  <TextInput
+                    value={permanentAddress}
+                    onChangeText={setPermanentAddress}
+                    placeholder="Enter your permanent address"
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.inputField, styles.textArea]}
+                    multiline
+                    numberOfLines={3}
+                    editable={!isLoading && !isSaving}
+                    onFocus={() => setIsPermanentAddressFocused(true)}
+                    onBlur={() => setIsPermanentAddressFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Employee Information Section */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="briefcase" size={moderateScale(18)} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Employee Information</Text>
+          </View>
+
+          <View style={styles.infoGrid}>
+            <View style={styles.infoCard}>
+              <Ionicons name="person-outline" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Gender</Text>
+              <Text style={styles.infoValue}>{profile?.gender || '-'}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="heart-outline" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Marital Status</Text>
+              <Text style={styles.infoValue}>{profile?.maritalStatus || '-'}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="id-card-outline" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Employee ID</Text>
+              <Text style={styles.infoValue}>{profile?.pkUserId || '-'}</Text>
+            </View>
+
+            {profile?.empCode && (
+              <View style={styles.infoCard}>
+                <Ionicons name="barcode-outline" size={moderateScale(20)} color={Colors.primary} />
+                <Text style={styles.infoLabel}>Employee Code</Text>
+                <Text style={styles.infoValue}>{profile.empCode}</Text>
+              </View>
+            )}
+
+            <View style={styles.infoCard}>
+              <Ionicons name="calendar-clear-outline" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Date of Joining</Text>
+              <Text style={styles.infoValue}>{dojDisplay}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="briefcase-outline" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Employment Type</Text>
+              <Text style={styles.infoValue}>{profile?.employmentType || '-'}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="trending-up" size={moderateScale(20)} color={Colors.primary} />
+              <Text style={styles.infoLabel}>Experience</Text>
+              <Text style={styles.infoValue}>{profile?.experience || '-'}</Text>
+            </View>
+          </View>
+
+          {/* Bank & Statutory Details Section */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Ionicons name="card" size={moderateScale(18)} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Bank & Statutory Details</Text>
+          </View>
+
+          <View style={styles.infoGrid}>
+            <View style={styles.infoCard}>
+              <Ionicons name="card-outline" size={moderateScale(20)} color={Colors.success} />
+              <Text style={styles.infoLabel}>Bank Account No.</Text>
+              <Text style={styles.infoValue}>{profile?.accountNo || '-'}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="shield-checkmark-outline" size={moderateScale(20)} color={Colors.success} />
+              <Text style={styles.infoLabel}>PF Number</Text>
+              <Text style={styles.infoValue}>{profile?.pfNo || '-'}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="medkit-outline" size={moderateScale(20)} color={Colors.success} />
+              <Text style={styles.infoLabel}>ESIC Number</Text>
+              <Text style={styles.infoValue}>{profile?.esicNo || '-'}</Text>
+            </View>
+          </View>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={isSaving || isLoading}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={Colors.primaryGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveButtonGradient}
+            >
+              {isSaving ? (
+                <Text style={styles.saveButtonText}>Saving...</Text>
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={moderateScale(18)} color={Colors.white} style={{ marginRight: moderateScale(8) }} />
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <View style={styles.stickyFooter}>
-        <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)']}
-          style={styles.stickyFooterGradient}
-        />
-        <TouchableOpacity
-          style={styles.floatingSaveButton}
-          onPress={handleSave}
-          disabled={isLoading || isSaving}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.floatingSaveText}>
-            {isLoading ? 'Loading...' : isSaving ? 'Saving...' : 'Save Details'}
-          </Text>
-          <Ionicons name="checkmark-circle" size={moderateScale(20)} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
-
+      {/* Image Picker Bottom Sheet */}
       <Modal
         visible={isBottomSheetVisible}
-        transparent={true}
+        transparent
         animationType="slide"
         onRequestClose={() => setIsBottomSheetVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={StyleSheet.absoluteFill} 
-            activeOpacity={1} 
-            onPress={() => setIsBottomSheetVisible(false)} 
-          />
-          <View style={styles.bottomSheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Update Profile Photo</Text>
-            
-            <TouchableOpacity style={styles.sheetOption} onPress={() => handleSheetAction(openCamera)}>
-              <View style={styles.sheetIconBox}>
-                <Ionicons name="camera-outline" size={moderateScale(24)} color={Colors.primary} />
-              </View>
-              <Text style={styles.sheetOptionText}>Take a photo</Text>
+        <TouchableOpacity
+          style={styles.bottomSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setIsBottomSheetVisible(false)}
+        >
+          <View style={styles.bottomSheetContent}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>Change Profile Photo</Text>
+            <TouchableOpacity
+              style={styles.bottomSheetOption}
+              onPress={() => handleSheetAction(openCamera)}
+            >
+              <Ionicons name="camera" size={moderateScale(24)} color={Colors.primary} />
+              <Text style={styles.bottomSheetOptionText}>Take Photo</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.sheetOption} onPress={() => handleSheetAction(openGallery)}>
-              <View style={styles.sheetIconBox}>
-                <Ionicons name="image-outline" size={moderateScale(24)} color={Colors.primary} />
-              </View>
-              <Text style={styles.sheetOptionText}>Choose from gallery</Text>
+            <TouchableOpacity
+              style={styles.bottomSheetOption}
+              onPress={() => handleSheetAction(openGallery)}
+            >
+              <Ionicons name="images" size={moderateScale(24)} color={Colors.primary} />
+              <Text style={styles.bottomSheetOptionText}>Choose from Gallery</Text>
             </TouchableOpacity>
-
-            {profileImageUrl ? (
-              <TouchableOpacity style={styles.sheetOption} onPress={() => handleSheetAction(() => setProfileImageUrl(null))}>
-                <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                  <Ionicons name="trash-outline" size={moderateScale(24)} color={Colors.error} />
-                </View>
-                <Text style={styles.sheetOptionDanger}>Remove photo</Text>
-              </TouchableOpacity>
-            ) : null}
-
+            <TouchableOpacity
+              style={styles.bottomSheetCancel}
+              onPress={() => setIsBottomSheetVisible(false)}
+            >
+              <Text style={styles.bottomSheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -699,13 +729,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
+  headerContainer: {
+    position: 'relative',
+    paddingTop: Theme.spacing.md,
+    paddingBottom: moderateScale(32),
+    paddingHorizontal: Theme.spacing.lg,
+  },
   bannerContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: moderateScale(260),
+    height: moderateScale(200),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,
@@ -730,316 +767,303 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(254, 0, 0, 0.1)',
     filter: 'blur(50px)',
   },
-  header: {
-    zIndex: 10,
-    paddingBottom: Theme.spacing.md,
-  },
-  headerRow: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.lg,
-    width: '100%',
+    position: 'relative',
+    zIndex: 1,
   },
-  backButton: {
-    width: moderateScale(44),
-    height: moderateScale(44),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.08,
-  },
-  headerTitle: {
-    ...Typography.heading,
-    fontSize: moderateScale(18),
-    color: Colors.text,
-  },
-  headerSpacer: {
-    width: moderateScale(44),
-  },
-  scrollContent: {
-    paddingTop: moderateScale(16),
-    paddingBottom: moderateScale(160),
-  },
-  profileHeaderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: moderateScale(12),
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    marginHorizontal: Theme.spacing.lg,
-    marginTop: Theme.spacing.sm,
-    marginBottom: moderateScale(8),
-    borderRadius: Theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,1)',
-    ...Theme.shadow.sm,
-    shadowOpacity: 0.04,
-  },
-  avatarWrapper: {
+  avatarContainer: {
     position: 'relative',
     marginRight: Theme.spacing.md,
   },
-  avatar: {
-    width: moderateScale(64),
-    height: moderateScale(64),
-    borderRadius: moderateScale(32),
-    backgroundColor: Colors.white,
+  avatarCircle: {
+    width: moderateScale(100),
+    height: moderateScale(100),
+    borderRadius: moderateScale(50),
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    borderWidth: 3,
+    borderColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: Colors.primary,
+  },
+  avatarDisabled: {
+    opacity: 0.5,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
   },
-  avatarText: {
-    ...Typography.heading,
-    fontSize: moderateScale(24),
-    color: Colors.primary,
+  avatarInitialsContainer: {
+    backgroundColor: Colors.primaryGradient[0],
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cameraBadge: {
+  avatarInitials: {
+    ...Typography.heading,
+    fontSize: moderateScale(40),
+    color: Colors.white,
+    fontWeight: '700' as const,
+  },
+  editAvatarBadge: {
     position: 'absolute',
-    right: -moderateScale(2),
-    bottom: -moderateScale(2),
-    width: moderateScale(24),
-    height: moderateScale(24),
-    borderRadius: moderateScale(12),
+    bottom: -4,
+    right: -4,
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: Colors.white,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  headerTextContainer: {
+  headerText: {
     flex: 1,
-    justifyContent: 'center',
   },
-  name: {
+  headerName: {
     ...Typography.heading,
+    fontSize: moderateScale(24),
     color: Colors.text,
-    fontSize: moderateScale(20),
-    letterSpacing: -0.5,
+    fontWeight: '700' as const,
     marginBottom: moderateScale(4),
   },
-  employeeBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(254, 0, 0, 0.08)',
-    paddingHorizontal: moderateScale(8),
-    paddingVertical: moderateScale(4),
-    borderRadius: Theme.borderRadius.md,
-  },
-  employeeId: {
+  headerId: {
     ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  formSection: {
-    paddingHorizontal: Theme.spacing.lg,
-    marginBottom: moderateScale(28),
-  },
-  sectionTitle: {
-    ...Typography.label,
-    fontSize: moderateScale(13),
+    fontSize: moderateScale(14),
     color: Colors.textMuted,
-    marginLeft: moderateScale(8),
-    marginBottom: moderateScale(12),
-    letterSpacing: 1.2,
+    marginBottom: moderateScale(8),
   },
-  pillInputContainer: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: Theme.borderRadius.xxl,
-    paddingHorizontal: moderateScale(8),
-    paddingVertical: moderateScale(8),
-    marginBottom: moderateScale(16),
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    ...Theme.shadow.floating,
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: moderateScale(4),
+    borderRadius: Theme.borderRadius.pill,
+    alignSelf: 'flex-start',
   },
-  pillInputFocused: {
-    borderColor: 'rgba(254, 0, 0, 0.2)',
-    shadowOpacity: 0.08,
-    shadowColor: Colors.primary,
-    backgroundColor: '#FFFAFA',
-  },
-  pillIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: moderateScale(12),
-  },
-  pillIconFocused: {
-    backgroundColor: 'rgba(254, 0, 0, 0.1)',
-  },
-  pillInputWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  pillLabel: {
+  statusText: {
     ...Typography.label,
-    fontSize: moderateScale(10),
-    color: Colors.textMuted,
-    marginBottom: moderateScale(2),
-  },
-  pillInput: {
-    padding: 0,
-    fontSize: moderateScale(16),
-    fontFamily: 'Outfit-SemiBold',
-    color: Colors.text,
-    height: moderateScale(24),
-  },
-  infoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(254, 0, 0, 0.04)',
-    borderRadius: Theme.borderRadius.xxl,
-    paddingHorizontal: moderateScale(8),
-    paddingVertical: moderateScale(8),
-    borderWidth: 1,
-    borderColor: 'rgba(254, 0, 0, 0.1)',
-  },
-  infoPillIcon: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(10),
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: moderateScale(12),
-    ...Theme.shadow.sm,
-    shadowOpacity: 0.05,
-  },
-  infoPillValue: {
-    ...Typography.heading,
-    fontSize: moderateScale(16),
-    color: Colors.primary,
-    marginTop: moderateScale(2),
+    fontSize: moderateScale(11),
+    color: Colors.success,
+    fontWeight: '600' as const,
+    marginLeft: moderateScale(4),
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.sm,
     marginHorizontal: Theme.spacing.lg,
-    padding: moderateScale(16),
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: Theme.borderRadius.xl,
-    gap: moderateScale(12),
+    marginBottom: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    gap: Theme.spacing.sm,
   },
   errorText: {
-    ...Typography.body,
-    flex: 1,
+    ...Typography.caption,
+    fontSize: moderateScale(13),
     color: Colors.error,
-    fontSize: moderateScale(14),
-  },
-  stickyFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: Theme.spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? moderateScale(32) : moderateScale(24),
-    paddingTop: moderateScale(32),
-  },
-  stickyFooterGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    top: 0,
-  },
-  floatingSaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: Theme.borderRadius.pill,
-    height: moderateScale(60),
-    gap: moderateScale(12),
-    ...Theme.shadow.floating,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-  },
-  floatingSaveText: {
-    ...Typography.heading,
-    fontSize: moderateScale(17),
-    color: Colors.white,
-    letterSpacing: 0.5,
-  },
-
-  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'flex-end',
   },
-  bottomSheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: Theme.borderRadius.xxl,
-    borderTopRightRadius: Theme.borderRadius.xxl,
+  scrollContent: {
+    paddingBottom: moderateScale(120),
+  },
+  formContainer: {
     paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? moderateScale(40) : Theme.spacing.xxl,
-    ...Theme.shadow.floating,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
+    gap: moderateScale(28),
   },
-  sheetHandle: {
-    width: moderateScale(40),
-    height: moderateScale(5),
-    borderRadius: moderateScale(2.5),
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    alignSelf: 'center',
-    marginBottom: Theme.spacing.lg,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
+    marginBottom: moderateScale(4),
   },
-  sheetTitle: {
+  sectionIconContainer: {
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(8),
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
     ...Typography.heading,
     fontSize: moderateScale(18),
     color: Colors.text,
-    marginBottom: Theme.spacing.lg,
-    textAlign: 'center',
+    fontWeight: '700' as const,
   },
-  sheetOption: {
+  inputGroup: {
+    gap: Theme.spacing.sm,
+  },
+  inputCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    padding: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Theme.shadow.sm,
+  },
+  inputCardFocused: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: moderateScale(16),
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.04)',
+    alignItems: 'flex-start',
+    gap: Theme.spacing.sm,
   },
-  sheetIconBox: {
-    width: moderateScale(44),
-    height: moderateScale(44),
+  inputIconContainer: {
+    width: moderateScale(36),
+    height: moderateScale(36),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(254, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Theme.spacing.md,
+    marginTop: moderateScale(2),
   },
-  sheetOptionText: {
+  inputContent: {
+    flex: 1,
+  },
+  inputLabel: {
+    ...Typography.caption,
+    fontSize: moderateScale(11),
+    color: Colors.textMuted,
+    marginBottom: moderateScale(4),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  inputLabelFocused: {
+    color: Colors.primary,
+  },
+  inputField: {
+    ...Typography.body,
+    fontSize: moderateScale(15),
+    color: Colors.text,
+    paddingVertical: moderateScale(4),
+  },
+  textArea: {
+    minHeight: moderateScale(72),
+    textAlignVertical: 'top',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Theme.spacing.sm,
+  },
+  infoCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    padding: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    ...Theme.shadow.sm,
+    gap: Theme.spacing.xs,
+  },
+  infoLabel: {
+    ...Typography.caption,
+    fontSize: moderateScale(10),
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  infoValue: {
+    ...Typography.body,
+    fontSize: moderateScale(13),
+    color: Colors.text,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  saveButton: {
+    marginTop: moderateScale(8),
+    borderRadius: Theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...Theme.shadow.md,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonGradient: {
+    paddingVertical: moderateScale(18),
+    paddingHorizontal: Theme.spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    ...Typography.label,
+    fontSize: moderateScale(16),
+    color: Colors.white,
+    fontWeight: '700' as const,
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: Theme.borderRadius.xxl,
+    borderTopRightRadius: Theme.borderRadius.xxl,
+    padding: Theme.spacing.lg,
+    paddingBottom: moderateScale(32),
+  },
+  bottomSheetHandle: {
+    width: moderateScale(40),
+    height: moderateScale(4),
+    backgroundColor: Colors.borderStrong,
+    borderRadius: moderateScale(2),
+    alignSelf: 'center',
+    marginBottom: Theme.spacing.lg,
+  },
+  bottomSheetTitle: {
     ...Typography.heading,
+    fontSize: moderateScale(18),
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: Theme.spacing.lg,
+  },
+  bottomSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  bottomSheetOptionText: {
+    ...Typography.body,
     fontSize: moderateScale(16),
     color: Colors.text,
+    marginLeft: Theme.spacing.md,
   },
-  sheetOptionDanger: {
-    ...Typography.heading,
+  bottomSheetCancel: {
+    marginTop: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
+    alignItems: 'center',
+  },
+  bottomSheetCancelText: {
+    ...Typography.label,
     fontSize: moderateScale(16),
-    color: Colors.error,
+    color: Colors.primary,
   },
 });
 

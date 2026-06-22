@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
@@ -103,6 +104,7 @@ const DEFAULT_APP_LEAVE_TYPES: LeaveType[] = [
   { id: '509', label: 'Absent', icon: 'close-circle-outline' },
   { id: '510', label: 'Rest Day', icon: 'bed-outline' },
   { id: '512', label: 'Maternity Leave', icon: 'heart-outline' },
+  { id: '513', label: 'Paternity Leave', icon: 'heart-outline' },
 ];
 
 const ApplyLeaveScreen = ({ navigation }: any) => {
@@ -115,6 +117,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
   // Leave Types Dynamic State
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(DEFAULT_APP_LEAVE_TYPES);
+  const [employeeGender, setEmployeeGender] = useState<'Male' | 'Female' | null>(null);
 
   // 2. Form Fields State
   const [startDate, setStartDate] = useState(toDateInput(new Date()));
@@ -125,6 +128,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   const [endWorkingType, setEndWorkingType] = useState('Full Day');
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [attachmentUploaded, setAttachmentUploaded] = useState(false);
 
   // Calendar states & logic
   const CALENDAR_MONTHS = useMemo(() => [
@@ -338,10 +342,33 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       }
 
       try {
+        const profile = await getEmployeeProfile();
+        if (profile?.gender) {
+          setEmployeeGender(profile.gender);
+        }
+      } catch (e) {
+        console.warn('Failed to load employee profile', e);
+      }
+
+      try {
         const fetchedTypes = await getLeaveTypes();
         if (fetchedTypes && fetchedTypes.length > 0) {
-          setLeaveTypes(fetchedTypes);
-          setLeaveTypeId(fetchedTypes[0].id);
+          // Filter leave types based on gender
+          const filteredTypes = fetchedTypes.filter(type => {
+            const labelLower = type.label.toLowerCase();
+            // Maternity leave only for female employees
+            if (labelLower.includes('maternity') && employeeGender !== 'Female') {
+              return false;
+            }
+            // Paternity leave only for male employees
+            if (labelLower.includes('paternity') && employeeGender !== 'Male') {
+              return false;
+            }
+            return true;
+          });
+          
+          setLeaveTypes(filteredTypes);
+          setLeaveTypeId(filteredTypes[0]?.id || '502');
         }
       } catch (e) {
         console.warn('Failed to load leave types', e);
@@ -637,6 +664,13 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
 
+    // Check if attachment is required for sick leave
+    const isSickLeave = selectedLeaveType.label.toLowerCase().includes('sick');
+    if (isSickLeave && !attachmentUploaded) {
+      setErrorMessage('Attachment is compulsory for Sick Leave. Please upload a document.');
+      return;
+    }
+
     const itemsToSubmit: Array<{
       leaveType: string;
       startDate: string;
@@ -753,12 +787,16 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   }, [employeeName]);
 
   const handleAttachmentUpload = () => {
-    Alert.alert('Attachment', 'Attachment upload is optional. Document selected successfully.');
+    setAttachmentUploaded(true);
+    Alert.alert('Attachment', 'Document selected successfully.');
   };
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+      {/* Custom AppBar */}
+      <AppBar title="Apply for Leave" showBackButton onBackPress={() => navigation.goBack()} />
 
       <LinearGradient
         colors={['#FFF5F2', '#F8FAFC']}
@@ -837,33 +875,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                       <Text style={styles.dateInputText}>{hasSelectedDates ? formatDateInput(startDate) : 'mm/dd/yyyy'}</Text>
                       <Ionicons name="calendar-outline" size={moderateScale(14)} color="#E2E8F0" style={{ marginLeft: 'auto' }} />
                     </TouchableOpacity>
-
-                    {/* Inline Working Type Selector pills */}
-                    {hasSelectedDates && (
-                      <View style={styles.pillsRow}>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, startWorkingType === 'Full Day' && styles.pillBtnActive]}
-                          onPress={() => setStartWorkingType('Full Day')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, startWorkingType === 'Full Day' && styles.pillBtnTextActive]}>FULL</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, startWorkingType === 'First Half' && styles.pillBtnActive]}
-                          onPress={() => setStartWorkingType('First Half')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, startWorkingType === 'First Half' && styles.pillBtnTextActive]}>1ST HALF</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, startWorkingType === 'Second Half' && styles.pillBtnActive]}
-                          onPress={() => setStartWorkingType('Second Half')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, startWorkingType === 'Second Half' && styles.pillBtnTextActive]}>2ND HALF</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </View>
 
                   {/* To Column */}
@@ -878,33 +889,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                       <Text style={styles.dateInputText}>{hasSelectedDates ? formatDateInput(endDate) : 'mm/dd/yyyy'}</Text>
                       <Ionicons name="calendar-outline" size={moderateScale(14)} color="#E2E8F0" style={{ marginLeft: 'auto' }} />
                     </TouchableOpacity>
-
-                    {/* Inline Working Type Selector pills */}
-                    {hasSelectedDates && (
-                      <View style={styles.pillsRow}>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, endWorkingType === 'Full Day' && styles.pillBtnActive]}
-                          onPress={() => setEndWorkingType('Full Day')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, endWorkingType === 'Full Day' && styles.pillBtnTextActive]}>FULL</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, endWorkingType === 'First Half' && styles.pillBtnActive]}
-                          onPress={() => setEndWorkingType('First Half')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, endWorkingType === 'First Half' && styles.pillBtnTextActive]}>1ST HALF</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.pillBtn, endWorkingType === 'Second Half' && styles.pillBtnActive]}
-                          onPress={() => setEndWorkingType('Second Half')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.pillBtnText, endWorkingType === 'Second Half' && styles.pillBtnTextActive]}>2ND HALF</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </View>
                 </View>
               </View>
@@ -916,10 +900,30 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
               </TouchableOpacity>
 
               {/* Checklist of selected range days */}
-              {hasSelectedDates && rangeDates.length > 1 && (
+              {hasSelectedDates && (
                 <View style={styles.checklistSection}>
                   <Text style={styles.checklistTitle}>Date Checklist ({activeFormDays} Days)</Text>
-                  {rangeDates.map((item, idx) => (
+                  
+                  {/* Single day checklist */}
+                  {rangeDates.length === 0 && (
+                    <View style={styles.checkItemRow}>
+                      <View style={styles.checkLeft}>
+                        <View style={[styles.checkbox, styles.checkboxActive]}>
+                          <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                        </View>
+                        <Text style={styles.checkDateText}>
+                          {new Date(`${startDate}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </Text>
+                      </View>
+                      <TouchableOpacity style={styles.checkPillTrigger} onPress={() => setIsRangeWorkingTypePickerOpen(true)}>
+                        <Text style={styles.checkPillText}>{startWorkingType}</Text>
+                        <Ionicons name="chevron-down" size={8} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Multiple days checklist */}
+                  {rangeDates.length > 0 && rangeDates.map((item, idx) => (
                     <View key={item.dateStr} style={styles.checkItemRow}>
                       <TouchableOpacity style={styles.checkLeft} onPress={() => handleToggleRangeDate(idx)} activeOpacity={0.7}>
                         <View style={[styles.checkbox, item.isSelected && styles.checkboxActive]}>
@@ -959,12 +963,16 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
               {/* 5. Attachment Upload */}
               <View style={styles.fieldSection}>
-                <Text style={styles.fieldLabel}>ATTACHMENT (OPTIONAL)</Text>
+                <Text style={styles.fieldLabel}>
+                  ATTACHMENT {selectedLeaveType.label.toLowerCase().includes('sick') ? '(REQUIRED)' : '(OPTIONAL)'}
+                </Text>
                 <TouchableOpacity style={styles.uploadBox} onPress={handleAttachmentUpload} activeOpacity={0.8}>
                   <View style={styles.uploadIconBadge}>
                     <Ionicons name="document-attach-outline" size={moderateScale(24)} color="#FF4D1C" />
                   </View>
-                  <Text style={styles.uploadBoxTitle}>Tap to upload documents</Text>
+                  <Text style={styles.uploadBoxTitle}>
+                    {attachmentUploaded ? 'Document uploaded' : 'Tap to upload documents'}
+                  </Text>
                   <Text style={styles.uploadBoxSubtext}>PDF, JPG up to 5MB</Text>
                 </TouchableOpacity>
               </View>
@@ -1127,6 +1135,12 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                   const isSelected = dayObj.dateString === (calendarTarget === 'start' ? startDate : endDate);
                   const isCurrentMonth = dayObj.month === currentCalendarMonth;
                   const isToday = dayObj.isToday;
+                  
+                  // Check if date is in the past
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const cellDate = dayObj.dateString ? new Date(`${dayObj.dateString}T00:00:00`) : null;
+                  const isPastDate = cellDate ? cellDate < today : false;
 
                   return (
                     <TouchableOpacity
@@ -1135,9 +1149,10 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                         styles.dayCell,
                         isSelected && styles.dayCellSelected,
                         !isCurrentMonth && styles.dayCellInactive,
+                        isPastDate && styles.dayCellInactive,
                       ]}
                       onPress={() => dayObj.dateString && handleSelectDate(dayObj.dateString)}
-                      disabled={!dayObj.dateString}
+                      disabled={!dayObj.dateString || isPastDate}
                     >
                       {isSelected ? (
                         <View style={styles.daySelectedDot}>
@@ -1147,7 +1162,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                         <Text style={[
                           styles.dayCellText,
                           isToday && styles.dayCellTextToday,
-                          !isCurrentMonth && styles.dayCellTextInactive
+                          (!isCurrentMonth || isPastDate) && styles.dayCellTextInactive
                         ]}>
                           {dayObj.day}
                         </Text>
@@ -1180,25 +1195,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 0,
     zIndex: 10,
+    paddingBottom: Theme.spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: moderateScale(10),
   },
   backButton: {
-    width: moderateScale(36),
-    height: moderateScale(36),
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(10),
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
-    fontFamily: 'Outfit_800ExtraBold',
-    fontSize: moderateScale(20),
-    color: '#8C3D2B',
-    flex: 1,
-    marginLeft: moderateScale(8),
+    ...Typography.heading,
+    fontSize: moderateScale(18),
+    color: Colors.text,
+  },
+  headerSpacer: {
+    width: moderateScale(40),
   },
   avatarContainer: {
     width: moderateScale(36),
@@ -1791,6 +1811,55 @@ const styles = StyleSheet.create({
   },
   dayCellTextInactive: {
     color: '#94A3B8',
+  },
+  workingTypeListSection: {
+    marginTop: moderateScale(12),
+    gap: moderateScale(8),
+  },
+  workingTypeListTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#0F172A',
+    marginBottom: moderateScale(4),
+  },
+  workingTypeListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: moderateScale(8),
+    paddingHorizontal: moderateScale(12),
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(10),
+  },
+  workingTypeDateText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+    flex: 1,
+  },
+  workingTypeOptions: {
+    flexDirection: 'row',
+    gap: moderateScale(6),
+  },
+  workingTypeOption: {
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: moderateScale(6),
+    borderRadius: moderateScale(8),
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  workingTypeOptionActive: {
+    backgroundColor: '#FF4D1C',
+    borderColor: '#FF4D1C',
+  },
+  workingTypeOptionText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(11),
+    color: '#64748B',
+  },
+  workingTypeOptionTextActive: {
+    color: '#FFFFFF',
   },
 });
 

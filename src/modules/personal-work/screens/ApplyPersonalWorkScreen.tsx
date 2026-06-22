@@ -16,10 +16,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { applyForPersonalWork, getShiftEndTime } from '../services/personalWork.service';
+import { applyForPersonalWork, getShiftEndTime } from '../services/personal-work.service';
 import { getAuthSession } from '../../auth/services/auth';
 
 const PRIMARY_GRADIENT = Colors.primaryGradient;
@@ -517,6 +518,9 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Custom AppBar */}
+      <AppBar title="Apply Personal Work" showBackButton onBackPress={() => navigation.goBack()} />
+
       {/* Header Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
@@ -859,6 +863,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(260),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,

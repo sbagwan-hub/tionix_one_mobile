@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../../config/api';
 import { apiRequest, ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
-import { getLeaveBalance as getLeaveBalanceApi, getLeaveTypes as getLeaveTypesApi, applyForLeave as applyForLeaveApi, getLeaveHistory as getLeaveHistoryApi } from './leaveRequest.service';
+import { getLeaveBalance as getLeaveBalanceApi, getLeaveTypes as getLeaveTypesApi, applyForLeave as applyForLeaveApi, getLeaveHistory as getLeaveHistoryApi } from './leave-request.service';
 
 const leaveHistoryStorageKey = (fkEmpId: number) => `@attendance/leave-history/${fkEmpId}`;
 
@@ -134,6 +134,7 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
     const toDate = `${year + 1}-03-31`;
 
     const balance = await getLeaveBalanceApi(fkEmpId, fromDate, toDate);
+    console.log('Leave balance API response:', balance);
     
     // Map balance to LeaveType format
     const types: LeaveType[] = [
@@ -141,41 +142,43 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
         id: 'annual',
         label: 'Annual Leave',
         icon: 'ribbon-outline',
-        remaining: balance.bal_annual_leave,
-        total: balance.tot_annual_leave,
+        remaining: balance.bal_annual_leave ?? 0,
+        total: balance.tot_annual_leave ?? 0,
       },
       {
         id: 'paid-holiday',
         label: 'Paid Holiday',
         icon: 'calendar-outline',
-        remaining: balance.bal_paid_holiday,
-        total: balance.tot_paid_holiday,
+        remaining: balance.bal_paid_holiday ?? 0,
+        total: balance.tot_paid_holiday ?? 0,
       },
       {
         id: 'sick',
         label: 'Sick Leave',
         icon: 'medkit-outline',
-        remaining: balance.bal_sick_leave,
-        total: balance.tot_sick_leave,
+        remaining: balance.bal_sick_leave ?? 0,
+        total: balance.tot_sick_leave ?? 0,
       },
       {
         id: 'paid-casual',
         label: 'Paid Casual Leave',
         icon: 'sunny-outline',
-        remaining: balance.bal_paid_casual,
-        total: balance.tot_paid_casual,
+        remaining: balance.bal_paid_casual ?? 0,
+        total: balance.tot_paid_casual ?? 0,
       },
       {
         id: 'unpaid-casual',
         label: 'Unpaid Casual Leave',
         icon: 'wallet-outline',
-        remaining: balance.bal_unpaid_casual,
-        total: balance.tot_unpaid_casual,
+        remaining: balance.bal_unpaid_casual ?? 0,
+        total: balance.tot_unpaid_casual ?? 0,
       },
     ];
 
-    return types.filter(t => t.remaining !== undefined && t.remaining !== null);
+    console.log('Mapped leave types:', types);
+    return types;
   } catch (error) {
+    console.error('Error fetching leave balances:', error);
     if (isMissingLeaveRouteError(error)) {
       return DEFAULT_LEAVE_TYPES;
     }
@@ -192,6 +195,13 @@ export const getLeaveTypes = async (): Promise<LeaveType[]> => {
 
   try {
     const rawTypes = await getLeaveTypesApi();
+    
+    // Check if rawTypes is an array before mapping
+    if (!Array.isArray(rawTypes)) {
+      console.warn('Leave types API response is not an array:', rawTypes);
+      return DEFAULT_LEAVE_TYPES;
+    }
+    
     const mapped = rawTypes.map(t => {
       const label = t.label;
       let icon = 'ribbon-outline';

@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://192.168.1.104:4100';
+export const API_BASE_URL = 'http://192.168.1.100:4100';
 export const API_ENDPOINTS = {
   login: '/api/mobile/auth/login',
   logout: '/api/mobile/auth/logout',
@@ -15,5 +15,13 @@ export const API_ENDPOINTS = {
   leaveApply: '/api/mobile/leave/apply',
   leaveHistory: '/api/mobile/leave/history',
   leaveTypes: '/api/mobile/leave/types',
+  leaveBalance: '/api/leave-requests/balance',
+  updateLeaveBalance: '/api/leave-requests/update-balance',
+  dailyTasks: '/api/daily-tasks',
+  dailyTask: (id: number) => `/api/daily-tasks/${id}`,
+  securityQuestions: '/api/auth/security-questions',
+  employeeSecurityQuestion: '/api/auth/employee-security-question',
+  forgotPasswordValidate: '/api/auth/forgot-password/validate',
+  forgotPasswordReset: '/api/auth/forgot-password/reset',
 };
 

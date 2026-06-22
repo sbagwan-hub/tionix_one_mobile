@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { downloadReport } from '../../../utils/reportDownloader';
 import Shimmer from '../../../components/Shimmer';
+import AppBar from '../../../components/AppBar';
 import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -147,6 +148,9 @@ const MyLeaveScreen = ({ navigation, route }: any) => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+      {/* Custom AppBar */}
+      <AppBar title="Leave" showBackButton onBackPress={() => navigation.goBack()} />
 
       <View style={styles.bannerContainer}>
         <LinearGradient
@@ -312,6 +316,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(280),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,
@@ -342,7 +347,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Theme.spacing.sm,
     paddingHorizontal: Theme.spacing.lg,
     marginBottom: Theme.spacing.lg,
   },

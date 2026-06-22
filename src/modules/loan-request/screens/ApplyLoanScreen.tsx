@@ -23,7 +23,8 @@ import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { getAuthSession } from '../../auth/services/auth';
 import { calculateLocalEMI, submitLoanRequest } from '../services/loan';
-import { getEmployees, EmployeeOption, LoanAmortizationLine } from '../services/loanRequest.service';
+import { getEmployees, EmployeeOption, LoanAmortizationLine } from '../services/loan-request.service';
+import AppBar from '../../../components/AppBar';
 
 const LOAN_TYPES = ['Personal Loan', 'Home Loan', 'Vehicle Loan', 'Salary Advance', 'Festival Advance', 'Other'];
 const RETURN_METHODS = ['Salary', 'Hand'];
@@ -197,7 +198,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
         text2: 'Loan Request submitted successfully.',
       });
 
-      navigation.goBack();
+      navigation.navigate('MyLoans', { refresh: true });
     } catch (err: any) {
       Toast.show({
         type: 'error',
@@ -212,6 +213,9 @@ const ApplyLoanScreen = ({ navigation }: any) => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+      {/* Custom AppBar */}
+      <AppBar title="Apply for Loan" showBackButton onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -408,7 +412,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             <View style={styles.balanceRow}>
               <Text style={styles.balanceLabel}>Remaining Balance</Text>
               <Text style={styles.balanceValue}>
-                {formatCurrency(parseFloat(emiPreview.schedule[emiPreview.schedule.length - 1]?.bal_principal || 0))}
+                {formatCurrency(parseFloat(emiPreview.schedule[emiPreview.schedule.length - 1]?.bal_principal || '0'))}
               </Text>
             </View>
           </View>
@@ -597,14 +601,14 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#F7F4F3',
-    paddingBottom: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Theme.spacing.sm,
     paddingHorizontal: Theme.spacing.lg,
+    paddingTop: Theme.spacing.md,
     marginBottom: Theme.spacing.xs,
   },
   backButton: {

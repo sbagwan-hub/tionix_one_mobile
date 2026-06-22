@@ -1,5 +1,5 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
-import { LeaveRequest } from '../modules/leave/services/leave';
+import { LeaveRequest } from '../modules/leave-request/services/leave';
 
 export type RootStackParamList = {
   Splash: undefined;

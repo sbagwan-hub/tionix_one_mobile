@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { downloadReport } from '../../../utils/reportDownloader';
 import Shimmer from '../../../components/Shimmer';
+import AppBar from '../../../components/AppBar';
 import { getAuthSession } from '../../auth/services/auth';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -149,6 +150,37 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     return resultList.reverse();
   }, [history]);
 
+  const currentMonthDays = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    const calendarDays = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startDayOfWeek; i++) {
+      calendarDays.push({ day: null, date: null, isEmpty: true });
+    }
+    
+    // Add actual days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayData = completeHistory.find(d => d.date === dateStr);
+      calendarDays.push({ 
+        day, 
+        date: dateStr, 
+        isEmpty: false,
+        data: dayData 
+      });
+    }
+    
+    return calendarDays;
+  }, [completeHistory]);
+
   const presentCount = useMemo(() => {
     return completeHistory.filter(day => {
       const status = getDayStatus(day);
@@ -219,11 +251,14 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   }, [history]);
 
   const attendanceRate = useMemo(() => {
-    const totalWorkingDays = completeHistory.length;
+    const totalWorkingDays = completeHistory.filter(day => {
+      const status = getDayStatus(day);
+      return status !== 'Absent' || day.records && day.records.length > 0;
+    }).length;
     if (totalWorkingDays === 0) return '0%';
     const rate = ((presentCount + lateCount) / totalWorkingDays) * 100;
     return `${rate.toFixed(1)}%`;
-  }, [completeHistory, presentCount, lateCount]);
+  }, [completeHistory, presentCount, lateCount, getDayStatus]);
 
   const averageWorkHoursDecimal = useMemo(() => {
     let totalMinutes = 0;
@@ -290,6 +325,9 @@ const MyAttendanceScreen = ({ navigation }: any) => {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
+      {/* Custom AppBar */}
+      <AppBar title="My Attendance" showBackButton onBackPress={() => navigation.goBack()} />
+
       {/* Stunning Background Banner */}
       <View style={styles.bannerContainer}>
         <LinearGradient
@@ -302,71 +340,73 @@ const MyAttendanceScreen = ({ navigation }: any) => {
 
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}>
-          {/* Summary Row Shimmer */}
-          <View style={styles.summaryRow}>
-            {[1, 2, 3].map(i => (
-              <View key={i} style={[styles.summaryCard, { paddingVertical: Theme.spacing.md, alignItems: 'center' }]}>
-                <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(10)} style={{ marginBottom: Theme.spacing.sm }} />
-                <Shimmer width="60%" height={moderateScale(22)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
-                <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
+          {/* Monthly Analytics Shimmer */}
+          <View style={styles.analyticsSection}>
+            <View style={styles.analyticsHeader}>
+              <Shimmer width="40%" height={moderateScale(18)} borderRadius={4} />
+              <View style={{ flexDirection: 'row', gap: Theme.spacing.sm }}>
+                <Shimmer width={moderateScale(80)} height={moderateScale(24)} borderRadius={moderateScale(8)} />
+                <Shimmer width={moderateScale(60)} height={moderateScale(24)} borderRadius={moderateScale(8)} />
+              </View>
+            </View>
+
+            <View style={styles.analyticsCardsRow}>
+              {[1, 2].map(i => (
+                <View key={i} style={[styles.analyticsCard, { padding: Theme.spacing.lg, alignItems: 'center' }]}>
+                  <Shimmer width={moderateScale(40)} height={moderateScale(40)} borderRadius={moderateScale(12)} style={{ marginBottom: Theme.spacing.sm }} />
+                  <Shimmer width="50%" height={moderateScale(28)} borderRadius={4} style={{ marginBottom: Theme.spacing.xs }} />
+                  <Shimmer width="60%" height={moderateScale(10)} borderRadius={2} style={{ marginBottom: Theme.spacing.xs }} />
+                  <Shimmer width="40%" height={moderateScale(10)} borderRadius={2} />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Calendar Shimmer */}
+          <View style={styles.calendarSection}>
+            <View style={styles.calendarHeader}>
+              <Shimmer width="30%" height={moderateScale(16)} borderRadius={4} />
+              <Shimmer width={moderateScale(100)} height={moderateScale(20)} borderRadius={moderateScale(12)} />
+            </View>
+            <View style={styles.calendarGrid}>
+              {[...Array(35)].map((_, i) => (
+                <View key={i} style={styles.calendarDay}>
+                  <Shimmer width={moderateScale(12)} height={moderateScale(12)} borderRadius={2} />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Shift Information Shimmer */}
+          <View style={styles.shiftSection}>
+            <Shimmer width="30%" height={moderateScale(16)} borderRadius={4} style={{ marginBottom: Theme.spacing.md }} />
+            
+            {[1, 2, 3, 4, 5].map(i => (
+              <View key={i} style={[styles.shiftCard, { padding: Theme.spacing.lg, marginBottom: Theme.spacing.md }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Theme.spacing.md }}>
+                  <Shimmer width="30%" height={moderateScale(14)} borderRadius={4} />
+                  <Shimmer width={moderateScale(60)} height={moderateScale(20)} borderRadius={moderateScale(12)} />
+                </View>
+                <View style={{ gap: Theme.spacing.md }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm }}>
+                    <Shimmer width={moderateScale(16)} height={moderateScale(16)} borderRadius={moderateScale(8)} />
+                    <Shimmer width="40%" height={moderateScale(12)} borderRadius={2} />
+                    <Shimmer width="20%" height={moderateScale(12)} borderRadius={2} />
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm }}>
+                    <Shimmer width={moderateScale(16)} height={moderateScale(16)} borderRadius={moderateScale(8)} />
+                    <Shimmer width="40%" height={moderateScale(12)} borderRadius={2} />
+                    <Shimmer width="20%" height={moderateScale(12)} borderRadius={2} />
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm }}>
+                    <Shimmer width={moderateScale(16)} height={moderateScale(16)} borderRadius={moderateScale(8)} />
+                    <Shimmer width="40%" height={moderateScale(12)} borderRadius={2} />
+                    <Shimmer width="20%" height={moderateScale(12)} borderRadius={2} />
+                  </View>
+                </View>
               </View>
             ))}
           </View>
-
-          {/* Analytics Overview Shimmer */}
-          <AppCard style={[styles.insightCard, { padding: Theme.spacing.md }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Theme.spacing.md }}>
-              <Shimmer width="50%" height={20} borderRadius={4} />
-              <Shimmer width="25%" height={20} borderRadius={4} />
-            </View>
-            <View style={{ gap: Theme.spacing.md }}>
-              <View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Shimmer width="30%" height={12} borderRadius={3} />
-                  <Shimmer width="15%" height={12} borderRadius={3} />
-                </View>
-                <Shimmer width="100%" height={8} borderRadius={4} />
-              </View>
-              <View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Shimmer width="40%" height={12} borderRadius={3} />
-                  <Shimmer width="15%" height={12} borderRadius={3} />
-                </View>
-                <Shimmer width="100%" height={8} borderRadius={4} />
-              </View>
-            </View>
-          </AppCard>
-
-          {/* Daily Logs List Shimmer */}
-          <View style={styles.sectionHeader}>
-            <Shimmer width="30%" height={20} borderRadius={4} />
-          </View>
-
-          {[1, 2, 3].map(i => (
-            <AppCard key={i} style={[styles.logCard, { padding: Theme.spacing.md, gap: Theme.spacing.sm, flexDirection: 'column' }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Shimmer width="40%" height={18} borderRadius={4} />
-                <Shimmer width="20%" height={20} borderRadius={10} />
-              </View>
-              <View style={{ flexDirection: 'row', gap: 20, marginVertical: 10 }}>
-                <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
-                  <Shimmer width={30} height={30} borderRadius={15} />
-                  <View style={{ flex: 1, gap: 5 }}>
-                    <Shimmer width="50%" height={10} borderRadius={2} />
-                    <Shimmer width="80%" height={14} borderRadius={3} />
-                  </View>
-                </View>
-                <View style={{ flex: 1, flexDirection: 'row', gap: 10 }}>
-                  <Shimmer width={30} height={30} borderRadius={15} />
-                  <View style={{ flex: 1, gap: 5 }}>
-                    <Shimmer width="50%" height={10} borderRadius={2} />
-                    <Shimmer width="80%" height={14} borderRadius={3} />
-                  </View>
-                </View>
-              </View>
-              <Shimmer width="30%" height={12} borderRadius={3} />
-            </AppCard>
-          ))}
         </ScrollView>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -389,175 +429,143 @@ const MyAttendanceScreen = ({ navigation }: any) => {
             />
           }
         >
-          <View style={styles.summaryRow}>
-            {summaryCards.map(item => (
-              <AppCard key={item.label} style={styles.summaryCard}>
-                <View style={[styles.summaryIcon, { backgroundColor: `${item.tone}12` }]}>
-                  <Ionicons name={item.icon as any} size={moderateScale(20)} color={item.tone} />
-                </View>
-                <Text style={styles.summaryValue}>{item.value}</Text>
-                <Text style={styles.summaryLabel}>{item.label}</Text>
-              </AppCard>
-            ))}
-          </View>
-
-          <AppCard style={styles.insightCard}>
-            <View style={styles.insightHeader}>
-              <View style={styles.insightTitleContainer}>
-                <Ionicons name="analytics-outline" size={moderateScale(20)} color={Colors.primary} />
-                <Text style={styles.insightCardTitle}>Analytics Overview</Text>
+          {/* Monthly Analytics Section */}
+          <View style={styles.analyticsSection}>
+            <View style={styles.analyticsHeader}>
+              <View style={styles.analyticsTitleContainer}>
+                <Text style={styles.analyticsTitle}>Monthly Analytics</Text>
+                <Text style={styles.analyticsSubtitle}>June 2026</Text>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.avgHoursLabel}>Avg: {averageWorkHours}</Text>
-                <Text style={{ fontSize: moderateScale(10), color: Colors.textSecondary, fontWeight: '600', marginTop: 2 }}>Total: {totalWorkHours}</Text>
-              </View>
-            </View>
-
-            <View style={styles.statsPanel}>
-              <View style={styles.statMetricItem}>
-                <View style={styles.metricInfoRow}>
-                  <Text style={styles.metricLabel}>Attendance Rate</Text>
-                  <Text style={styles.metricValue}>{attendanceRate}</Text>
-                </View>
-                <View style={styles.progressBarBg}>
-                  <LinearGradient
-                    colors={Colors.successGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: attendanceRate as any,
-                      }
-                    ]}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.statMetricItem}>
-                <View style={styles.metricInfoRow}>
-                  <Text style={styles.metricLabel}>Shift Target Completion (8h)</Text>
-                  <Text style={styles.metricValue}>{shiftCompletionPercent}%</Text>
-                </View>
-                <View style={styles.progressBarBg}>
-                  <LinearGradient
-                    colors={Colors.primaryGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${shiftCompletionPercent}%` as any,
-                      }
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-          </AppCard>
-
-          <View style={styles.filterTabsContainer}>
-            {(['ALL', 'PRESENT', 'LATE', 'ABSENT'] as const).map(filter => {
-              const isActive = activeFilter === filter;
-              return (
-                <TouchableOpacity
-                  key={filter}
-                  onPress={() => setActiveFilter(filter)}
-                  style={[styles.filterTab, isActive && styles.filterTabActive]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-                    {filter === 'ALL' ? 'All' : filter === 'PRESENT' ? 'Present' : filter === 'LATE' ? 'Late' : 'Absent'}
-                  </Text>
+              <View style={styles.analyticsActions}>
+                <TouchableOpacity style={styles.iconButton} activeOpacity={0.7} onPress={handleDownloadReport}>
+                  <Ionicons name="download-outline" size={moderateScale(20)} color={Colors.primary} />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Daily Logs</Text>
-            <Text style={styles.sectionAction}>This Month</Text>
-          </View>
-
-          {filteredHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="calendar-outline" size={moderateScale(40)} color={Colors.borderStrong} />
-              <Text style={styles.emptyText}>No attendance records found matching this filter.</Text>
+                <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+                  <Ionicons name="ellipsis-horizontal" size={moderateScale(20)} color={Colors.text} />
+                </TouchableOpacity>
+              </View>
             </View>
-          ) : (
-            filteredHistory.map((log, index) => {
-              const statusVal = getDayStatus(log);
-              const isLate = statusVal === 'Late';
-              const isAbsent = statusVal === 'Absent';
-              
-              const stripeColor = isAbsent 
-                ? Colors.error 
-                : (isLate ? Colors.warning : Colors.success);
-              
-              const pillBg = isAbsent 
-                ? 'rgba(239, 68, 68, 0.08)' 
-                : (isLate ? 'rgba(255, 179, 0, 0.08)' : 'rgba(16, 185, 129, 0.08)');
-              
-              const pillText = isAbsent 
-                ? Colors.error 
-                : (isLate ? Colors.warningDark : Colors.successDark);
 
+            <View style={styles.analyticsCardsRow}>
+              {/* Present Rate Card */}
+              <View style={[styles.analyticsCard, styles.presentCard]}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="checkmark-circle" size={moderateScale(16)} color={Colors.success} />
+                  </View>
+                  <Text style={styles.cardLabel}>PRESENT RATE</Text>
+                </View>
+                <Text style={styles.cardPercentage}>{attendanceRate}</Text>
+                <View style={styles.cardProgress}>
+                  <View style={[styles.cardProgressBar, { width: `${parseFloat(attendanceRate)}%` }]} />
+                </View>
+                <Text style={styles.cardSublabel}>Compliance</Text>
+              </View>
+
+              {/* Late Punches Card */}
+              <View style={[styles.analyticsCard, styles.lateCard]}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIconContainer}>
+                    <Ionicons name="warning" size={moderateScale(16)} color={Colors.accent} />
+                  </View>
+                  <Text style={styles.cardLabel}>LATE PUNCHES</Text>
+                </View>
+                <Text style={styles.cardPercentage}>{String(lateCount).padStart(2, '0')}</Text>
+                <View style={styles.cardProgress}>
+                  <View style={[styles.cardProgressBar, styles.cardProgressBarLate, { width: `${Math.min(lateCount * 10, 100)}%` }]} />
+                </View>
+                {lateCount > 0 && (
+                  <TouchableOpacity style={styles.needsAttentionButton} activeOpacity={0.7}>
+                    <Text style={styles.needsAttentionText}>Needs attention</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Calendar Section */}
+          <View style={styles.calendarSection}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>{currentMonthName}</Text>
+              <View style={styles.streakBadge}>
+                <Ionicons name="flame" size={moderateScale(14)} color={Colors.accent} />
+                <Text style={styles.streakText}>Daily streak active</Text>
+              </View>
+            </View>
+            <View style={styles.calendarGrid}>
+              {currentMonthDays.map((day, index) => {
+                if (day.isEmpty) {
+                  return <View key={index} style={styles.calendarDay} />;
+                }
+                
+                const status = day.data ? getDayStatus(day.data) : null;
+                const isToday = day.date === new Date().toISOString().split('T')[0];
+                const isPresent = status === 'Present';
+                const isAbsent = status === 'Absent';
+                const isLate = status === 'Late';
+                
+                return (
+                  <View key={index} style={styles.calendarDay}>
+                    <Text style={[styles.dayNumber, isToday && styles.dayNumberToday]}>
+                      {day.day}
+                    </Text>
+                    {(isPresent || isAbsent || isLate) && (
+                      <View style={[
+                        styles.dayDot,
+                        isPresent && styles.dayDotPresent,
+                        isAbsent && styles.dayDotAbsent,
+                        isLate && styles.dayDotLate
+                      ]} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Shift Information Section */}
+          <View style={styles.shiftSection}>
+            <Text style={styles.shiftSectionTitle}>Shift Information</Text>
+            
+            {filteredHistory.slice(0, 5).map((log, index) => {
+              const statusVal = getDayStatus(log);
               const { inPunch, outPunch } = getDailyPunches(log);
               const inTime = inPunch ? formatTime(inPunch.PunchDatetime) : '--:--';
               const outTime = outPunch ? formatTime(outPunch.PunchDatetime) : '--:--';
-
+              const dateObj = new Date(log.date);
+              const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              
               return (
-                <AppCard key={index} style={styles.logCard}>
-                  {/* Left edge colored indicator stripe */}
-                  <View style={[styles.logAccentBar, { backgroundColor: stripeColor }]} />
-                  
-                  <View style={styles.logContainer}>
-                    {/* Top Row: Date and Status Badge */}
-                    <View style={styles.logTopRow}>
-                      <Text style={styles.logDateText}>{formatDate(log.date)}</Text>
-                      <View style={[styles.statusPill, { backgroundColor: pillBg }]}>
-                        <Text style={[styles.logStatus, { color: pillText }]}>
-                          {statusVal}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Middle Row: Punch IN / Punch OUT Timeline Columns */}
-                    <View style={styles.logMiddleRow}>
-                      <View style={styles.punchColumn}>
-                        <View style={[styles.punchIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.06)' }]}>
-                          <Ionicons name="arrow-down" size={moderateScale(14)} color={Colors.success} />
-                        </View>
-                        <View>
-                          <Text style={styles.punchTimeLabel}>CHECK IN</Text>
-                          <Text style={styles.punchTimeValue}>{inTime}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.punchColumn}>
-                        <View style={[styles.punchIconBox, { backgroundColor: 'rgba(255, 179, 0, 0.06)' }]}>
-                          <Ionicons name="arrow-up" size={moderateScale(14)} color={Colors.accent} />
-                        </View>
-                        <View>
-                          <Text style={styles.punchTimeLabel}>CHECK OUT</Text>
-                          <Text style={styles.punchTimeValue}>{outTime}</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Bottom Row: Working Hours info */}
-                    <View style={styles.logBottomRow}>
-                      <View style={styles.workHoursContainer}>
-                        <Ionicons name="time-outline" size={moderateScale(15)} color={Colors.textMuted} />
-                        <Text style={styles.workHoursText}>Total Hours: </Text>
-                        <Text style={styles.workHoursValue}>{log.totalWork}</Text>
-                      </View>
+                <View key={index} style={styles.shiftCard}>
+                  <View style={styles.shiftCardHeader}>
+                    <Text style={styles.shiftDate}>{formattedDate}</Text>
+                    <View style={[styles.shiftStatusBadge, statusVal === 'Absent' ? styles.shiftStatusAbsent : statusVal === 'Late' ? styles.shiftStatusLate : styles.shiftStatusCompleted]}>
+                      <Text style={styles.shiftStatusText}>{statusVal}</Text>
                     </View>
                   </View>
-                </AppCard>
+                  <View style={styles.shiftDetails}>
+                    <View style={styles.shiftDetailRow}>
+                      <Ionicons name="time" size={moderateScale(16)} color={Colors.textSecondary} />
+                      <Text style={styles.shiftDetailLabel}>Shift Started</Text>
+                      <Text style={styles.shiftDetailValue}>{inTime}</Text>
+                    </View>
+                    {outPunch && (
+                      <View style={styles.shiftDetailRow}>
+                        <Ionicons name="log-out" size={moderateScale(16)} color={Colors.success} />
+                        <Text style={styles.shiftDetailLabel}>Punched Out</Text>
+                        <Text style={styles.shiftDetailValue}>{outTime}</Text>
+                      </View>
+                    )}
+                    <View style={styles.shiftDetailRow}>
+                      <Ionicons name="hourglass" size={moderateScale(16)} color={Colors.primary} />
+                      <Text style={styles.shiftDetailLabel}>Total Hours</Text>
+                      <Text style={styles.shiftDetailValue}>{log.totalWork}</Text>
+                    </View>
+                  </View>
+                </View>
               );
-            })
-          )}
+            })}
+          </View>
         </ScrollView>
       )}
     </View>
@@ -576,6 +584,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(280),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,
@@ -600,17 +609,279 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(254, 0, 0, 0.1)',
     filter: 'blur(50px)',
   },
-  header: {
-    backgroundColor: 'transparent',
-    paddingBottom: Theme.spacing.md,
+  analyticsSection: {
+    marginTop: Theme.spacing.md,
   },
-  headerRow: {
+  analyticsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  analyticsTitleContainer: {
+    flexDirection: 'column',
+  },
+  analyticsTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(18),
+    color: Colors.text,
+  },
+  analyticsSubtitle: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+    marginTop: moderateScale(2),
+  },
+  analyticsActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Theme.spacing.sm,
+  },
+  iconButton: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+    paddingHorizontal: moderateScale(12),
+    paddingVertical: moderateScale(6),
+    backgroundColor: 'rgba(255, 77, 28, 0.08)',
+    borderRadius: moderateScale(8),
+  },
+  downloadButtonText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(11),
+    color: Colors.primary,
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(2),
+  },
+  viewDetailsText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(11),
+    color: Colors.primary,
+  },
+  analyticsCardsRow: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+  },
+  analyticsCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(16),
+    padding: Theme.spacing.md,
+    ...Theme.shadow.sm,
+  },
+  presentCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  lateCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 0, 0.2)',
+  },
+  cardIconContainer: {
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(6),
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+    marginBottom: Theme.spacing.xs,
+  },
+  cardPercentage: {
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: moderateScale(24),
+    color: Colors.text,
+    marginBottom: Theme.spacing.xs,
+  },
+  cardProgress: {
+    width: '100%',
+    height: moderateScale(4),
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: moderateScale(2),
+    marginBottom: Theme.spacing.xs,
+    overflow: 'hidden',
+  },
+  cardProgressBar: {
+    height: '100%',
+    backgroundColor: Colors.success,
+    borderRadius: moderateScale(2),
+  },
+  cardProgressBarLate: {
+    backgroundColor: Colors.accent,
+  },
+  cardLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(9),
+    color: Colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  cardSublabel: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(8),
+    color: Colors.success,
+  },
+  needsAttentionButton: {
+    marginTop: Theme.spacing.sm,
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(4),
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
+    borderRadius: moderateScale(6),
+    alignSelf: 'flex-start',
+  },
+  needsAttentionText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(9),
+    color: Colors.accent,
+  },
+  calendarSection: {
+    marginTop: Theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(20),
+    padding: Theme.spacing.lg,
+    ...Theme.shadow.sm,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.lg,
-    marginBottom: Theme.spacing.lg,
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  calendarTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(4),
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
+    borderRadius: moderateScale(12),
+  },
+  streakText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: Colors.accent,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(8),
+  },
+  dayNumber: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: Colors.text,
+  },
+  dayNumberToday: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  dayDot: {
+    width: moderateScale(6),
+    height: moderateScale(6),
+    borderRadius: moderateScale(3),
+    marginTop: moderateScale(2),
+  },
+  dayDotPresent: {
+    backgroundColor: Colors.success,
+  },
+  dayDotAbsent: {
+    backgroundColor: '#EF4444',
+  },
+  dayDotLate: {
+    backgroundColor: Colors.accent,
+  },
+  shiftSection: {
+    marginTop: Theme.spacing.lg,
+  },
+  shiftSectionTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginBottom: Theme.spacing.md,
+  },
+  shiftCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(16),
+    padding: Theme.spacing.lg,
+    marginBottom: Theme.spacing.md,
+    ...Theme.shadow.sm,
+  },
+  shiftCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  shiftDate: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+  },
+  shiftStatusBadge: {
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: moderateScale(4),
+    borderRadius: moderateScale(12),
+  },
+  shiftStatusActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  shiftStatusCompleted: {
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+  },
+  shiftStatusAbsent: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  shiftStatusLate: {
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
+  },
+  shiftStatusText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(10),
+    color: Colors.textSecondary,
+  },
+  shiftDetails: {
+    gap: moderateScale(12),
+  },
+  shiftDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(12),
+  },
+  shiftDetailLabel: {
+    flex: 1,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+  },
+  shiftDetailValue: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: Colors.text,
   },
   backButton: {
     width: moderateScale(40),

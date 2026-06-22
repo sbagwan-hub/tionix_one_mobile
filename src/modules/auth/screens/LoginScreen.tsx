@@ -171,7 +171,7 @@ const LoginScreen = ({ navigation }: any) => {
               <TouchableOpacity 
                 style={styles.forgotLink} 
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('ForgotPassword')}
+                onPress={() => navigation.navigate('ForgotPasswordStep1')}
               >
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>

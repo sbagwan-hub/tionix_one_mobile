@@ -227,3 +227,141 @@ export const loginWithCredentials = async (
     throw new ApiError(message);
   }
 };
+
+export interface SecurityQuestion {
+  id: number;
+  question: string;
+}
+
+export const getSecurityQuestions = async (): Promise<SecurityQuestion[]> => {
+  try {
+    const response = await apiRequest<{ success: boolean; data: SecurityQuestion[] }>(
+      API_ENDPOINTS.securityQuestions,
+      {
+        method: 'GET',
+        skipAuth: true,
+      },
+    );
+
+    if (!response?.success || !response?.data) {
+      throw new ApiError('Failed to fetch security questions.');
+    }
+
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      logApiError(API_ENDPOINTS.securityQuestions, error.message, error.data);
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch security questions.';
+
+    logApiError(API_ENDPOINTS.securityQuestions, message, error);
+    throw new ApiError(message);
+  }
+};
+
+export const getEmployeeSecurityQuestion = async (
+  username: string,
+): Promise<{ question: string }> => {
+  try {
+    const response: any = await apiRequest<{ question: string }>(
+      `${API_ENDPOINTS.employeeSecurityQuestion}?username=${encodeURIComponent(username)}`,
+      {
+        method: 'GET',
+        skipAuth: true,
+      },
+    );
+
+    if (!response?.success || !response?.data) {
+      throw new ApiError('Employee not found.');
+    }
+
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      logApiError(API_ENDPOINTS.employeeSecurityQuestion, error.message, error.data);
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch employee security question.';
+
+    logApiError(API_ENDPOINTS.employeeSecurityQuestion, message, error);
+    throw new ApiError(message);
+  }
+};
+
+export interface ForgotPasswordCredentials {
+  username: string;
+  answer: string;
+}
+
+export const validateForgotPasswordCredentials = async (
+  credentials: ForgotPasswordCredentials,
+): Promise<boolean> => {
+  try {
+    const response = await apiRequest<{ success: boolean }>(
+      API_ENDPOINTS.forgotPasswordValidate,
+      {
+        method: 'POST',
+        body: credentials,
+        skipAuth: true,
+      },
+    );
+
+    if (!response?.success) {
+      throw new ApiError('Invalid credentials. Please check your information.');
+    }
+
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      logApiError(API_ENDPOINTS.forgotPasswordValidate, error.message, error.data);
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to validate credentials.';
+
+    logApiError(API_ENDPOINTS.forgotPasswordValidate, message, error);
+    throw new ApiError(message);
+  }
+};
+
+export interface ResetPasswordCredentials {
+  username: string;
+  answer: string;
+  new_password: string;
+}
+
+export const resetPassword = async (credentials: ResetPasswordCredentials): Promise<boolean> => {
+  try {
+    const response = await apiRequest<{ success: boolean }>(
+      API_ENDPOINTS.forgotPasswordReset,
+      {
+        method: 'POST',
+        body: credentials,
+        skipAuth: true,
+      },
+    );
+
+    if (!response?.success) {
+      throw new ApiError('Failed to reset password. Please try again.');
+    }
+
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      logApiError(API_ENDPOINTS.forgotPasswordReset, error.message, error.data);
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to reset password.';
+
+    logApiError(API_ENDPOINTS.forgotPasswordReset, message, error);
+    throw new ApiError(message);
+  }
+};

@@ -45,6 +45,7 @@ export const punchIn = async (
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
     method: 'POST',
     body: payload,
+    token: session.access_token,
   });
 };
 
@@ -67,6 +68,7 @@ export const punchOut = async (
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.checkout, {
     method: 'POST',
     body: payload,
+    token: session.access_token,
   });
 };
 
@@ -92,6 +94,7 @@ export const punchBreak = async (
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
     method: 'POST',
     body: payload,
+    token: session.access_token,
   });
 };
 
@@ -115,6 +118,7 @@ export const punchResume = async (
   return await apiRequest<AttendanceResponse>(API_ENDPOINTS.attendance, {
     method: 'POST',
     body: payload,
+    token: session.access_token,
   });
 };
 
@@ -159,6 +163,7 @@ export const getAttendanceStatus = async (empId?: number): Promise<AttendanceSta
     };
   }>(API_ENDPOINTS.status(fkEmpId), {
     method: 'GET',
+    token: session.access_token,
   });
 
   return {
@@ -258,6 +263,7 @@ export const getLiveLocationConfig = async (): Promise<LiveLocationConfigRespons
 
   return await apiRequest<LiveLocationConfigResponse>(API_ENDPOINTS.liveLocationConfig, {
     method: 'GET',
+    token: session.access_token,
   });
 };
 
@@ -283,6 +289,7 @@ export const postLiveLocation = async ({
     {
       method: 'POST',
       body: payload,
+      token: session.access_token,
     },
   );
 };
@@ -296,6 +303,7 @@ export const getAttendanceConfig = async (): Promise<AttendanceConfigResponse> =
 
   return await apiRequest<AttendanceConfigResponse>(API_ENDPOINTS.config, {
     method: 'GET',
+    token: session.access_token,
   });
 };
 
@@ -331,6 +339,7 @@ export const getGeolocations = async (): Promise<GeolocationResponse> => {
   try {
     return await apiRequest<GeolocationResponse>(API_ENDPOINTS.geolocations, {
       method: 'GET',
+      token: session.access_token,
     });
   } catch (error) {
     console.error('Failed to fetch geolocations from API:', error);
@@ -375,6 +384,7 @@ export const getAttendanceHistory = async (): Promise<AttendanceHistoryResponse>
     data: any[];
   }>(API_ENDPOINTS.history, {
     method: 'GET',
+    token: session.access_token,
   });
 
   const mappedData = (response.data || []).map((day: any) => ({

@@ -9,23 +9,30 @@ import { Ionicons } from '@expo/vector-icons';
 import LoginScreen from '../modules/auth/screens/LoginScreen';
 import AttendanceScreen from '../modules/attendance/screens/AttendanceScreen';
 import ProfileScreen from '../modules/profile/screens/ProfileScreen';
-import LeaveScreen from '../modules/leave/screens/LeaveScreen';
+import LeaveScreen from '../modules/leave-request/screens/LeaveScreen';
 import SplashScreen from '../modules/auth/screens/SplashScreen';
 import OnboardingScreen from '../modules/auth/screens/OnboardingScreen';
 import PersonalDetailsScreen from '../modules/profile/screens/PersonalDetailsScreen';
 import MyAttendanceScreen from '../modules/attendance/screens/MyAttendanceScreen';
-import MyLeaveScreen from '../modules/leave/screens/MyLeaveScreen';
-import LeaveDetailsScreen from '../modules/leave/screens/LeaveDetailsScreen';
+import MyLeaveScreen from '../modules/leave-request/screens/MyLeaveScreen';
+import LeaveDetailsScreen from '../modules/leave-request/screens/LeaveDetailsScreen';
 import AccountSettingsScreen from '../modules/profile/screens/AccountSettingsScreen';
-import ApplyLeaveScreen from '../modules/leave/screens/ApplyLeaveScreen';
-import MyPersonalWorkScreen from '../modules/personalWork/screens/MyPersonalWorkScreen';
-import ApplyPersonalWorkScreen from '../modules/personalWork/screens/ApplyPersonalWorkScreen';
-import PersonalWorkDetailsScreen from '../modules/personalWork/screens/PersonalWorkDetailsScreen';
+import ApplyLeaveScreen from '../modules/leave-request/screens/ApplyLeaveScreen';
+import MyPersonalWorkScreen from '../modules/personal-work/screens/MyPersonalWorkScreen';
+import ApplyPersonalWorkScreen from '../modules/personal-work/screens/ApplyPersonalWorkScreen';
+import PersonalWorkDetailsScreen from '../modules/personal-work/screens/PersonalWorkDetailsScreen';
 import ForgotPasswordScreen from '../modules/auth/screens/ForgotPasswordScreen';
-import MyLoansScreen from '../modules/loan/screens/MyLoansScreen';
-import ApplyLoanScreen from '../modules/loan/screens/ApplyLoanScreen';
-import LoanDetailsScreen from '../modules/loan/screens/LoanDetailsScreen';
+import ForgotPasswordStep1 from '../modules/auth/screens/ForgotPasswordStep1';
+import VerificationStep2 from '../modules/auth/screens/VerificationStep2';
+import NewPasswordStep3 from '../modules/auth/screens/NewPasswordStep3';
+import PasswordUpdatedSuccess from '../modules/auth/screens/PasswordUpdatedSuccess';
+import MyLoansScreen from '../modules/loan-request/screens/MyLoansScreen';
+import ApplyLoanScreen from '../modules/loan-request/screens/ApplyLoanScreen';
+import LoanDetailsScreen from '../modules/loan-request/screens/LoanDetailsScreen';
 import NotificationScreen from '../modules/notifications/screens/NotificationScreen';
+import DailyTaskScreen from '../modules/daily-task/screens/DailyTaskScreen';
+import AddDailyTaskScreen from '../modules/daily-task/screens/AddDailyTaskScreen';
+import EditDailyTaskScreen from '../modules/daily-task/screens/EditDailyTaskScreen';
 import { LiveLocationProvider } from '../modules/attendance/context/LiveLocationContext';
 import { clearAuthSession, getAuthSession } from '../modules/auth/services/auth';
 import { setSessionExpiredHandler } from '../services/sessionManager';
@@ -84,9 +91,9 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         } else if (route.name === 'Leave') {
           iconName = isFocused ? 'calendar' : 'calendar-outline';
           customLabel = 'LEAVE';
-        } else if (route.name === 'Loans') {
-          iconName = isFocused ? 'cash' : 'cash-outline';
-          customLabel = 'LOAN';
+        } else if (route.name === 'DailyTask') {
+          iconName = isFocused ? 'list' : 'list-outline';
+          customLabel = 'TASK';
         } else if (route.name === 'Profile') {
           iconName = isFocused ? 'person' : 'person-outline';
           customLabel = 'PROFILE';
@@ -134,53 +141,26 @@ const MainTabs = () => {
         }}
       >
         <Tab.Screen name="Attendance" component={AttendanceScreen} />
-        <Tab.Screen 
-          name="Leave" 
-          component={LeaveScreen} 
-          options={{ 
-            headerShown: true,
-            title: 'Leave Balance',
-            headerStyle: {
-              backgroundColor: Colors.white,
-            },
-            headerTintColor: Colors.text,
-            headerTitleStyle: {
-              fontSize: moderateScale(18),
-              fontWeight: '600' as const,
-            },
-          }} 
+        <Tab.Screen
+          name="Leave"
+          component={LeaveScreen}
+          options={{
+            headerShown: false,
+          }}
         />
-        <Tab.Screen 
-          name="Loans" 
-          component={MyLoansScreen} 
-          options={{ 
-            headerShown: true,
-            title: 'My Loans',
-            headerStyle: {
-              backgroundColor: Colors.white,
-            },
-            headerTintColor: Colors.text,
-            headerTitleStyle: {
-              fontSize: moderateScale(18),
-              fontWeight: '600' as const,
-            },
-          }} 
+        <Tab.Screen
+          name="DailyTask"
+          component={DailyTaskScreen}
+          options={{
+            headerShown: false,
+          }}
         />
-        <Tab.Screen 
-          name="Profile" 
-          component={ProfileScreen} 
-          options={{ 
-            headerShown: true,
-            title: 'Profile',
-            headerStyle: {
-              backgroundColor: Colors.white,
-            },
-            headerTintColor: Colors.text,
-            headerTitleStyle: {
-              fontSize: moderateScale(18),
-              fontWeight: '600' as const,
-            },
-          }} 
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
+            headerShown: false,
+          }}
         />
       </Tab.Navigator>
     </LiveLocationProvider>
@@ -248,7 +228,27 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="ForgotPassword" 
           component={ForgotPasswordScreen} 
-          options={{ title: 'Forgot Password' }} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="ForgotPasswordStep1" 
+          component={ForgotPasswordStep1} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="VerificationStep2" 
+          component={VerificationStep2} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="NewPasswordStep3" 
+          component={NewPasswordStep3} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="PasswordUpdatedSuccess" 
+          component={PasswordUpdatedSuccess} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="MainTabs" 
@@ -258,77 +258,96 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="PersonalDetails" 
           component={PersonalDetailsScreen} 
-          options={{ title: 'Personal Details' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="MyAttendance" 
           component={MyAttendanceScreen} 
-          options={{ title: 'My Attendance' }} 
+          options={{ headerShown: false }} 
         />
-        <Stack.Screen 
-          name="MyLeave" 
-          component={MyLeaveScreen} 
-          options={{ title: 'My Leave' }} 
+        <Stack.Screen
+          name="MyLeave"
+          component={MyLeaveScreen}
+          options={{
+            headerShown: false,
+          }}
         />
-        <Stack.Screen 
-          name="ApplyLeave" 
-          component={ApplyLeaveScreen} 
-          options={{ title: 'Apply for Leave' }} 
+        <Stack.Screen
+          name="ApplyLeave"
+          component={ApplyLeaveScreen}
+          options={{
+            headerShown: false,
+          }}
         />
         <Stack.Screen 
           name="AccountSettings" 
           component={AccountSettingsScreen} 
-          options={{ title: 'Account Settings' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="LeaveDetails" 
           component={LeaveDetailsScreen} 
-          options={{ title: 'Leave Details' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="MyPersonalWork" 
           component={MyPersonalWorkScreen} 
-          options={{ title: 'Personal Work' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="ApplyPersonalWork" 
           component={ApplyPersonalWorkScreen} 
-          options={{ title: 'Apply Personal Work' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="PersonalWorkDetails" 
           component={PersonalWorkDetailsScreen} 
-          options={{ title: 'Request Details' }} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen 
           name="MyLoans" 
           component={MyLoansScreen} 
-          options={{ title: 'My Loans' }} 
+          options={{ headerShown: false }} 
         />
-        <Stack.Screen 
-          name="ApplyLoan" 
-          component={ApplyLoanScreen} 
-          options={{ 
-            title: 'Apply Loan',
-            headerStyle: {
-              backgroundColor: Colors.white,
-            },
-            headerTintColor: Colors.text,
-            headerTitleStyle: {
-              fontSize: moderateScale(18),
-              fontWeight: '600' as const,
-            },
-          }} 
+        <Stack.Screen
+          name="ApplyLoan"
+          component={ApplyLoanScreen}
+          options={{
+            headerShown: false,
+          }}
         />
         <Stack.Screen 
           name="LoanDetails" 
           component={LoanDetailsScreen} 
-          options={{ title: 'Loan Details' }} 
+          options={{ headerShown: false }} 
         />
-        <Stack.Screen 
-          name="Notifications" 
-          component={NotificationScreen} 
-          options={{ title: 'Notifications' }} 
+        <Stack.Screen
+          name="Notifications"
+          component={NotificationScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="DailyTask"
+          component={DailyTaskScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="AddDailyTask"
+          component={AddDailyTaskScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="EditDailyTask"
+          component={EditDailyTaskScreen}
+          options={{
+            headerShown: false,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

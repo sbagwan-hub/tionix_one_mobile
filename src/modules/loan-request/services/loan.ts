@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
-import * as api from './loanRequest.service';
+import * as api from './loan-request.service';
 
 const loanHistoryStorageKey = (fkEmpId: string) => `@attendance/loan-history/${fkEmpId}`;
 
@@ -162,6 +162,8 @@ export const normalizeLoan = (raw: api.LoanResponseItem): NormalizedLoan => {
     status = raw.accepted === 'Accept' ? 'Approved' : 'Rejected';
   } else if (raw.last_status === 'Rejected') {
     status = 'Rejected';
+  } else if (raw.last_status === 'Added' || raw.last_status === 'Pending') {
+    status = 'Pending';
   }
 
   return {

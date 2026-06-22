@@ -51,6 +51,7 @@ const LEAVE_REQUEST_ENDPOINTS = {
   DELETE: (id: string) => `/api/mobile/leave-requests/${id}`,
   AUTHORIZE: (id: string) => `/api/mobile/leave-requests/${id}/authorize`,
   BALANCE: '/api/mobile/leave-requests/balance',
+  UPDATE_BALANCE: '/api/leave-requests/update-balance',
   EMPLOYEES: '/api/mobile/leave-requests/employees',
   LEAVE_TYPES: '/api/mobile/leave-requests/leave-types',
 };
@@ -180,6 +181,28 @@ export async function getLeaveHistory(
     `${LEAVE_REQUEST_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
+    }
+  );
+
+  return response;
+}
+
+/**
+ * Update leave balance for all employees (admin function)
+ */
+export async function updateLeaveBalance(
+  year?: number
+): Promise<{ inserted: number; updated: number; total: number }> {
+  const session = await getAuthSession();
+  
+  const payload = year ? { year } : {};
+
+  const response = await apiRequest<{ inserted: number; updated: number; total: number }>(
+    LEAVE_REQUEST_ENDPOINTS.UPDATE_BALANCE,
+    {
+      method: 'POST',
+      body: payload,
+      token: session?.access_token,
     }
   );
 

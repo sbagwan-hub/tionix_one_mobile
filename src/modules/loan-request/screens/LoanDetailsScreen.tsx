@@ -13,11 +13,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AppBar from '../../../components/AppBar';
 import AppCard from '../../../components/AppCard';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { getLoanDetails, LoanDetailsResponse } from '../services/loanRequest.service';
+import { getLoanDetails, LoanDetailsResponse } from '../services/loan-request.service';
 import { downloadReport } from '../../../utils/reportDownloader';
 
 const statusTone = {
@@ -359,7 +360,9 @@ const LoanDetailsScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" />
+      {/* Custom AppBar */}
+      <AppBar title="Loan Details" showBackButton onBackPress={() => navigation.goBack()} />
 
       <View style={styles.bannerContainer}>
         <LinearGradient
@@ -408,6 +411,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: moderateScale(180),
     overflow: 'hidden',
+    zIndex: -1,
   },
   bannerGradient: {
     flex: 1,
