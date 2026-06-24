@@ -69,6 +69,13 @@ const menuItems = [
     route: 'MyPersonalWork',
   },
   {
+    id: 'complaints',
+    title: 'Employee Complaints',
+    subtitle: 'Submit and view work complaints',
+    icon: 'alert-circle-outline',
+    route: 'MyComplaints',
+  },
+  {
     id: '5',
     title: 'Personal Information',
     subtitle: 'Contact, address, and emergency info',

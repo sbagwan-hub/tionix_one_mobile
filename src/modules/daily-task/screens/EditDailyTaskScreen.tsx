@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -10,16 +10,28 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import AppCard from '../../../components/AppCard';
 import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
-import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { updateDailyTask, deleteDailyTask, UpdateTaskDto, TaskStatus, DailyTask } from '../services/daily-task.service';
+import { updateDailyTask, deleteDailyTask, UpdateTaskDto, TaskStatus } from '../services/daily-task.service';
+
+const statusConfig: Record<TaskStatus, { color: string; bg: string; icon: string; activeBg: string }> = {
+  Pending: { color: '#D97706', bg: 'rgba(245, 158, 11, 0.05)', activeBg: 'rgba(245, 158, 11, 0.15)', icon: 'time' },
+  Canceled: { color: '#DC2626', bg: 'rgba(239, 68, 68, 0.05)', activeBg: 'rgba(239, 68, 68, 0.15)', icon: 'close-circle' },
+  Finished: { color: '#059669', bg: 'rgba(16, 185, 129, 0.05)', activeBg: 'rgba(16, 185, 129, 0.15)', icon: 'checkmark-circle' },
+};
+
+const normalizeStatus = (s: string): TaskStatus => {
+  if (!s) return 'Pending';
+  const lower = s.toLowerCase();
+  if (lower === 'finished') return 'Finished';
+  if (lower === 'canceled' || lower === 'cancelled') return 'Canceled';
+  return 'Pending';
+};
 
 const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
@@ -27,15 +39,16 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const [taskName, setTaskName] = useState(task.task_name);
   const [reachingDate, setReachingDate] = useState(task.reaching_date);
   const [reachingTime, setReachingTime] = useState(task.reaching_time);
-  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [status, setStatus] = useState<TaskStatus>(() => normalizeStatus(task.status));
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isDescFocused, setIsDescFocused] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(task.reaching_date));
   const [selectedTime, setSelectedTime] = useState(() => {
     const [hours, minutes] = task.reaching_time.split(':');
     const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
+    date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
     return date;
   });
 
@@ -128,15 +141,32 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
     );
   };
 
+  const formatDateLabel = (dateStr: string) => {
+    try {
+      const dateObj = new Date(dateStr);
+      return dateObj.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <AppBar title="Edit Task" showBackButton onBackPress={handleCancel} />
+      <AppBar
+        title="Update Task Status"
+        showBackButton
+        onBackPress={handleCancel}
+      />
 
       <View style={styles.bannerContainer}>
         <LinearGradient
-          colors={['rgba(255, 77, 28, 0.15)', 'rgba(255, 77, 28, 0.0)']}
+          colors={['rgba(255, 77, 28, 0.12)', 'rgba(255, 77, 28, 0.0)']}
           style={styles.bannerGradient}
         />
         <View style={styles.bannerBlurOrb1} />
@@ -145,119 +175,137 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(120) + insets.bottom }]}
+        contentContainerStyle={[styles.content, { paddingBottom: moderateScale(60) + insets.bottom }]}
       >
         <View style={styles.formSection}>
           <View style={styles.formCard}>
+            
+            {/* Task Description Input - READ ONLY */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Task Description</Text>
+              <View style={styles.labelRow}>
+                <Ionicons name="create-outline" size={moderateScale(16)} color={Colors.textSecondary} />
+                <Text style={styles.label}>Task Description</Text>
+              </View>
               <TextInput
-                style={styles.input}
-                placeholder="Enter task description"
+                style={[
+                  styles.input,
+                  styles.inputDisabled,
+                ]}
+                placeholder="No description provided"
                 value={taskName}
-                onChangeText={setTaskName}
                 multiline
-                numberOfLines={4}
+                numberOfLines={3}
                 placeholderTextColor={Colors.textMuted}
+                editable={false}
               />
             </View>
 
+            {/* Due Date Selector - READ ONLY */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Due Date</Text>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={moderateScale(20)} color={Colors.primary} />
-                <Text style={styles.dateButtonText}>{reachingDate || 'Select date'}</Text>
-                <Ionicons name="chevron-down" size={moderateScale(16)} color={Colors.textMuted} />
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'default' : 'default'}
-                  onChange={handleDateChange}
-                  accentColor={Colors.primary}
-                />
-              )}
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Due Time</Text>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Ionicons name="time-outline" size={moderateScale(20)} color={Colors.primary} />
-                <Text style={styles.dateButtonText}>{reachingTime || 'Select time'}</Text>
-                <Ionicons name="chevron-down" size={moderateScale(16)} color={Colors.textMuted} />
-              </TouchableOpacity>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={selectedTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'default' : 'default'}
-                  onChange={handleTimeChange}
-                  accentColor={Colors.primary}
-                />
-              )}
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Status</Text>
-              <View style={styles.statusOptions}>
-                {(['Pending', 'Canceled', 'Finished'] as TaskStatus[]).map((statusOption) => (
-                  <TouchableOpacity
-                    key={statusOption}
-                    style={[
-                      styles.statusOption,
-                      status === statusOption && styles.statusOptionActive,
-                    ]}
-                    onPress={() => setStatus(statusOption)}
-                  >
-                    <Text
-                      style={[
-                        styles.statusOptionText,
-                        status === statusOption && styles.statusOptionTextActive,
-                      ]}
-                    >
-                      {statusOption}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.labelRow}>
+                <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.textSecondary} />
+                <Text style={styles.label}>Due Date</Text>
+              </View>
+              <View style={[styles.dateSelectorButton, styles.selectorDisabled]}>
+                <Text style={styles.dateSelectorTextDisabled}>
+                  {reachingDate ? formatDateLabel(reachingDate) : 'No Date Set'}
+                </Text>
               </View>
             </View>
+
+            {/* Due Time Selector - READ ONLY */}
+            <View style={styles.formGroup}>
+              <View style={styles.labelRow}>
+                <Ionicons name="time-outline" size={moderateScale(16)} color={Colors.textSecondary} />
+                <Text style={styles.label}>Due Time</Text>
+              </View>
+              <View style={[styles.dateSelectorButton, styles.selectorDisabled]}>
+                <Text style={styles.dateSelectorTextDisabled}>{reachingTime || 'No Time Set'}</Text>
+              </View>
+            </View>
+
+            {/* Status Selection Row */}
+            <View style={styles.formGroup}>
+              <View style={styles.labelRow}>
+                <Ionicons name="flag-outline" size={moderateScale(16)} color={Colors.primary} />
+                <Text style={styles.label}>Task Status</Text>
+              </View>
+              <View style={styles.statusOptions}>
+                {(['Pending', 'Canceled', 'Finished'] as TaskStatus[]).map((statusOption) => {
+                  const isActive = status === statusOption;
+                  const config = statusConfig[statusOption];
+                  return (
+                    <TouchableOpacity
+                      key={statusOption}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.statusOption,
+                        { backgroundColor: config.bg, borderColor: 'rgba(0,0,0,0.04)' },
+                        isActive && {
+                          backgroundColor: config.activeBg,
+                          borderColor: config.color,
+                          borderWidth: 1.5,
+                        },
+                      ]}
+                      onPress={() => setStatus(statusOption)}
+                    >
+                      <Ionicons
+                        name={isActive ? (config.icon as any) : `${config.icon}-outline`}
+                        size={moderateScale(16)}
+                        color={config.color}
+                        style={{ marginBottom: moderateScale(4) }}
+                      />
+                      <Text
+                        style={[
+                          styles.statusOptionText,
+                          { color: Colors.textSecondary },
+                          isActive && { color: config.color, fontFamily: 'Outfit_700Bold' },
+                        ]}
+                      >
+                        {statusOption}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
           </View>
         </View>
 
-        <View style={styles.buttonContainer}>
+        {/* Action Button Row */}
+        <View style={styles.actionSection}>
           <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
+            disabled={isLoading}
+            onPress={handleSave}
+            activeOpacity={0.9}
+            style={styles.saveButtonContainer}
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveButtonGradient}
+            >
+              <View style={styles.saveButtonContent}>
+                <Ionicons name="checkmark-circle-outline" size={moderateScale(18)} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>
+                  {isLoading ? 'Updating Status...' : 'Confirm Status Update'}
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelButton}
             onPress={handleCancel}
             disabled={isLoading}
+            activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.deleteButton]}
-            onPress={handleDelete}
-            disabled={isLoading}
-          >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.saveButton, isLoading && styles.buttonDisabled]}
-            onPress={handleSave}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Text style={styles.saveButtonText}>Saving...</Text>
-            ) : (
-              <Text style={styles.saveButtonText}>Update Task</Text>
-            )}
+            <Text style={styles.cancelButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </View>
   );
@@ -266,7 +314,15 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#F8F9FA',
+  },
+  headerDeleteButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   bannerContainer: {
     position: 'absolute',
@@ -287,8 +343,8 @@ const styles = StyleSheet.create({
     width: moderateScale(200),
     height: moderateScale(200),
     borderRadius: moderateScale(100),
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
-    filter: 'blur(40px)',
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
+    filter: 'blur(45px)',
   },
   bannerBlurOrb2: {
     position: 'absolute',
@@ -297,122 +353,147 @@ const styles = StyleSheet.create({
     width: moderateScale(250),
     height: moderateScale(250),
     borderRadius: moderateScale(125),
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
-    filter: 'blur(50px)',
+    backgroundColor: 'rgba(255, 77, 28, 0.07)',
+    filter: 'blur(55px)',
   },
   content: {
     paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.md,
-    gap: Theme.spacing.md,
+    gap: Theme.spacing.lg,
   },
   formSection: {
-    marginTop: Theme.spacing.md,
+    marginTop: Theme.spacing.xs,
   },
   formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: moderateScale(16),
-    padding: Theme.spacing.lg,
+    borderRadius: moderateScale(20),
+    padding: Theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.03)',
     ...Theme.shadow.sm,
   },
   formGroup: {
-    marginBottom: Theme.spacing.lg,
+    marginBottom: Theme.spacing.xl,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+    marginBottom: Theme.spacing.sm,
   },
   label: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(13),
     color: Colors.text,
-    marginBottom: Theme.spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: '#F8F9FA',
     borderRadius: moderateScale(12),
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.md,
     fontSize: moderateScale(14),
     color: Colors.text,
-    borderWidth: 0,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
     textAlignVertical: 'top',
     fontFamily: 'Outfit_400Regular',
+    minHeight: moderateScale(90),
   },
-  dateButton: {
+  inputFocused: {
+    borderColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
+    ...Theme.shadow.sm,
+  },
+  dateSelectorButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    backgroundColor: '#F8F9FA',
     borderRadius: moderateScale(12),
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.md,
-    borderWidth: 0,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
   },
-  dateButtonText: {
+  inputDisabled: {
+    backgroundColor: '#F1F3F5',
+    color: '#868E96',
+    borderColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  selectorDisabled: {
+    backgroundColor: '#F1F3F5',
+    borderColor: 'rgba(0, 0, 0, 0.02)',
+    opacity: 0.85,
+  },
+  dateSelectorTextDisabled: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(14),
+    color: '#868E96',
+  },
+  dateSelectorText: {
     fontFamily: 'Outfit_500Medium',
     fontSize: moderateScale(14),
     color: Colors.text,
   },
   statusOptions: {
     flexDirection: 'row',
-    gap: Theme.spacing.sm,
+    gap: Theme.spacing.md,
   },
   statusOption: {
     flex: 1,
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: moderateScale(12),
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderWidth: 0,
-    alignItems: 'center',
-  },
-  statusOptionActive: {
-    backgroundColor: 'rgba(255, 77, 28, 0.1)',
-  },
-  statusOptionText: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: moderateScale(12),
-    color: Colors.textSecondary,
-  },
-  statusOptionTextActive: {
-    color: Colors.primary,
-    fontFamily: 'Outfit_600SemiBold',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: Theme.spacing.md,
-    marginTop: Theme.spacing.md,
-  },
-  button: {
-    flex: 1,
     paddingVertical: Theme.spacing.md,
     borderRadius: moderateScale(12),
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  statusOptionText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+  },
+  actionSection: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.md,
+  },
   cancelButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    width: '100%',
+    paddingVertical: Theme.spacing.sm,
+    borderRadius: moderateScale(14),
+    backgroundColor: 'transparent',
     borderWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButtonText: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(16),
-    color: Colors.text,
+    fontSize: moderateScale(14),
+    color: Colors.textSecondary,
   },
-  deleteButton: {
-    backgroundColor: '#EF4444',
+  saveButtonContainer: {
+    width: '100%',
+    borderRadius: moderateScale(14),
+    overflow: 'hidden',
+    ...Theme.shadow.md,
   },
-  deleteButtonText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(16),
-    color: Colors.white,
+  saveButtonGradient: {
+    paddingVertical: moderateScale(14),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  saveButton: {
-    backgroundColor: Colors.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+  saveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.sm,
   },
   saveButtonText: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(15),
     color: Colors.white,
+    letterSpacing: 0.3,
   },
 });
 

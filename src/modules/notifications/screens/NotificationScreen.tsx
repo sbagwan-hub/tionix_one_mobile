@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,13 @@ import {
   ImageBackground,
   Platform,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { apiRequest } from '../../../services/apiClient';
 import AppBar from '../../../components/AppBar';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
@@ -32,41 +35,37 @@ const NotificationScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'UNREAD' | 'UPDATES' | 'ALERTS'>('ALL');
   
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      title: 'New Shift Assigned',
-      message: "You've been assigned to the Downtown Logistics Hub shift starting tomorrow at 08:00 AM.",
-      timeRange: 'Oct 24, 08:00 - 17:00',
-      time: '2m ago',
-      read: false,
-      type: 'shift',
-    },
-    {
-      id: '2',
-      title: 'Clock-in Reminder',
-      message: 'Upcoming shift starts in 30 minutes. Please ensure you are within the geofenced area.',
-      time: '30m ago',
-      read: false,
-      type: 'reminder',
-    },
-    {
-      id: '3',
-      title: 'Leave Request Approved',
-      message: 'Your vacation request for Nov 12th to Nov 15th has been approved by the management team.',
-      time: '1h ago',
-      read: true,
-      type: 'leave',
-    },
-    {
-      id: '4',
-      title: 'System Update',
-      message: 'The Kinetic platform has been upgraded to v4.2. Discover new real-time tracking features in your dashboard.',
-      time: '4h ago',
-      read: true,
-      type: 'system',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchNotifications = async (showRefControl = false) => {
+    if (showRefControl) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    try {
+      const res = await apiRequest<{ ok: boolean; data: Notification[] }>('/api/mobile/notifications');
+      if (res && res.ok) {
+        setNotifications(res.data);
+      }
+    } catch (err: any) {
+      console.error('[NotificationScreen] Failed to fetch notifications:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchNotifications();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter(n => {
@@ -159,8 +158,19 @@ const NotificationScreen = ({ navigation }: any) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + moderateScale(20) }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchNotifications(true)}
+            colors={[Colors.primary]}
+          />
+        }
       >
-        {filteredNotifications.length === 0 ? (
+        {loading && notifications.length === 0 ? (
+          <View style={{ paddingVertical: moderateScale(40), alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+        ) : filteredNotifications.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="notifications-off-outline" size={moderateScale(48)} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Notifications</Text>

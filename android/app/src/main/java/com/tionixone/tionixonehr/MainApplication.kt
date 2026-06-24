@@ -1,4 +1,4 @@
-package com.company.appname
+package com.tionixone.tionixonehr
 
 import android.app.Application
 import android.content.res.Configuration

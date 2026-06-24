@@ -22,6 +22,9 @@ import ApplyLeaveScreen from '../modules/leave-request/screens/ApplyLeaveScreen'
 import MyPersonalWorkScreen from '../modules/personal-work/screens/MyPersonalWorkScreen';
 import ApplyPersonalWorkScreen from '../modules/personal-work/screens/ApplyPersonalWorkScreen';
 import PersonalWorkDetailsScreen from '../modules/personal-work/screens/PersonalWorkDetailsScreen';
+import MyComplaintsScreen from '../modules/sal-comp-employees/screens/MyComplaintsScreen';
+import ApplyComplaintScreen from '../modules/sal-comp-employees/screens/ApplyComplaintScreen';
+import ComplaintDetailsScreen from '../modules/sal-comp-employees/screens/ComplaintDetailsScreen';
 import ForgotPasswordScreen from '../modules/auth/screens/ForgotPasswordScreen';
 import ForgotPasswordStep1 from '../modules/auth/screens/ForgotPasswordStep1';
 import VerificationStep2 from '../modules/auth/screens/VerificationStep2';
@@ -318,6 +321,21 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="PersonalWorkDetails" 
           component={PersonalWorkDetailsScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="MyComplaints" 
+          component={MyComplaintsScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="ApplyComplaint" 
+          component={ApplyComplaintScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="ComplaintDetails" 
+          component={ComplaintDetailsScreen} 
           options={{ headerShown: false }} 
         />
         <Stack.Screen 

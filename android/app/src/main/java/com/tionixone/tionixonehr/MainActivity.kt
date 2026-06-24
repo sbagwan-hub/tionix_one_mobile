@@ -1,4 +1,4 @@
-package com.company.appname
+package com.tionixone.tionixonehr
 
 import android.os.Build
 import android.os.Bundle

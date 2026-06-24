@@ -75,7 +75,17 @@ export const getDailyTasks = async (): Promise<DailyTask[]> => {
       method: 'GET',
     });
 
-    const tasks = response.data?.data || [];
+    const rawTasks = response.data?.data || [];
+    const tasks: DailyTask[] = rawTasks.map((t: any) => ({
+      pk_task_id: t.pk_obt_id,
+      task_name: t.task,
+      reaching_date: t.task_date,
+      reaching_time: t.task_time || '',
+      status: t.status,
+      date_time_stamp: t.task_date,
+      fk_user_id: t.fk_ob_id,
+    }));
+
     await writeLocalTasks(fkEmpId, tasks);
     return tasks;
   } catch (error) {
@@ -90,9 +100,24 @@ export const createDailyTask = async (payload: CreateTaskDto): Promise<DailyTask
   try {
     const response = await apiRequest<any>(API_ENDPOINTS.dailyTasks, {
       method: 'POST',
-      body: payload,
+      body: {
+        task: payload.task_name,
+        task_date: payload.reaching_date,
+        task_time: payload.reaching_time,
+        status: payload.status,
+        fk_ob_id: payload.fk_user_id,
+      },
     });
-    const newTask = response.data;
+    const t = response.data;
+    const newTask: DailyTask = {
+      pk_task_id: t.pk_obt_id,
+      task_name: t.task,
+      reaching_date: t.task_date,
+      reaching_time: t.task_time || '',
+      status: t.status,
+      date_time_stamp: t.task_date,
+      fk_user_id: t.fk_ob_id,
+    };
     
     await appendLocalTask(fkEmpId, newTask);
     return newTask;
@@ -105,13 +130,29 @@ export const updateDailyTask = async (taskId: number, payload: UpdateTaskDto): P
   const fkEmpId = await getEmployeeId();
 
   try {
+    const body: any = {};
+    if (payload.task_name !== undefined) body.task = payload.task_name;
+    if (payload.reaching_date !== undefined) body.task_date = payload.reaching_date;
+    if (payload.reaching_time !== undefined) body.task_time = payload.reaching_time;
+    if (payload.status !== undefined) body.status = payload.status;
+    if (payload.fk_user_id !== undefined) body.fk_ob_id = payload.fk_user_id;
+
     const response = await apiRequest<any>(API_ENDPOINTS.dailyTask(taskId), {
       method: 'PUT',
-      body: payload,
+      body,
     });
-    const updated = response.data;
+    const t = response.data;
+    const updated: DailyTask = {
+      pk_task_id: t.pk_obt_id,
+      task_name: t.task,
+      reaching_date: t.task_date,
+      reaching_time: t.task_time || '',
+      status: t.status,
+      date_time_stamp: t.task_date,
+      fk_user_id: t.fk_ob_id,
+    };
     
-    await updateLocalTask(fkEmpId, taskId, payload);
+    await updateLocalTask(fkEmpId, taskId, updated);
     return updated;
   } catch (error) {
     throw error;

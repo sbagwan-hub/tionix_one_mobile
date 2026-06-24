@@ -104,9 +104,9 @@ const PremiumNotificationBell: React.FC<PremiumNotificationBellProps> = ({
     ],
   }));
 
-  const iconColor = isDark ? Colors.white : Colors.text;
-  const backgroundColor = isDark ? '#1E1E1E' : '#F5F5F5';
-  const badgeColor = Colors.primary;
+  const iconColor = Colors.primary;
+  const backgroundColor = Colors.white;
+  const badgeColor = Colors.primaryDark;
 
   return (
     <AnimatedTouchableOpacity
@@ -115,7 +115,10 @@ const PremiumNotificationBell: React.FC<PremiumNotificationBellProps> = ({
         {
           width: moderateScale(size),
           height: moderateScale(size),
+          borderRadius: moderateScale(size / 2),
           backgroundColor: backgroundColor,
+          borderWidth: 1,
+          borderColor: Colors.border,
         },
         disabled && styles.disabled,
       ]}
@@ -144,7 +147,6 @@ const styles = StyleSheet.create({
   container: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: moderateScale(25),
   },
   disabled: {
     opacity: 0.5,

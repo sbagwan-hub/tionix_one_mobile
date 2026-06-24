@@ -212,11 +212,6 @@ const DailyTaskScreen = ({ navigation }: any) => {
                 <Text style={styles.analyticsTitle}>Task Analytics</Text>
                 <Text style={styles.analyticsSubtitle}>June 2026</Text>
               </View>
-              <View style={styles.analyticsActions}>
-                <TouchableOpacity style={styles.iconButton} activeOpacity={0.7} onPress={handleAddTask}>
-                  <Ionicons name="add" size={moderateScale(20)} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
             </View>
 
             <View style={styles.analyticsCardsRow}>
@@ -260,10 +255,7 @@ const DailyTaskScreen = ({ navigation }: any) => {
             {tasks.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="document-text-outline" size={moderateScale(40)} color={Colors.borderStrong} />
-                <Text style={styles.emptyText}>No tasks found yet.</Text>
-                <TouchableOpacity style={styles.emptyButton} onPress={handleAddTask} activeOpacity={0.85}>
-                  <Text style={styles.emptyButtonText}>Add your first task</Text>
-                </TouchableOpacity>
+                <Text style={styles.emptyText}>No tasks assigned to you yet.</Text>
               </View>
             ) : (
               tasks.map(task => (

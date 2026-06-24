@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "163852944967",
+    "project_id": "xone-ed61d",
+    "storage_bucket": "xone-ed61d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:163852944967:android:6d950cf090c5fce374d362",
+        "android_client_info": {
+          "package_name": "com.tionixone.tionixonehr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYWS4tuxV1aD0Cvz5fu2oOVQCo6PDREAs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

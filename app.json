@@ -16,7 +16,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.attendanceapp",
+      "bundleIdentifier": "com.tionixone.tionixonehr",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "AttendanceApp needs your location to verify you are at the office before marking attendance.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "AttendanceApp needs your location in the background to continuously track attendance.",
@@ -45,7 +45,8 @@
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.company.appname"
+      "package": "com.tionixone.tionixonehr",
+      "googleServicesFile": "./src/config/google-services.json"
     },
     "plugins": [
       [
@@ -68,7 +69,8 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "@react-native-firebase/app"
     ]
   }
 }
