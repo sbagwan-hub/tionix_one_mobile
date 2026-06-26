@@ -38,6 +38,7 @@ const PERSONAL_WORK_ENDPOINTS = {
 };
 
 export async function applyForPersonalWork(payload: {
+  request_date?: string;
   leaving_time: string;
   return_time: string;
   reason: string;
@@ -48,12 +49,17 @@ export async function applyForPersonalWork(payload: {
     throw new Error('Employee ID not found in session');
   }
 
+  // Use caller-supplied request_date (local, no timezone) or build one from today.
+  const today = new Date();
+  const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`;
+  const requestDate = payload.request_date ?? todayLocal;
+
   const response = await apiRequest<{ pk_pw_id: number }>(
     PERSONAL_WORK_ENDPOINTS.CREATE,
     {
       method: 'POST',
       body: {
-        request_date: new Date().toISOString(),
+        request_date: requestDate,
         fk_emp_id: Number(session.user.fkEmpId),
         leaving_time: payload.leaving_time,
         return_time: payload.return_time,

@@ -402,9 +402,15 @@ const ApplyPersonalWorkScreen = ({ navigation }: any) => {
 
     setIsSubmitting(true);
     try {
+      // Build local datetime strings WITHOUT timezone conversion.
+      // Using toISOString() would convert IST→UTC, causing the backend's
+      // same-day and working-hours (9:30–18:30) validations to fail.
+      const lDateStr = `${selectedDate}T${String(lDate.getHours()).padStart(2, '0')}:${String(lDate.getMinutes()).padStart(2, '0')}:00`;
+      const rDateStr = `${selectedDate}T${String(rDate.getHours()).padStart(2, '0')}:${String(rDate.getMinutes()).padStart(2, '0')}:00`;
       await applyForPersonalWork({
-        leaving_time: lDate.toISOString(),
-        return_time: rDate.toISOString(),
+        request_date: `${selectedDate}T00:00:00`,
+        leaving_time: lDateStr,
+        return_time: rDateStr,
         reason: reason.trim(),
         remarks: remarks.trim(),
       });
