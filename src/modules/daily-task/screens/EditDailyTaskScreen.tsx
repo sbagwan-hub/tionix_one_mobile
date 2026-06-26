@@ -38,7 +38,19 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const { task } = route.params;
   const [taskName, setTaskName] = useState(task.task_name);
   const [reachingDate, setReachingDate] = useState(task.reaching_date);
-  const [reachingTime, setReachingTime] = useState(task.reaching_time);
+  const [reachingTime, setReachingTime] = useState(() => {
+    if (task.reaching_time && task.reaching_time.includes('T')) {
+      try {
+        const d = new Date(task.reaching_time);
+        if (!isNaN(d.getTime())) {
+          const hh = String(d.getHours()).padStart(2, '0');
+          const mm = String(d.getMinutes()).padStart(2, '0');
+          return `${hh}:${mm}`;
+        }
+      } catch {}
+    }
+    return task.reaching_time;
+  });
   const [status, setStatus] = useState<TaskStatus>(() => normalizeStatus(task.status));
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -46,9 +58,23 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const [isDescFocused, setIsDescFocused] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(task.reaching_date));
   const [selectedTime, setSelectedTime] = useState(() => {
-    const [hours, minutes] = task.reaching_time.split(':');
+    const timeStr = task.reaching_time && task.reaching_time.includes('T')
+      ? (() => {
+          try {
+            const d = new Date(task.reaching_time);
+            if (!isNaN(d.getTime())) {
+              const hh = String(d.getHours()).padStart(2, '0');
+              const mm = String(d.getMinutes()).padStart(2, '0');
+              return `${hh}:${mm}`;
+            }
+          } catch {}
+          return '12:00';
+        })()
+      : task.reaching_time;
+
+    const [hours, minutes] = (timeStr || '12:00').split(':');
     const date = new Date();
-    date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+    date.setHours(parseInt(hours || '12', 10), parseInt(minutes || '00', 10));
     return date;
   });
 

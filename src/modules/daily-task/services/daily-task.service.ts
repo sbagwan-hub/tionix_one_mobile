@@ -98,12 +98,18 @@ export const createDailyTask = async (payload: CreateTaskDto): Promise<DailyTask
   const fkEmpId = await getEmployeeId();
 
   try {
+    let formattedTaskTime = payload.reaching_time;
+    if (payload.reaching_time && /^\d{2}:\d{2}$/.test(payload.reaching_time)) {
+      const datePart = (payload.reaching_date || new Date().toISOString()).split('T')[0];
+      formattedTaskTime = `${datePart}T${payload.reaching_time}:00`;
+    }
+
     const response = await apiRequest<any>(API_ENDPOINTS.dailyTasks, {
       method: 'POST',
       body: {
         task: payload.task_name,
         task_date: payload.reaching_date,
-        task_time: payload.reaching_time,
+        task_time: formattedTaskTime,
         status: payload.status,
         fk_ob_id: payload.fk_user_id,
       },
@@ -133,7 +139,15 @@ export const updateDailyTask = async (taskId: number, payload: UpdateTaskDto): P
     const body: any = {};
     if (payload.task_name !== undefined) body.task = payload.task_name;
     if (payload.reaching_date !== undefined) body.task_date = payload.reaching_date;
-    if (payload.reaching_time !== undefined) body.task_time = payload.reaching_time;
+    if (payload.reaching_time !== undefined) {
+      let formattedTaskTime = payload.reaching_time;
+      if (/^\d{2}:\d{2}$/.test(payload.reaching_time)) {
+        const fullDate = payload.reaching_date || new Date().toISOString();
+        const datePart = fullDate.split('T')[0];
+        formattedTaskTime = `${datePart}T${payload.reaching_time}:00`;
+      }
+      body.task_time = formattedTaskTime;
+    }
     if (payload.status !== undefined) body.status = payload.status;
     if (payload.fk_user_id !== undefined) body.fk_ob_id = payload.fk_user_id;
 

@@ -41,6 +41,21 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+const formatTime = (timeStr: string) => {
+  if (!timeStr) return '';
+  if (timeStr.includes('T') && timeStr.includes(':')) {
+    try {
+      const dateObj = new Date(timeStr);
+      if (!isNaN(dateObj.getTime())) {
+        const hh = String(dateObj.getHours()).padStart(2, '0');
+        const mm = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+      }
+    } catch {}
+  }
+  return timeStr;
+};
+
 const TaskCard = ({ task, onStatusChange, onPress }: { task: DailyTask; onStatusChange: (taskId: number, status: TaskStatus) => void; onPress: () => void }) => {
   const config = statusConfig[task.status];
 
@@ -51,8 +66,8 @@ const TaskCard = ({ task, onStatusChange, onPress }: { task: DailyTask; onStatus
           <Text style={styles.taskTitle} numberOfLines={2}>
             {task.task_name}
           </Text>
-          <View style={[styles.statusBadge, task.status === 'Pending' ? styles.statusBadgePending : task.status === 'Canceled' ? styles.statusBadgeCanceled : styles.statusBadgeFinished]}>
-            <Text style={styles.statusText}>{task.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
+            <Text style={[styles.statusText, { color: config.color }]}>{task.status}</Text>
           </View>
         </View>
         <View style={styles.taskDetails}>
@@ -64,7 +79,7 @@ const TaskCard = ({ task, onStatusChange, onPress }: { task: DailyTask; onStatus
           <View style={styles.taskDetailRow}>
             <Ionicons name="time-outline" size={moderateScale(16)} color={Colors.textSecondary} />
             <Text style={styles.taskDetailLabel}>Due Time</Text>
-            <Text style={styles.taskDetailValue}>{task.reaching_time}</Text>
+            <Text style={styles.taskDetailValue}>{formatTime(task.reaching_time)}</Text>
           </View>
         </View>
       </View>

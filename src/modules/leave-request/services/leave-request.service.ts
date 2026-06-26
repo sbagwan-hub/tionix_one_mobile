@@ -74,7 +74,7 @@ export async function getLeaveBalance(
     from_date: fromDate,
     to_date: toDate,
   });
-  const response = await apiRequest<LeaveBalance>(
+  const response = await apiRequest<{ success: boolean; data: LeaveBalance }>(
     `${LEAVE_REQUEST_ENDPOINTS.BALANCE}?${params.toString()}`,
     {
       method: 'GET',
@@ -82,7 +82,7 @@ export async function getLeaveBalance(
     }
   );
 
-  return response;
+  return response.data;
 }
 
 /**
@@ -90,7 +90,7 @@ export async function getLeaveBalance(
  */
 export async function getLeaveTypes(): Promise<LeaveType[]> {
   const session = await getAuthSession();
-  const response = await apiRequest<LeaveType[]>(
+  const response = await apiRequest<{ success: boolean; data: LeaveType[] }>(
     LEAVE_REQUEST_ENDPOINTS.LEAVE_TYPES,
     {
       method: 'GET',
@@ -98,7 +98,7 @@ export async function getLeaveTypes(): Promise<LeaveType[]> {
     }
   );
 
-  return response;
+  return response.data;
 }
 
 /**
@@ -144,7 +144,7 @@ export async function applyForLeave(
     absent: '0',
   };
 
-  const response = await apiRequest<{ pk_lr_id: string }>(
+  const response = await apiRequest<{ success: boolean; data: { pk_lr_id: string } }>(
     LEAVE_REQUEST_ENDPOINTS.CREATE,
     {
       method: 'POST',
@@ -155,7 +155,7 @@ export async function applyForLeave(
 
   return {
     success: true,
-    data: response,
+    data: response.data,
   };
 }
 
@@ -177,14 +177,14 @@ export async function getLeaveHistory(
     page: String(page),
     page_size: String(pageSize),
   });
-  const response = await apiRequest(
+  const response = await apiRequest<{ success: boolean; data: any }>(
     `${LEAVE_REQUEST_ENDPOINTS.LIST}?${params.toString()}`,
     {
       method: 'GET',
     }
   );
 
-  return response;
+  return response.data;
 }
 
 /**
@@ -197,7 +197,7 @@ export async function updateLeaveBalance(
   
   const payload = year ? { year } : {};
 
-  const response = await apiRequest<{ inserted: number; updated: number; total: number }>(
+  const response = await apiRequest<{ success: boolean; data: { inserted: number; updated: number; total: number } }>(
     LEAVE_REQUEST_ENDPOINTS.UPDATE_BALANCE,
     {
       method: 'POST',
@@ -206,7 +206,7 @@ export async function updateLeaveBalance(
     }
   );
 
-  return response;
+  return response.data;
 }
 
 // ─────────────────────────────────────────────────────────────

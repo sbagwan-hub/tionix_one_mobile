@@ -83,13 +83,6 @@ const menuItems = [
     route: 'PersonalDetails',
   },
   {
-    id: '6',
-    title: 'Payroll & Tax Details',
-    subtitle: 'Salary history and tax documents',
-    icon: 'document-text-outline',
-    route: 'AccountSettings',
-  },
-  {
     id: '7',
     title: 'Security & Biometrics',
     subtitle: 'FaceID and two-factor authentication',

@@ -45,6 +45,25 @@ const getFullImageUrl = (url: string | null | undefined): string | null => {
   return `${API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 };
 
+const formatDateForDisplay = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const dd = String(date.getDate()).padStart(2, '0');
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+  } catch {}
+  return dateStr;
+};
+
 const PersonalDetailsScreen = ({ navigation }: any) => {
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [userName, setUserName] = useState('');
@@ -71,6 +90,128 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
   const [isBloodGroupFocused, setIsBloodGroupFocused] = useState(false);
   const [isPresentAddressFocused, setIsPresentAddressFocused] = useState(false);
   const [isPermanentAddressFocused, setIsPermanentAddressFocused] = useState(false);
+
+  // DOB Custom Calendar states & logic
+  const CALENDAR_MONTHS = useMemo(() => [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ], []);
+
+  const [isDobCalendarOpen, setIsDobCalendarOpen] = useState(false);
+  const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date().getMonth());
+  const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFullYear());
+  const [showYearSelector, setShowYearSelector] = useState(false);
+
+  const getDaysInMonth = useCallback((year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  }, []);
+
+  const getFirstDayOfMonth = useCallback((year: number, month: number) => {
+    return new Date(year, month, 1).getDay();
+  }, []);
+
+  const handleOpenDobCalendar = useCallback(() => {
+    let initialDate = new Date();
+    if (dob) {
+      const parsed = new Date(dob);
+      if (!isNaN(parsed.getTime())) {
+        initialDate = parsed;
+      }
+    }
+    setCurrentCalendarMonth(initialDate.getMonth());
+    setCurrentCalendarYear(initialDate.getFullYear());
+    setShowYearSelector(false);
+    setIsDobCalendarOpen(true);
+  }, [dob]);
+
+  const handlePrevMonth = useCallback(() => {
+    setCurrentCalendarMonth(prev => {
+      if (prev === 0) {
+        setCurrentCalendarYear(y => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    setCurrentCalendarMonth(prev => {
+      if (prev === 11) {
+        setCurrentCalendarYear(y => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
+  }, []);
+
+  const handleSelectDate = useCallback((dateStr: string) => {
+    setDob(dateStr);
+    setIsDobCalendarOpen(false);
+  }, []);
+
+  const calendarDaysGrid = useMemo(() => {
+    const totalDays = getDaysInMonth(currentCalendarYear, currentCalendarMonth);
+    const firstDayIndex = getFirstDayOfMonth(currentCalendarYear, currentCalendarMonth);
+
+    const prevMonthYear = currentCalendarMonth === 0 ? currentCalendarYear - 1 : currentCalendarYear;
+    const prevMonth = currentCalendarMonth === 0 ? 11 : currentCalendarMonth - 1;
+    const totalDaysPrev = getDaysInMonth(prevMonthYear, prevMonth);
+
+    const grid = [];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Trailing days from previous month
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const day = totalDaysPrev - i;
+      const mm = String(prevMonth + 1).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      const dateString = `${prevMonthYear}-${mm}-${dd}`;
+      grid.push({
+        day,
+        month: prevMonth,
+        year: prevMonthYear,
+        dateString,
+        isToday: dateString === todayStr,
+      });
+    }
+
+    // Days of current month
+    for (let day = 1; day <= totalDays; day++) {
+      const mm = String(currentCalendarMonth + 1).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      const dateString = `${currentCalendarYear}-${mm}-${dd}`;
+      grid.push({
+        day,
+        month: currentCalendarMonth,
+        year: currentCalendarYear,
+        dateString,
+        isToday: dateString === todayStr,
+      });
+    }
+
+    // Leading days from next month
+    const remainingSlots = grid.length % 7;
+    if (remainingSlots > 0) {
+      const nextMonthYear = currentCalendarMonth === 11 ? currentCalendarYear + 1 : currentCalendarYear;
+      const nextMonth = currentCalendarMonth === 11 ? 0 : currentCalendarMonth + 1;
+      const slotsToAdd = 7 - remainingSlots;
+      for (let day = 1; day <= slotsToAdd; day++) {
+        const mm = String(nextMonth + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const dateString = `${nextMonthYear}-${mm}-${dd}`;
+        grid.push({
+          day,
+          month: nextMonth,
+          year: nextMonthYear,
+          dateString,
+          isToday: dateString === todayStr,
+        });
+      }
+    }
+
+    return grid;
+  }, [currentCalendarMonth, currentCalendarYear, getDaysInMonth, getFirstDayOfMonth]);
 
   const resetToLogin = useCallback(async () => {
     await clearAuthSession();
@@ -475,26 +616,27 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            <View style={[styles.inputCard, isDobFocused && styles.inputCardFocused]}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleOpenDobCalendar}
+              disabled={isLoading || isSaving}
+              style={[styles.inputCard, isDobCalendarOpen && styles.inputCardFocused]}
+            >
               <View style={styles.inputRow}>
                 <View style={styles.inputIconContainer}>
-                  <Ionicons name="calendar-outline" size={moderateScale(18)} color={isDobFocused ? Colors.primary : Colors.textMuted} />
+                  <Ionicons name="calendar-outline" size={moderateScale(18)} color={isDobCalendarOpen ? Colors.primary : Colors.textMuted} />
                 </View>
-                <View style={styles.inputContent}>
-                  <Text style={[styles.inputLabel, isDobFocused && styles.inputLabelFocused]}>Date of Birth</Text>
-                  <TextInput
-                    value={dob}
-                    onChangeText={setDob}
-                    placeholder="DD/MM/YYYY"
-                    placeholderTextColor={Colors.textMuted}
-                    style={styles.inputField}
-                    editable={!isLoading && !isSaving}
-                    onFocus={() => setIsDobFocused(true)}
-                    onBlur={() => setIsDobFocused(false)}
-                  />
+                <View style={[styles.inputContent, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, isDobCalendarOpen && styles.inputLabelFocused]}>Date of Birth</Text>
+                    <Text style={[styles.inputField, !dob && { color: Colors.textMuted }]}>
+                      {dob ? formatDateForDisplay(dob) : 'Select Date of Birth'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={moderateScale(16)} color={Colors.textMuted} />
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <View style={[styles.inputCard, isBloodGroupFocused && styles.inputCardFocused]}>
               <View style={styles.inputRow}>
@@ -696,6 +838,13 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
         >
           <View style={styles.bottomSheetContent}>
             <View style={styles.bottomSheetHandle} />
+            <TouchableOpacity
+              style={styles.bottomSheetCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => setIsBottomSheetVisible(false)}
+            >
+              <Ionicons name="close" size={moderateScale(22)} color={Colors.text} />
+            </TouchableOpacity>
             <Text style={styles.bottomSheetTitle}>Change Profile Photo</Text>
             <TouchableOpacity
               style={styles.bottomSheetOption}
@@ -711,13 +860,121 @@ const PersonalDetailsScreen = ({ navigation }: any) => {
               <Ionicons name="images" size={moderateScale(24)} color={Colors.primary} />
               <Text style={styles.bottomSheetOptionText}>Choose from Gallery</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.bottomSheetCancel}
-              onPress={() => setIsBottomSheetVisible(false)}
-            >
-              <Text style={styles.bottomSheetCancelText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Custom DOB Calendar Modal */}
+      <Modal
+        visible={isDobCalendarOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsDobCalendarOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsDobCalendarOpen(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[styles.modalContent, { maxHeight: '80%' }]}
+          >
+            <Text style={styles.modalTitle}>Select Date of Birth</Text>
+            <View style={styles.calendarContainer}>
+              <View style={styles.calendarHeaderRow}>
+                <TouchableOpacity onPress={handlePrevMonth} style={styles.monthNavBtn}>
+                  <Ionicons name="chevron-back" size={20} color="#0F172A" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setShowYearSelector(!showYearSelector)}
+                  style={styles.calendarHeaderCenter}
+                >
+                  <Text style={styles.calendarMonthYearText}>
+                    {CALENDAR_MONTHS[currentCalendarMonth]} {currentCalendarYear}
+                  </Text>
+                  <Ionicons name={showYearSelector ? "chevron-up" : "chevron-down"} size={16} color="#0F172A" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleNextMonth} style={styles.monthNavBtn}>
+                  <Ionicons name="chevron-forward" size={20} color="#0F172A" />
+                </TouchableOpacity>
+              </View>
+
+              {showYearSelector ? (
+                <ScrollView
+                  style={styles.yearListContainer}
+                  contentContainerStyle={styles.yearListContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {Array.from({ length: 90 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.yearItem,
+                        year === currentCalendarYear && styles.yearItemActive
+                      ]}
+                      onPress={() => {
+                        setCurrentCalendarYear(year);
+                        setShowYearSelector(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.yearItemText,
+                        year === currentCalendarYear && styles.yearItemTextActive
+                      ]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <>
+                  <View style={styles.weekdaysRow}>
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(dayName => (
+                      <Text key={dayName} style={styles.weekdayText}>{dayName}</Text>
+                    ))}
+                  </View>
+                  <View style={styles.daysGrid}>
+                    {calendarDaysGrid.map((dayObj, gridIdx) => {
+                      const isSelected = dayObj.dateString === dob;
+                      const isCurrentMonth = dayObj.month === currentCalendarMonth;
+                      const isToday = dayObj.isToday;
+
+                      return (
+                        <TouchableOpacity
+                          key={gridIdx}
+                          style={[
+                            styles.dayCell,
+                            isSelected && styles.dayCellSelected,
+                            !isCurrentMonth && styles.dayCellInactive,
+                          ]}
+                          onPress={() => dayObj.dateString && handleSelectDate(dayObj.dateString)}
+                          disabled={!dayObj.dateString}
+                        >
+                          {isSelected ? (
+                            <View style={styles.daySelectedDot}>
+                              <Text style={styles.dayCellTextSelected}>{dayObj.day}</Text>
+                            </View>
+                          ) : (
+                            <Text style={[
+                              styles.dayCellText,
+                              isToday && styles.dayCellTextToday,
+                              !isCurrentMonth && styles.dayCellTextInactive
+                            ]}>
+                              {dayObj.day}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </KeyboardAvoidingView>
@@ -1055,15 +1312,159 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginLeft: Theme.spacing.md,
   },
-  bottomSheetCancel: {
-    marginTop: Theme.spacing.md,
-    paddingVertical: Theme.spacing.md,
+  bottomSheetCloseBtn: {
+    position: 'absolute',
+    top: Theme.spacing.md,
+    right: Theme.spacing.md,
+    width: moderateScale(30),
+    height: moderateScale(30),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xxl,
+    padding: Theme.spacing.md,
+    width: '100%',
+    maxWidth: moderateScale(320),
+    shadowColor: 'rgba(15, 23, 42, 0.1)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  modalTitle: {
+    ...Typography.heading,
+    fontSize: moderateScale(16),
+    color: Colors.text,
+    marginBottom: moderateScale(12),
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: moderateScale(6),
+    textAlign: 'center',
+  },
+  calendarContainer: {
+    gap: moderateScale(10),
+  },
+  calendarHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: moderateScale(6),
+  },
+  calendarHeaderCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(4),
+    paddingHorizontal: moderateScale(8),
+    borderRadius: moderateScale(8),
+    backgroundColor: '#F1F5F9',
+  },
+  monthNavBtn: {
+    width: moderateScale(34),
+    height: moderateScale(34),
+    borderRadius: moderateScale(17),
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarMonthYearText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: '#0F172A',
+  },
+  weekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: moderateScale(4),
+  },
+  weekdayText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(11),
+    color: Colors.textMuted,
+    width: '14.28%',
+    textAlign: 'center',
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 4,
+  },
+  dayCell: {
+    width: '14.28%',
+    height: moderateScale(36),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: moderateScale(8),
+  },
+  dayCellSelected: {
+    backgroundColor: '#FF4D1C',
+  },
+  daySelectedDot: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FF4D1C',
+    borderRadius: moderateScale(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCellInactive: {
+    opacity: 0.35,
+  },
+  dayCellText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: '#0F172A',
+  },
+  dayCellTextSelected: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(12),
+    color: '#FFFFFF',
+  },
+  dayCellTextToday: {
+    color: '#FF4D1C',
+    textDecorationLine: 'underline',
+    fontWeight: '800',
+  },
+  dayCellTextInactive: {
+    color: '#94A3B8',
+  },
+  yearListContainer: {
+    height: moderateScale(220),
+  },
+  yearListContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: moderateScale(8),
+    paddingVertical: moderateScale(8),
+  },
+  yearItem: {
+    paddingVertical: moderateScale(6),
+    paddingHorizontal: moderateScale(12),
+    borderRadius: moderateScale(8),
+    backgroundColor: '#F1F5F9',
+    minWidth: '22%',
     alignItems: 'center',
   },
-  bottomSheetCancelText: {
-    ...Typography.label,
-    fontSize: moderateScale(16),
-    color: Colors.primary,
+  yearItemActive: {
+    backgroundColor: '#FF4D1C',
+  },
+  yearItemText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+  },
+  yearItemTextActive: {
+    color: '#FFFFFF',
   },
 });
 
