@@ -176,7 +176,7 @@ const MainTabs = () => {
             headerShown: false,
           }}
         />
-      </Tab.Navigator>
+              </Tab.Navigator>
     </LiveLocationProvider>
   );
 };
