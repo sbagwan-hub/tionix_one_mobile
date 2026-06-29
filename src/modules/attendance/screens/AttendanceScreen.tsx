@@ -44,6 +44,17 @@ import {
 import { getAuthSession } from '../../auth/services/auth';
 import { getEmployeeProfile } from '../../profile/services/profile';
 import { COMPANY } from '../../../config/company';
+import { API_BASE_URL } from '../../../config/api';
+
+const getFullImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_BASE_URL.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+};
 
 type RecentLog = {
   id: string;
@@ -310,12 +321,12 @@ const AttendanceScreen = () => {
         const profile = await getEmployeeProfile();
         if (profile) {
           setEmployeeName(profile.userName || 'Employee');
-          setProfileImage(profile.profileImageUrl || null);
+          setProfileImage(getFullImageUrl(profile.profileImageUrl) || null);
         }
       } catch (err) {
         const session = await getAuthSession();
         setEmployeeName(session?.user?.UserName || 'Employee');
-        setProfileImage(session?.user?.ProfileImage || null);
+        setProfileImage(getFullImageUrl(session?.user?.ProfileImage) || null);
       }
 
       const session = await getAuthSession();
