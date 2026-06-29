@@ -337,10 +337,20 @@ export const getGeolocations = async (): Promise<GeolocationResponse> => {
   }
 
   try {
-    return await apiRequest<GeolocationResponse>(API_ENDPOINTS.geolocations, {
+    const response = await apiRequest<any>(API_ENDPOINTS.geolocations, {
       method: 'GET',
       token: session.access_token,
     });
+
+    // Handle nested backend structure: { data: { geolocations: [...] } }
+    if (response?.data && response.data.geolocations) {
+      return {
+        success: response.success ?? true,
+        geolocations: response.data.geolocations,
+      };
+    }
+
+    return response;
   } catch (error) {
     console.error('Failed to fetch geolocations from API:', error);
     throw error;
