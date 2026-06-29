@@ -41,7 +41,13 @@ const parseResponseBody = async (response: Response): Promise<unknown> => {
 const getErrorMessage = (status: number, body: unknown): string => {
   if (body && typeof body === 'object') {
     const payload = body as Record<string, unknown>;
-    const message = payload.message ?? payload.error ?? payload.Message;
+    let message = payload.message ?? payload.error ?? payload.Message;
+
+    // If the backend incorrectly returns message: "Success" along with an error payload
+    if (message === 'Success' && payload.error && typeof payload.error === 'object') {
+      const errObj = payload.error as Record<string, unknown>;
+      message = errObj.details ?? errObj.code ?? 'Error';
+    }
 
     if (typeof message === 'string' && message.trim()) {
       return message;
