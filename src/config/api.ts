@@ -1,5 +1,4 @@
-// export const API_BASE_URL = 'http://tionixone.com.texto-qa.in';
-export const API_BASE_URL = 'https://tionix-backend.onrender.com';
+export const API_BASE_URL = 'http://192.168.1.107:4100';
 export const API_ENDPOINTS = {
   login: '/api/mobile/auth/login',
   logout: '/api/mobile/auth/logout',
