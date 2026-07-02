@@ -187,7 +187,7 @@ const LoginScreen = ({ navigation }: any) => {
                 label="Sign in"
                 onPress={handleLogin}
                 loading={isSubmitting}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !email.trim() || !password.trim()}
                 style={styles.signInButton}
               />
             </View>
