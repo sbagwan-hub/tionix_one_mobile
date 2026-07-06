@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -287,6 +287,16 @@ const LeaveScreen = ({ navigation }: any) => {
       loadLeaveData();
     }, [fetchProfile, loadLeaveData]),
   );
+
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      const unsubscribe = parent.addListener('focus', () => {
+        loadLeaveData(true);
+      });
+      return unsubscribe;
+    }
+  }, [navigation, loadLeaveData]);
 
   const userInitials = useMemo(() => {
     if (!employeeName) return 'EM';

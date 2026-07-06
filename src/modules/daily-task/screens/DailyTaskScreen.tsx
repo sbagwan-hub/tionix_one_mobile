@@ -181,6 +181,16 @@ const DailyTaskScreen = ({ navigation }: any) => {
     }, [fetchTasks])
   );
 
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      const unsubscribe = parent.addListener('focus', () => {
+        fetchTasks(true);
+      });
+      return unsubscribe;
+    }
+  }, [navigation, fetchTasks]);
+
   const handleStatusChange = async (taskId: number, status: TaskStatus) => {
     try {
       await updateTaskStatus(taskId, status);

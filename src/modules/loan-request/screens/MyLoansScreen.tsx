@@ -114,6 +114,16 @@ const MyLoansScreen = ({ navigation, route }: any) => {
     }, [fetchLoans])
   );
 
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      const unsubscribe = parent.addListener('focus', () => {
+        fetchLoans(true);
+      });
+      return unsubscribe;
+    }
+  }, [navigation, fetchLoans]);
+
   const stats = useMemo(() => {
     const pending = loans.filter((item) => item.status === 'Pending').length;
     const approvedCount = loans.filter((item) => item.status === 'Approved').length;

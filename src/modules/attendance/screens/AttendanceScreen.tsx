@@ -1130,8 +1130,12 @@ const AttendanceScreen = () => {
         {/* Activity Timeline Header */}
         <View style={styles.timelineSectionHeader}>
           <Text style={styles.timelineSectionTitle}>ACTIVITY TIMELINE</Text>
-          <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-            <Ionicons name="options-outline" size={moderateScale(20)} color={Colors.text} />
+          <TouchableOpacity 
+            style={styles.viewAllButton} 
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('MyAttendance' as never)}
+          >
+            <Text style={styles.viewAllButtonText}>View All</Text>
           </TouchableOpacity>
         </View>
 
@@ -1181,46 +1185,6 @@ const AttendanceScreen = () => {
           </View>
         )}
       </ScrollView>
-
-      {/* Floating Action Button (FAB) - MONTHLY REPORT */}
-      <Animated.View
-        style={[
-          styles.fabContainer,
-          {
-            width: fabAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [moderateScale(56), moderateScale(180)],
-            }),
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleFabPress}
-          style={styles.fabButton}
-        >
-          <View style={styles.fabInnerContent}>
-            <Ionicons name="stats-chart" size={moderateScale(22)} color={Colors.white} />
-            <Animated.View
-              style={{
-                opacity: fabAnim,
-                marginLeft: fabAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, moderateScale(10)],
-                }),
-                width: fabAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, moderateScale(110)],
-                }),
-                overflow: 'hidden',
-              }}
-            >
-              <Text style={styles.fabText} numberOfLines={1}>MONTHLY REPORT</Text>
-            </Animated.View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
-
       {/* Break reason modal */}
       <Modal
         visible={isBreakModalVisible}
@@ -1624,6 +1588,17 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(12),
     color: Colors.textSecondary,
     letterSpacing: 1.5,
+  },
+  viewAllButton: {
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: moderateScale(8),
+    borderRadius: moderateScale(8),
+    backgroundColor: 'rgba(254, 0, 0, 0.1)',
+  },
+  viewAllButtonText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(12),
+    color: Colors.primary,
   },
   filterButton: {
     width: moderateScale(36),

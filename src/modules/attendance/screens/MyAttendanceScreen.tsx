@@ -89,7 +89,12 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   }, [fetchHistory]);
 
   const currentMonthName = useMemo(() => {
-    return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const today = new Date();
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 6);
+    const endDate = today.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    const startDate = oneWeekAgo.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    return `${startDate} - ${endDate}`;
   }, []);
 
   const getDayStatus = useCallback((day: AttendanceHistoryDay) => {
@@ -114,15 +119,10 @@ const MyAttendanceScreen = ({ navigation }: any) => {
 
     const resultList: AttendanceHistoryDay[] = [];
     const today = new Date();
-    const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 6); // Last 7 days including today
 
-    let oldestDate = new Date(startDate);
-    history.forEach(day => {
-      const d = new Date(day.date);
-      if (d < oldestDate) oldestDate = new Date(d);
-    });
-
-    const currentDateIter = new Date(oldestDate);
+    const currentDateIter = new Date(oneWeekAgo);
     while (currentDateIter <= today) {
       const year = currentDateIter.getFullYear();
       const month = String(currentDateIter.getMonth() + 1).padStart(2, '0');
@@ -151,31 +151,28 @@ const MyAttendanceScreen = ({ navigation }: any) => {
   }, [history]);
 
   const currentMonthDays = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const today = new Date();
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 6);
     
     const calendarDays = [];
+    const currentDateIter = new Date(oneWeekAgo);
     
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startDayOfWeek; i++) {
-      calendarDays.push({ day: null, date: null, isEmpty: true });
-    }
-    
-    // Add actual days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    while (currentDateIter <= today) {
+      const year = currentDateIter.getFullYear();
+      const month = String(currentDateIter.getMonth() + 1).padStart(2, '0');
+      const day = currentDateIter.getDate();
+      const dateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
       const dayData = completeHistory.find(d => d.date === dateStr);
+      
       calendarDays.push({ 
         day, 
         date: dateStr, 
         isEmpty: false,
         data: dayData 
       });
+      
+      currentDateIter.setDate(currentDateIter.getDate() + 1);
     }
     
     return calendarDays;
@@ -433,8 +430,8 @@ const MyAttendanceScreen = ({ navigation }: any) => {
           <View style={styles.analyticsSection}>
             <View style={styles.analyticsHeader}>
               <View style={styles.analyticsTitleContainer}>
-                <Text style={styles.analyticsTitle}>Monthly Analytics</Text>
-                <Text style={styles.analyticsSubtitle}>June 2026</Text>
+                <Text style={styles.analyticsTitle}>Weekly Analytics</Text>
+                <Text style={styles.analyticsSubtitle}>Last 7 Days</Text>
               </View>
               <View style={styles.analyticsActions}>
                 <TouchableOpacity style={styles.iconButton} activeOpacity={0.7} onPress={handleDownloadReport}>
@@ -782,14 +779,13 @@ const styles = StyleSheet.create({
   },
   calendarGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   calendarDay: {
-    width: '14.28%',
+    flex: 1,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: moderateScale(8),
   },
   dayNumber: {
     fontFamily: 'Outfit_600SemiBold',
