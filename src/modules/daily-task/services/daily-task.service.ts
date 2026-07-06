@@ -66,22 +66,50 @@ const getEmployeeId = async (): Promise<number> => {
   }
 };
 
-export const getDailyTasks = async (): Promise<DailyTask[]> => {
+export interface DailyTaskFilters {
+  status?: TaskStatus;
+  priority?: 'High' | 'Medium' | 'Low';
+  timeframe?: '7days' | '1month' | 'custom';
+  startDate?: string;
+  endDate?: string;
+}
+
+export const getDailyTasks = async (filters?: DailyTaskFilters): Promise<DailyTask[]> => {
   const fkEmpId = await getEmployeeId();
   const localTasks = await readLocalTasks(fkEmpId);
 
   try {
-    const response = await apiRequest<any>(API_ENDPOINTS.dailyTasks, {
+    let queryParams = '';
+    if (filters) {
+      const parts = [];
+      if (filters.status) parts.push(`status=${filters.status}`);
+      if (filters.priority) parts.push(`priority=${filters.priority}`);
+      if (filters.timeframe) parts.push(`timeframe=${filters.timeframe}`);
+      if (filters.startDate) parts.push(`startDate=${filters.startDate}`);
+      if (filters.endDate) parts.push(`endDate=${filters.endDate}`);
+      if (parts.length > 0) {
+        queryParams = '?' + parts.join('&');
+      }
+    }
+
+    const response = await apiRequest<any>(`${API_ENDPOINTS.dailyTasks}${queryParams}`, {
       method: 'GET',
     });
 
-    const rawTasks = response.data?.data || [];
+    const rawData = response.data?.data;
+    const rawTasks = Array.isArray(rawData) ? rawData : (Array.isArray(rawData?.data) ? rawData.data : []);
     const tasks: DailyTask[] = rawTasks.map((t: any) => ({
       pk_task_id: t.pk_obt_id,
       task_name: t.task,
       reaching_date: t.task_date,
       reaching_time: t.task_time || '',
       status: t.status,
+      priority: (() => {
+        const p = String(t.priority || 'Medium').toLowerCase();
+        if (p === 'high') return 'High';
+        if (p === 'low') return 'Low';
+        return 'Medium';
+      })(),
       date_time_stamp: t.task_date,
       fk_user_id: t.fk_ob_id,
     }));
@@ -111,6 +139,7 @@ export const createDailyTask = async (payload: CreateTaskDto): Promise<DailyTask
         task_date: payload.reaching_date,
         task_time: formattedTaskTime,
         status: payload.status,
+        priority: payload.priority,
         fk_ob_id: payload.fk_user_id,
       },
     });
@@ -121,6 +150,7 @@ export const createDailyTask = async (payload: CreateTaskDto): Promise<DailyTask
       reaching_date: t.task_date,
       reaching_time: t.task_time || '',
       status: t.status,
+      priority: t.priority || 'Medium',
       date_time_stamp: t.task_date,
       fk_user_id: t.fk_ob_id,
     };
@@ -149,6 +179,7 @@ export const updateDailyTask = async (taskId: number, payload: UpdateTaskDto): P
       body.task_time = formattedTaskTime;
     }
     if (payload.status !== undefined) body.status = payload.status;
+    if (payload.priority !== undefined) body.priority = payload.priority;
     if (payload.fk_user_id !== undefined) body.fk_ob_id = payload.fk_user_id;
 
     const response = await apiRequest<any>(API_ENDPOINTS.dailyTask(taskId), {
@@ -162,6 +193,7 @@ export const updateDailyTask = async (taskId: number, payload: UpdateTaskDto): P
       reaching_date: t.task_date,
       reaching_time: t.task_time || '',
       status: t.status,
+      priority: t.priority || 'Medium',
       date_time_stamp: t.task_date,
       fk_user_id: t.fk_ob_id,
     };

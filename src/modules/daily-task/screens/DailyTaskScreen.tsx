@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -9,7 +9,10 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Platform,
+  Modal,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,10 +25,10 @@ import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
 import { getDailyTasks, updateTaskStatus, DailyTask, TaskStatus } from '../services/daily-task.service';
 
-const statusConfig: Record<TaskStatus, { color: string; bg: string; icon: string }> = {
-  Pending: { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.10)', icon: 'time-outline' },
-  Canceled: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline' },
-  Finished: { color: '#10B981', bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline' },
+const statusConfig: Record<TaskStatus, { color: string; bg: string; icon: string; activeBg?: string }> = {
+  Pending: { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.10)', icon: 'time-outline', activeBg: 'rgba(245, 158, 11, 0.20)' },
+  Canceled: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.10)', icon: 'close-circle-outline', activeBg: 'rgba(239, 68, 68, 0.20)' },
+  Finished: { color: '#10B981', bg: 'rgba(16, 185, 129, 0.10)', icon: 'checkmark-circle-outline', activeBg: 'rgba(16, 185, 129, 0.20)' },
 };
 
 const formatDate = (dateStr: string) => {
@@ -56,8 +59,42 @@ const formatTime = (timeStr: string) => {
   return timeStr;
 };
 
+const isFutureOrToday = (dateStr: string) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate >= today;
+  } catch {
+    return false;
+  }
+};
+
+const isPastDate = (dateStr: string) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  } catch {
+    return false;
+  }
+};
+
+const priorityConfig: Record<'High' | 'Medium' | 'Low', { color: string; bg: string; activeBg?: string }> = {
+  High: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.08)', activeBg: 'rgba(239, 68, 68, 0.18)' },
+  Medium: { color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.08)', activeBg: 'rgba(59, 130, 246, 0.18)' },
+  Low: { color: '#6B7280', bg: 'rgba(107, 114, 128, 0.08)', activeBg: 'rgba(107, 114, 128, 0.18)' },
+};
+
 const TaskCard = ({ task, onStatusChange, onPress }: { task: DailyTask; onStatusChange: (taskId: number, status: TaskStatus) => void; onPress: () => void }) => {
   const config = statusConfig[task.status];
+  const isRemaining = task.status === 'Pending' && isFutureOrToday(task.reaching_date);
+  const isPassed = task.status === 'Pending' && isPastDate(task.reaching_date);
+  const dateColor = isRemaining ? '#10B981' : (isPassed ? '#EF4444' : Colors.textSecondary);
+  const valueColor = isRemaining ? '#10B981' : (isPassed ? '#EF4444' : Colors.text);
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
@@ -66,15 +103,20 @@ const TaskCard = ({ task, onStatusChange, onPress }: { task: DailyTask; onStatus
           <Text style={styles.taskTitle} numberOfLines={2}>
             {task.task_name}
           </Text>
-          <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-            <Text style={[styles.statusText, { color: config.color }]}>{task.status}</Text>
+          <View style={{ flexDirection: 'row', gap: moderateScale(6), alignItems: 'center' }}>
+            <View style={[styles.statusBadge, { backgroundColor: priorityConfig[task.priority || 'Medium'].bg }]}>
+              <Text style={[styles.statusText, { color: priorityConfig[task.priority || 'Medium'].color, fontSize: moderateScale(10) }]}>{task.priority || 'Medium'}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
+              <Text style={[styles.statusText, { color: config.color, fontSize: moderateScale(10) }]}>{task.status}</Text>
+            </View>
           </View>
         </View>
         <View style={styles.taskDetails}>
           <View style={styles.taskDetailRow}>
-            <Ionicons name="calendar-outline" size={moderateScale(16)} color={Colors.textSecondary} />
-            <Text style={styles.taskDetailLabel}>Due Date</Text>
-            <Text style={styles.taskDetailValue}>{formatDate(task.reaching_date)}</Text>
+            <Ionicons name="calendar-outline" size={moderateScale(16)} color={dateColor} />
+            <Text style={[styles.taskDetailLabel, { color: dateColor }]}>Due Date</Text>
+            <Text style={[styles.taskDetailValue, { color: valueColor }]}>{formatDate(task.reaching_date)}</Text>
           </View>
           <View style={styles.taskDetailRow}>
             <Ionicons name="time-outline" size={moderateScale(16)} color={Colors.textSecondary} />
@@ -94,6 +136,20 @@ const DailyTaskScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Filter States
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | undefined>(undefined);
+  const [filterPriority, setFilterPriority] = useState<'High' | 'Medium' | 'Low' | undefined>(undefined);
+  const [filterTimeframe, setFilterTimeframe] = useState<'7days' | '1month' | 'custom' | undefined>(undefined);
+  const [filterStartDate, setFilterStartDate] = useState<string | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<string | undefined>(undefined);
+
+  // Filter UI Modals and Pickers
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [startDatePickerVal, setStartDatePickerVal] = useState(new Date());
+  const [endDatePickerVal, setEndDatePickerVal] = useState(new Date());
+
   const fetchTasks = useCallback(async (showRefresh = false) => {
     if (showRefresh) {
       setRefreshing(true);
@@ -103,7 +159,13 @@ const DailyTaskScreen = ({ navigation }: any) => {
     setError(null);
 
     try {
-      const data = await getDailyTasks();
+      const data = await getDailyTasks({
+        status: filterStatus,
+        priority: filterPriority,
+        timeframe: filterTimeframe,
+        startDate: filterStartDate,
+        endDate: filterEndDate,
+      });
       setTasks(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect to the server.');
@@ -111,7 +173,7 @@ const DailyTaskScreen = ({ navigation }: any) => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filterStatus, filterPriority, filterTimeframe, filterStartDate, filterEndDate]);
 
   useFocusEffect(
     useCallback(() => {
@@ -184,7 +246,13 @@ const DailyTaskScreen = ({ navigation }: any) => {
 
           {[1, 2, 3].map(i => (
             <View key={i} style={[styles.taskCard, { padding: Theme.spacing.lg, marginBottom: Theme.spacing.md }]}>
-              <Shimmer width="70%" height={16} borderRadius={4} style={{ marginBottom: Theme.spacing.md }} />
+              <View style={[styles.taskCardHeader, { marginBottom: Theme.spacing.md }]}>
+                <Shimmer width="55%" height={moderateScale(16)} borderRadius={4} />
+                <View style={{ flexDirection: 'row', gap: moderateScale(6), alignItems: 'center' }}>
+                  <Shimmer width={moderateScale(45)} height={moderateScale(18)} borderRadius={moderateScale(10)} />
+                  <Shimmer width={moderateScale(45)} height={moderateScale(18)} borderRadius={moderateScale(10)} />
+                </View>
+              </View>
               <View style={styles.taskDetails}>
                 <View style={styles.taskDetailRow}>
                   <Shimmer width={moderateScale(16)} height={moderateScale(16)} borderRadius={moderateScale(8)} />
@@ -265,26 +333,309 @@ const DailyTaskScreen = ({ navigation }: any) => {
           </View>
 
           <View style={styles.taskSection}>
-            <Text style={styles.taskSectionTitle}>All Tasks</Text>
+            <View style={styles.taskSectionHeaderRow}>
+              <Text style={styles.taskSectionTitle}>All Tasks</Text>
+              <TouchableOpacity
+                style={[
+                  styles.filterIconButton,
+                  (filterStatus !== undefined || filterPriority !== undefined || filterTimeframe !== undefined) && { backgroundColor: 'rgba(255, 77, 28, 0.1)' }
+                ]}
+                onPress={() => setIsFilterModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="funnel-outline"
+                  size={moderateScale(18)}
+                  color={(filterStatus !== undefined || filterPriority !== undefined || filterTimeframe !== undefined) ? Colors.primary : Colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
 
             {tasks.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="document-text-outline" size={moderateScale(40)} color={Colors.borderStrong} />
-                <Text style={styles.emptyText}>No tasks assigned to you yet.</Text>
+                <Text style={styles.emptyText}>No tasks found matching your filters.</Text>
               </View>
             ) : (
-              tasks.map(task => (
-                <TaskCard
-                  key={task.pk_task_id}
-                  task={task}
-                  onStatusChange={handleStatusChange}
-                  onPress={() => handleEditTask(task)}
-                />
-              ))
+              <View style={{ gap: Theme.spacing.md }}>
+                {/* High Priority Group */}
+                <View style={styles.priorityGroup}>
+                  <View style={[styles.groupHeader, { borderLeftColor: '#EF4444' }]}>
+                    <Text style={[styles.groupHeaderText, { color: '#EF4444' }]}>High Priority ({tasks.filter(t => t.priority === 'High').length})</Text>
+                  </View>
+                  {tasks.filter(t => t.priority === 'High').length === 0 ? (
+                    <View style={styles.emptyGroupCard}>
+                      <Text style={styles.emptyGroupText}>No high priority tasks available</Text>
+                    </View>
+                  ) : (
+                    tasks.filter(t => t.priority === 'High').map(task => (
+                      <TaskCard
+                        key={task.pk_task_id}
+                        task={task}
+                        onStatusChange={handleStatusChange}
+                        onPress={() => handleEditTask(task)}
+                      />
+                    ))
+                  )}
+                </View>
+
+                {/* Medium Priority Group */}
+                <View style={styles.priorityGroup}>
+                  <View style={[styles.groupHeader, { borderLeftColor: '#3B82F6' }]}>
+                    <Text style={[styles.groupHeaderText, { color: '#3B82F6' }]}>Medium Priority ({tasks.filter(t => (t.priority || 'Medium') === 'Medium').length})</Text>
+                  </View>
+                  {tasks.filter(t => (t.priority || 'Medium') === 'Medium').length === 0 ? (
+                    <View style={styles.emptyGroupCard}>
+                      <Text style={styles.emptyGroupText}>No medium priority tasks available</Text>
+                    </View>
+                  ) : (
+                    tasks.filter(t => (t.priority || 'Medium') === 'Medium').map(task => (
+                      <TaskCard
+                        key={task.pk_task_id}
+                        task={task}
+                        onStatusChange={handleStatusChange}
+                        onPress={() => handleEditTask(task)}
+                      />
+                    ))
+                  )}
+                </View>
+
+                {/* Low Priority Group */}
+                <View style={styles.priorityGroup}>
+                  <View style={[styles.groupHeader, { borderLeftColor: '#6B7280' }]}>
+                    <Text style={[styles.groupHeaderText, { color: '#6B7280' }]}>Low Priority ({tasks.filter(t => t.priority === 'Low').length})</Text>
+                  </View>
+                  {tasks.filter(t => t.priority === 'Low').length === 0 ? (
+                    <View style={styles.emptyGroupCard}>
+                      <Text style={styles.emptyGroupText}>No low priority tasks available</Text>
+                    </View>
+                  ) : (
+                    tasks.filter(t => t.priority === 'Low').map(task => (
+                      <TaskCard
+                        key={task.pk_task_id}
+                        task={task}
+                        onStatusChange={handleStatusChange}
+                        onPress={() => handleEditTask(task)}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
             )}
           </View>
         </ScrollView>
       )}
+
+      {/* Filter Modal */}
+      <Modal
+        visible={isFilterModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.grabHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter Tasks</Text>
+              <TouchableOpacity onPress={() => setIsFilterModalVisible(false)} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={moderateScale(20)} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalForm}>
+              {/* Status Filter */}
+              <Text style={styles.filterSectionTitle}>Status</Text>
+              <View style={styles.filterOptionsRow}>
+                {([undefined, 'Pending', 'Canceled', 'Finished'] as (TaskStatus | undefined)[]).map((st) => {
+                  const isActive = filterStatus === st;
+                  const color = st === undefined ? Colors.primary : statusConfig[st].color;
+                  const bg = st === undefined ? 'rgba(255, 77, 28, 0.05)' : statusConfig[st].bg;
+                  const activeBg = st === undefined ? 'rgba(255, 77, 28, 0.12)' : statusConfig[st].activeBg;
+                  return (
+                    <TouchableOpacity
+                      key={String(st)}
+                      style={[
+                        styles.filterBadge,
+                        { borderColor: 'transparent', backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+                        isActive && {
+                          backgroundColor: activeBg || bg,
+                          borderColor: color,
+                          borderWidth: 1.5,
+                        }
+                      ]}
+                      onPress={() => setFilterStatus(st)}
+                    >
+                      <Text style={[styles.filterBadgeText, isActive && { color, fontFamily: 'Outfit_700Bold' }]}>
+                        {st === undefined ? 'All' : st}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Priority Filter */}
+              <Text style={styles.filterSectionTitle}>Priority</Text>
+              <View style={styles.filterOptionsRow}>
+                {([undefined, 'High', 'Medium', 'Low'] as ('High' | 'Medium' | 'Low' | undefined)[]).map((pr) => {
+                  const isActive = filterPriority === pr;
+                  const color = pr === undefined ? Colors.primary : priorityConfig[pr].color;
+                  const bg = pr === undefined ? 'rgba(255, 77, 28, 0.05)' : priorityConfig[pr].bg;
+                  const activeBg = pr === undefined ? 'rgba(255, 77, 28, 0.12)' : priorityConfig[pr].activeBg;
+                  return (
+                    <TouchableOpacity
+                      key={String(pr)}
+                      style={[
+                        styles.filterBadge,
+                        { borderColor: 'transparent', backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+                        isActive && {
+                          backgroundColor: activeBg || bg,
+                          borderColor: color,
+                          borderWidth: 1.5,
+                        }
+                      ]}
+                      onPress={() => setFilterPriority(pr)}
+                    >
+                      <Text style={[styles.filterBadgeText, isActive && { color, fontFamily: 'Outfit_700Bold' }]}>
+                        {pr === undefined ? 'All' : pr}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Timeframe Filter */}
+              <Text style={styles.filterSectionTitle}>Timeframe</Text>
+              <View style={styles.filterOptionsRow}>
+                {([
+                  { val: undefined, label: 'All' },
+                  { val: '7days', label: 'Last 7 Days' },
+                  { val: '1month', label: 'Last Month' },
+                  { val: 'custom', label: 'Custom Date' }
+                ] as const).map((tf) => {
+                  const isActive = filterTimeframe === tf.val;
+                  return (
+                    <TouchableOpacity
+                      key={String(tf.val)}
+                      style={[
+                        styles.filterBadge,
+                        { borderColor: 'transparent', backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+                        isActive && {
+                          backgroundColor: 'rgba(255, 77, 28, 0.08)',
+                          borderColor: Colors.primary,
+                          borderWidth: 1.5,
+                        }
+                      ]}
+                      onPress={() => {
+                        setFilterTimeframe(tf.val);
+                        if (tf.val !== 'custom') {
+                          setFilterStartDate(undefined);
+                          setFilterEndDate(undefined);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.filterBadgeText, isActive && { color: Colors.primary, fontFamily: 'Outfit_700Bold' }]}>
+                        {tf.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Custom Date Pickers */}
+              {filterTimeframe === 'custom' && (
+                <View style={styles.customDateContainer}>
+                  <View style={styles.datePickerGroup}>
+                    <Text style={styles.datePickerLabel}>Start Date</Text>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => setShowStartDatePicker(true)}
+                    >
+                      <Ionicons name="calendar-outline" size={moderateScale(14)} color={Colors.textSecondary} style={{ marginRight: moderateScale(4) }} />
+                      <Text style={styles.datePickerText}>
+                        {filterStartDate || 'Select Start'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.datePickerGroup}>
+                    <Text style={styles.datePickerLabel}>End Date</Text>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => setShowEndDatePicker(true)}
+                    >
+                      <Ionicons name="calendar-outline" size={moderateScale(14)} color={Colors.textSecondary} style={{ marginRight: moderateScale(4) }} />
+                      <Text style={styles.datePickerText}>
+                        {filterEndDate || 'Select End'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {showStartDatePicker && (
+                <DateTimePicker
+                  value={startDatePickerVal}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => {
+                    setShowStartDatePicker(false);
+                    if (date) {
+                      setStartDatePickerVal(date);
+                      setFilterStartDate(date.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              )}
+
+              {showEndDatePicker && (
+                <DateTimePicker
+                  value={endDatePickerVal}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => {
+                    setShowEndDatePicker(false);
+                    if (date) {
+                      setEndDatePickerVal(date);
+                      setFilterEndDate(date.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              )}
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={() => {
+                  setFilterStatus(undefined);
+                  setFilterPriority(undefined);
+                  setFilterTimeframe(undefined);
+                  setFilterStartDate(undefined);
+                  setFilterEndDate(undefined);
+                  setIsFilterModalVisible(false);
+                  setTimeout(() => {
+                    fetchTasks();
+                  }, 50);
+                }}
+              >
+                <Text style={styles.resetButtonText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={() => {
+                  setIsFilterModalVisible(false);
+                  fetchTasks();
+                }}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -449,11 +800,25 @@ const styles = StyleSheet.create({
   taskSection: {
     marginTop: Theme.spacing.lg,
   },
+  taskSectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
   taskSectionTitle: {
     fontFamily: 'Outfit_700Bold',
     fontSize: moderateScale(16),
     color: Colors.text,
-    marginBottom: Theme.spacing.md,
+    marginBottom: 0,
+  },
+  filterIconButton: {
+    width: moderateScale(34),
+    height: moderateScale(34),
+    borderRadius: moderateScale(10),
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   taskCard: {
     backgroundColor: '#FFFFFF',
@@ -558,6 +923,177 @@ const styles = StyleSheet.create({
     ...Typography.subheading,
     color: Colors.primary,
     fontSize: moderateScale(13),
+  },
+  priorityGroup: {
+    marginBottom: Theme.spacing.md,
+  },
+  groupHeader: {
+    paddingLeft: Theme.spacing.sm,
+    borderLeftWidth: 4,
+    marginBottom: Theme.spacing.sm,
+  },
+  groupHeaderText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+  },
+  emptyGroupCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.015)',
+    borderRadius: moderateScale(12),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderStyle: 'dashed',
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  emptyGroupText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(12),
+    color: Colors.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: moderateScale(24),
+    borderTopRightRadius: moderateScale(24),
+    paddingHorizontal: Theme.spacing.xl,
+    paddingTop: Theme.spacing.md,
+    paddingBottom: moderateScale(40),
+    maxHeight: '85%',
+  },
+  grabHandle: {
+    width: moderateScale(40),
+    height: moderateScale(4),
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: moderateScale(2),
+    alignSelf: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.lg,
+  },
+  modalCloseButton: {
+    width: moderateScale(30),
+    height: moderateScale(30),
+    borderRadius: moderateScale(15),
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(18),
+    color: Colors.text,
+  },
+  modalForm: {
+    marginBottom: Theme.spacing.lg,
+  },
+  filterSectionTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
+  },
+  filterOptionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
+  },
+  filterBadge: {
+    flex: 1,
+    minWidth: '22%',
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeActive: {
+    backgroundColor: 'rgba(255, 77, 28, 0.1)',
+    borderColor: Colors.primary,
+  },
+  filterBadgeText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  filterBadgeTextActive: {
+    color: Colors.primary,
+  },
+  customDateContainer: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
+  },
+  datePickerGroup: {
+    flex: 1,
+  },
+  datePickerLabel: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: Colors.textSecondary,
+    marginBottom: moderateScale(4),
+  },
+  datePickerButton: {
+    height: moderateScale(36),
+    borderRadius: moderateScale(8),
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(11),
+    color: Colors.text,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
+  },
+  resetButton: {
+    flex: 1,
+    height: moderateScale(46),
+    borderRadius: moderateScale(12),
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.textSecondary,
+  },
+  applyButton: {
+    flex: 2,
+    backgroundColor: Colors.primary,
+    height: moderateScale(46),
+    borderRadius: moderateScale(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(14),
+    color: Colors.white,
   },
 });
 

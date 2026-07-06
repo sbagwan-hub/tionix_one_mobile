@@ -1,4 +1,5 @@
 export type TaskStatus = 'Pending' | 'Canceled' | 'Finished';
+export type TaskPriority = 'High' | 'Medium' | 'Low';
 
 export interface DailyTask {
   pk_task_id: number;
@@ -6,6 +7,7 @@ export interface DailyTask {
   reaching_date: string;
   reaching_time: string;
   status: TaskStatus;
+  priority: TaskPriority;
   date_time_stamp: string;
   fk_user_id: number;
   username?: string;
@@ -16,6 +18,7 @@ export interface CreateTaskDto {
   reaching_date: string;
   reaching_time: string;
   status: TaskStatus;
+  priority: TaskPriority;
   fk_user_id: number;
 }
 
@@ -24,5 +27,6 @@ export interface UpdateTaskDto {
   reaching_date?: string;
   reaching_time?: string;
   status?: TaskStatus;
+  priority?: TaskPriority;
   fk_user_id?: number;
 }

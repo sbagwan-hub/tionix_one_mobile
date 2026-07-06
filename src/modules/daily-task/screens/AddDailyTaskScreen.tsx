@@ -28,6 +28,7 @@ const AddDailyTaskScreen = ({ navigation }: any) => {
   const [reachingDate, setReachingDate] = useState('');
   const [reachingTime, setReachingTime] = useState('');
   const [status, setStatus] = useState<TaskStatus>('Pending');
+  const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -56,6 +57,7 @@ const AddDailyTaskScreen = ({ navigation }: any) => {
         reaching_date: reachingDate,
         reaching_time: reachingTime,
         status,
+        priority,
         fk_user_id: Number(session?.user?.fkEmpId) || 0,
       };
 
@@ -171,6 +173,31 @@ const AddDailyTaskScreen = ({ navigation }: any) => {
                   accentColor={Colors.primary}
                 />
               )}
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Priority</Text>
+              <View style={styles.statusOptions}>
+                {(['High', 'Medium', 'Low'] as const).map((priorityOption) => (
+                  <TouchableOpacity
+                    key={priorityOption}
+                    style={[
+                      styles.statusOption,
+                      priority === priorityOption && styles.statusOptionActive,
+                    ]}
+                    onPress={() => setPriority(priorityOption)}
+                  >
+                    <Text
+                      style={[
+                        styles.statusOptionText,
+                        priority === priorityOption && styles.statusOptionTextActive,
+                      ]}
+                    >
+                      {priorityOption}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             <View style={styles.formGroup}>

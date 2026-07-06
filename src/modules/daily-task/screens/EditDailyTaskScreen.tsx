@@ -25,6 +25,12 @@ const statusConfig: Record<TaskStatus, { color: string; bg: string; icon: string
   Finished: { color: '#059669', bg: 'rgba(16, 185, 129, 0.05)', activeBg: 'rgba(16, 185, 129, 0.15)', icon: 'checkmark-circle' },
 };
 
+const priorityConfig: Record<'High' | 'Medium' | 'Low', { color: string; bg: string; activeBg: string; icon: string }> = {
+  High: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.05)', activeBg: 'rgba(239, 68, 68, 0.15)', icon: 'alert-circle' },
+  Medium: { color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.05)', activeBg: 'rgba(59, 130, 246, 0.15)', icon: 'remove-circle' },
+  Low: { color: '#6B7280', bg: 'rgba(107, 114, 128, 0.05)', activeBg: 'rgba(107, 114, 128, 0.15)', icon: 'arrow-down-circle' },
+};
+
 const normalizeStatus = (s: string): TaskStatus => {
   if (!s) return 'Pending';
   const lower = s.toLowerCase();
@@ -36,6 +42,8 @@ const normalizeStatus = (s: string): TaskStatus => {
 const EditDailyTaskScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { task } = route.params;
+  const originalStatus = normalizeStatus(task.status);
+  const isLocked = originalStatus === 'Finished' || originalStatus === 'Canceled';
   const [taskName, setTaskName] = useState(task.task_name);
   const [reachingDate, setReachingDate] = useState(task.reaching_date);
   const [reachingTime, setReachingTime] = useState(() => {
@@ -52,6 +60,7 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
     return task.reaching_time;
   });
   const [status, setStatus] = useState<TaskStatus>(() => normalizeStatus(task.status));
+  const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>(task.priority || 'Medium');
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -99,6 +108,7 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
         reaching_date: reachingDate,
         reaching_time: reachingTime,
         status,
+        priority,
       };
 
       const result = await updateDailyTask(task.pk_task_id, payload);
@@ -250,6 +260,59 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
               </View>
             </View>
 
+            {/* Priority Selection Row */}
+            <View style={styles.formGroup}>
+              <View style={styles.labelRow}>
+                <Ionicons name="alert-circle-outline" size={moderateScale(16)} color={Colors.primary} />
+                <Text style={styles.label}>Task Priority</Text>
+              </View>
+              <View style={styles.statusOptions}>
+                {(['High', 'Medium', 'Low'] as const).map((priorityOption) => {
+                  const isActive = priority === priorityOption;
+                  const config = priorityConfig[priorityOption];
+                  const originalStatus = normalizeStatus(task.status);
+                  const isLocked = originalStatus === 'Finished' || originalStatus === 'Canceled';
+
+                  return (
+                    <TouchableOpacity
+                      key={priorityOption}
+                      disabled={isLocked}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.statusOption,
+                        { backgroundColor: config.bg, borderColor: 'rgba(0,0,0,0.04)' },
+                        isActive && {
+                          backgroundColor: config.activeBg,
+                          borderColor: config.color,
+                          borderWidth: 1.5,
+                        },
+                        isLocked && !isActive && {
+                          opacity: 0.4,
+                        },
+                      ]}
+                      onPress={() => setPriority(priorityOption)}
+                    >
+                      <Ionicons
+                        name={isActive ? (config.icon as any) : `${config.icon}-outline`}
+                        size={moderateScale(16)}
+                        color={config.color}
+                        style={{ marginBottom: moderateScale(4) }}
+                      />
+                      <Text
+                        style={[
+                          styles.statusOptionText,
+                          { color: Colors.textSecondary },
+                          isActive && { color: config.color, fontFamily: 'Outfit_700Bold' },
+                        ]}
+                      >
+                        {priorityOption}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
             {/* Status Selection Row */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
@@ -260,9 +323,13 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
                 {(['Pending', 'Canceled', 'Finished'] as TaskStatus[]).map((statusOption) => {
                   const isActive = status === statusOption;
                   const config = statusConfig[statusOption];
+                  const originalStatus = normalizeStatus(task.status);
+                  const isLocked = originalStatus === 'Finished' || originalStatus === 'Canceled';
+
                   return (
                     <TouchableOpacity
                       key={statusOption}
+                      disabled={isLocked}
                       activeOpacity={0.8}
                       style={[
                         styles.statusOption,
@@ -272,8 +339,17 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
                           borderColor: config.color,
                           borderWidth: 1.5,
                         },
+                        isLocked && !isActive && {
+                          opacity: 0.4,
+                        },
                       ]}
-                      onPress={() => setStatus(statusOption)}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Status Locked', `You cannot change status of a ${originalStatus} task.`);
+                          return;
+                        }
+                        setStatus(statusOption);
+                      }}
                     >
                       <Ionicons
                         name={isActive ? (config.icon as any) : `${config.icon}-outline`}
@@ -302,13 +378,13 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
         {/* Action Button Row */}
         <View style={styles.actionSection}>
           <TouchableOpacity
-            disabled={isLoading}
+            disabled={isLoading || isLocked}
             onPress={handleSave}
             activeOpacity={0.9}
-            style={styles.saveButtonContainer}
+            style={[styles.saveButtonContainer, isLocked && { opacity: 0.5 }]}
           >
             <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
+              colors={isLocked ? ['#9CA3AF', '#6B7280'] : [Colors.primary, Colors.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.saveButtonGradient}
@@ -316,7 +392,7 @@ const EditDailyTaskScreen = ({ navigation, route }: any) => {
               <View style={styles.saveButtonContent}>
                 <Ionicons name="checkmark-circle-outline" size={moderateScale(18)} color="#FFFFFF" />
                 <Text style={styles.saveButtonText}>
-                  {isLoading ? 'Updating Status...' : 'Confirm Status Update'}
+                  {isLocked ? 'Status Locked' : (isLoading ? 'Updating Status...' : 'Confirm Status Update')}
                 </Text>
               </View>
             </LinearGradient>
