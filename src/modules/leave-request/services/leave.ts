@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../../config/api';
 import { apiRequest, ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
-import { getLeaveBalance as getLeaveBalanceApi, getLeaveTypes as getLeaveTypesApi, applyForLeave as applyForLeaveApi, getLeaveHistory as getLeaveHistoryApi } from './leave-request.service';
+import { getLeaveBalance as getLeaveBalanceApi, getLeaveTypes as getLeaveTypesApi, applyForLeave as applyForLeaveApi, getLeaveHistory as getLeaveHistoryApi, cancelLeaveRequest, getLeaveRequestDetails } from './leave-request.service';
 
 const leaveHistoryStorageKey = (fkEmpId: number) => `@attendance/leave-history/${fkEmpId}`;
 
@@ -35,6 +35,13 @@ export type ApplyLeavePayload = {
   endDate: string;
   reason: string;
   isHalfDay?: boolean;
+  attachment_path?: string;
+  details?: Array<{
+    lr_date: string;
+    lr_day: string;
+    type: string;
+    typ_id: string;
+  }>;
 };
 
 export type LeaveHistoryResponse = {
@@ -172,6 +179,13 @@ export const getLeaveBalances = async (): Promise<LeaveType[]> => {
         icon: 'wallet-outline',
         remaining: balance.bal_unpaid_casual ?? 0,
         total: balance.tot_unpaid_casual ?? 0,
+      },
+      {
+        id: '518',
+        label: 'Paid Leave',
+        icon: 'wallet-outline',
+        remaining: (balance as any).bal_paid_leave ?? 0,
+        total: (balance as any).tot_paid_leave ?? 0,
       },
     ];
 
@@ -366,7 +380,11 @@ export const getLeaveHistory = async (): Promise<LeaveRequest[]> => {
       const diffMs = end.getTime() - start.getTime();
       const computedDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
 
-      const statusRaw = row.authorize ? (row.accepted === 'Accept' ? 'Approved' : 'Rejected') : 'Pending';
+      const statusRaw = row.last_status === 'Cancelled'
+        ? 'Cancelled'
+        : row.authorize
+          ? (row.accepted === 'Accept' ? 'Approved' : 'Rejected')
+          : 'Pending';
       const status = (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(statusRaw)
         ? statusRaw
         : 'Pending') as LeaveStatus;
@@ -415,6 +433,8 @@ export const applyForLeave = async (payload: ApplyLeavePayload): Promise<LeaveRe
       endDate: payload.endDate,
       reason: payload.reason,
       isHalfDay: payload.isHalfDay ?? false,
+      attachment_path: payload.attachment_path,
+      details: payload.details,
     });
 
     if (!response.success) {
@@ -434,3 +454,33 @@ export const applyForLeave = async (payload: ApplyLeavePayload): Promise<LeaveRe
     throw error;
   }
 };
+
+export const uploadLeaveAttachment = async (
+  fileUri: string,
+  fileName: string
+): Promise<string> => {
+  const session = await getAuthSession();
+  if (!session?.access_token) {
+    throw new ApiError('Authentication required. Please log in again.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri: fileUri,
+    name: fileName,
+    type: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+  } as any);
+
+  const response = await apiRequest<{ success: boolean; data: { path: string } }>(
+    '/api/mobile/leave-requests/upload',
+    {
+      method: 'POST',
+      body: formData,
+      token: session.access_token,
+    }
+  );
+
+  return response.data.path;
+};
+
+export { cancelLeaveRequest, getLeaveRequestDetails };

@@ -31,6 +31,13 @@ export interface LeaveRequestItem {
   endDate: string;
   reason: string;
   isHalfDay: boolean;
+  attachment_path?: string;
+  details?: Array<{
+    lr_date: string;
+    lr_day: string;
+    type: string;
+    typ_id: string;
+  }>;
 }
 
 export interface LeaveRequestResponse {
@@ -54,6 +61,7 @@ const LEAVE_REQUEST_ENDPOINTS = {
   UPDATE_BALANCE: '/api/leave-requests/update-balance',
   EMPLOYEES: '/api/mobile/leave-requests/employees',
   LEAVE_TYPES: '/api/mobile/leave-requests/leave-types',
+  CANCEL: (id: string) => `/api/mobile/leave-requests/${id}/cancel`,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -117,7 +125,8 @@ export async function applyForLeave(
     fk_emp_id: session?.user?.fkEmpId,
     reason: item.reason,
     remarks: '',
-    details: [
+    attachment_path: item.attachment_path,
+    details: item.details || [
       {
         lr_date: item.startDate,
         lr_day: item.isHalfDay ? 'Half Day' : 'Full Day',
@@ -241,6 +250,37 @@ function getLeaveTypeId(leaveType: string): string {
     'Absent': '509',
     'Rest Day': '510',
     'Maternity Leave': '512',
+    'Paid Leave': '518',
   };
   return typeMap[leaveType] || '502';
+}
+
+/**
+ * Get detailed leave request by ID
+ */
+export async function getLeaveRequestDetails(id: string): Promise<any> {
+  const session = await getAuthSession();
+  const response = await apiRequest<{ success: boolean; data: any }>(
+    LEAVE_REQUEST_ENDPOINTS.GET_BY_ID(id),
+    {
+      method: 'GET',
+      token: session?.access_token,
+    }
+  );
+  return response.data;
+}
+
+/**
+ * Request leave request cancellation
+ */
+export async function cancelLeaveRequest(id: string): Promise<any> {
+  const session = await getAuthSession();
+  const response = await apiRequest<any>(
+    LEAVE_REQUEST_ENDPOINTS.CANCEL(id),
+    {
+      method: 'POST',
+      token: session?.access_token,
+    }
+  );
+  return response;
 }

@@ -178,21 +178,21 @@ const MyLoansScreen = ({ navigation, route }: any) => {
   }, [loans]);
 
   const upcomingRepayments = useMemo(() => {
-    const approvedLoans = loans.filter((item) => item.status === 'Approved');
+    const activeLoans = loans.filter((item) => item.status === 'Approved' || item.status === 'Pending');
     const today = new Date();
-    return approvedLoans.slice(0, 2).map((loan, index) => {
+    return activeLoans.map((loan, index) => {
       try {
         const [year, month] = loan.deductFromMonth.split('-');
         const loanDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
         const emi = loan.loanAmount / loan.installments;
         return {
           id: loan.id,
-          loanType: 'Monthly Installment',
+          loanType: loan.status === 'Pending' ? 'Upcoming Loan' : 'Monthly Installment',
           subtitle: loan.loanType,
           dateMonth: loanDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
           dateDay: loanDate.toLocaleDateString('en-US', { day: '2-digit' }),
           amount: emi,
-          status: index === 0 ? 'AUTO-PAY' : 'PENDING',
+          status: loan.status === 'Pending' ? 'PENDING APPROVAL' : (index === 0 ? 'AUTO-PAY' : 'PENDING'),
         };
       } catch {
         return null;

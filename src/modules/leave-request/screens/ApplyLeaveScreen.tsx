@@ -14,6 +14,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +27,10 @@ import { moderateScale } from '../../../utils/responsive';
 import { ApiError } from '../../../services/apiClient';
 import { getAuthSession } from '../../auth/services/auth';
 import { getEmployeeProfile } from '../../profile/services/profile';
-import { applyForLeave, getLeaveBalances, getLeaveTypes, LeaveType } from '../services/leave';
+import { applyForLeave, getLeaveBalances, getLeaveTypes, LeaveType, getLeaveHistory, LeaveRequest, uploadLeaveAttachment } from '../services/leave';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
 
 type RangeDateItem = {
   dateStr: string;
@@ -48,6 +52,8 @@ type DraftItem = {
   reason: string;
   remarks: string;
   rangeDates?: RangeDateItem[];
+  attachmentUri?: string | null;
+  attachmentName?: string | null;
 };
 
 const toDateInput = (date: Date) => {
@@ -105,6 +111,7 @@ const DEFAULT_APP_LEAVE_TYPES: LeaveType[] = [
   { id: '510', label: 'Rest Day', icon: 'bed-outline' },
   { id: '512', label: 'Maternity Leave', icon: 'heart-outline' },
   { id: '513', label: 'Paternity Leave', icon: 'heart-outline' },
+  { id: '518', label: 'Paid Leave', icon: 'wallet-outline' },
 ];
 
 const ApplyLeaveScreen = ({ navigation }: any) => {
@@ -118,17 +125,21 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   // Leave Types Dynamic State
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(DEFAULT_APP_LEAVE_TYPES);
   const [employeeGender, setEmployeeGender] = useState<'Male' | 'Female' | null>(null);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
+  const [leaveTypeId, setLeaveTypeId] = useState('502');
 
   // 2. Form Fields State
   const [startDate, setStartDate] = useState(toDateInput(new Date()));
   const [endDate, setEndDate] = useState(toDateInput(getTomorrowDate()));
-  const [hasSelectedDates, setHasSelectedDates] = useState(false);
-  const [leaveTypeId, setLeaveTypeId] = useState('502');
+  const [hasSelectedDates, setHasSelectedDates] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [startWorkingType, setStartWorkingType] = useState('Full Day');
   const [endWorkingType, setEndWorkingType] = useState('Full Day');
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
   const [attachmentUploaded, setAttachmentUploaded] = useState(false);
+  const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
 
   // Calendar states & logic
   const CALENDAR_MONTHS = useMemo(() => [
@@ -291,6 +302,50 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     { id: 'unpaid-casual', label: 'Unpaid Casual Leave', icon: 'wallet-outline', remaining: 0, total: 0 },
   ]);
 
+  const visibleLeaveTypes = useMemo(() => {
+    return leaveTypes.filter(type => {
+      const labelLower = type.label.toLowerCase();
+      if (labelLower.includes('maternity') && employeeGender && employeeGender !== 'Female') {
+        return false;
+      }
+      if (labelLower.includes('paternity') && employeeGender && employeeGender !== 'Male') {
+        return false;
+      }
+      
+      // Filter out types that do not have a balance remaining > 0, if balance metadata is loaded
+      if (leaveBalances && leaveBalances.length > 0) {
+        const balItem = leaveBalances.find(b => {
+          const bLabel = b.label.toLowerCase();
+          const tLabel = type.label.toLowerCase();
+          if (bLabel === tLabel) return true;
+          if (b.id === type.id) return true;
+          if (type.id === '502' && b.id === 'annual') return true;
+          if (type.id === '504' && b.id === 'paid-holiday') return true;
+          if (type.id === '505' && b.id === 'sick') return true;
+          if (type.id === '506' && b.id === 'paid-casual') return true;
+          if (type.id === '507' && b.id === 'unpaid-casual') return true;
+          if (type.id === '518' && b.id === '518') return true;
+          return false;
+        });
+        
+        if (balItem) {
+          return (balItem.remaining ?? 0) > 0;
+        }
+        return true;
+      }
+      return true;
+    });
+  }, [leaveTypes, employeeGender, leaveBalances]);
+
+  useEffect(() => {
+    if (visibleLeaveTypes.length > 0) {
+      const isValid = visibleLeaveTypes.some(t => t.id === leaveTypeId);
+      if (!isValid) {
+        setLeaveTypeId(visibleLeaveTypes[0].id);
+      }
+    }
+  }, [visibleLeaveTypes, leaveTypeId]);
+
   // Init metadata and balances
   useEffect(() => {
     const initData = async () => {
@@ -299,6 +354,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         if (profile) {
           setEmployeeName(profile.userName || 'Employee');
           setProfileImage(profile.profileImageUrl || null);
+          if (profile.gender) {
+            setEmployeeGender(profile.gender as any);
+          }
         }
       } catch (e) {
         try {
@@ -310,6 +368,8 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         } catch (err) {
           console.warn('Failed to load session details', err);
         }
+      } finally {
+        setIsProfileLoading(false);
       }
 
       try {
@@ -320,36 +380,20 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       }
 
       try {
-        const profile = await getEmployeeProfile();
-        if (profile?.gender) {
-          setEmployeeGender(profile.gender);
-        }
-      } catch (e) {
-        console.warn('Failed to load employee profile', e);
-      }
-
-      try {
         const fetchedTypes = await getLeaveTypes();
         if (fetchedTypes && fetchedTypes.length > 0) {
-          // Filter leave types based on gender
-          const filteredTypes = fetchedTypes.filter(type => {
-            const labelLower = type.label.toLowerCase();
-            // Maternity leave only for female employees
-            if (labelLower.includes('maternity') && employeeGender !== 'Female') {
-              return false;
-            }
-            // Paternity leave only for male employees
-            if (labelLower.includes('paternity') && employeeGender !== 'Male') {
-              return false;
-            }
-            return true;
-          });
-          
-          setLeaveTypes(filteredTypes);
-          setLeaveTypeId(filteredTypes[0]?.id || '502');
+          setLeaveTypes(fetchedTypes);
+          setLeaveTypeId(fetchedTypes[0]?.id || '502');
         }
       } catch (e) {
         console.warn('Failed to load leave types', e);
+      }
+
+      try {
+        const history = await getLeaveHistory();
+        setLeaveHistory(history);
+      } catch (e) {
+        console.warn('Failed to load leave history', e);
       }
     };
 
@@ -456,12 +500,13 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
   }, [leaveTypeId]);
 
   const selectedLeaveType = useMemo(
-    () => leaveTypes.find(type => type.id === leaveTypeId) ?? leaveTypes[0],
-    [leaveTypeId, leaveTypes],
+    () => visibleLeaveTypes.find(type => type.id === leaveTypeId) ?? visibleLeaveTypes[0] ?? DEFAULT_APP_LEAVE_TYPES[0],
+    [leaveTypeId, visibleLeaveTypes],
   );
 
   // Active form days count
   const activeFormDays = useMemo(() => {
+    if (!hasSelectedDates) return 0;
     return rangeDates
       .filter(item => item.isSelected)
       .reduce((sum, item) => {
@@ -470,12 +515,12 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         }
         return sum + 1.0;
       }, 0);
-  }, [rangeDates]);
+  }, [rangeDates, hasSelectedDates]);
 
   // Total Sick Leave days selected (form + drafts)
   const totalSickLeaveDays = useMemo(() => {
     let count = 0;
-    if (selectedLeaveType.label.toLowerCase().includes('sick')) {
+    if (selectedLeaveType?.label && selectedLeaveType.label.toLowerCase().includes('sick')) {
       count += activeFormDays;
     }
     draftList.forEach(draft => {
@@ -500,6 +545,25 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         ...copy[index],
         isSelected: !copy[index].isSelected,
       };
+
+      const selectedItems = copy.filter(item => item.isSelected);
+      if (selectedItems.length === 0) {
+        Alert.alert('Selection Error', 'At least one date must be selected.');
+        return prev;
+      }
+
+      // Sort and update start/end date fields dynamically
+      const sorted = [...selectedItems].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      const firstSelected = sorted[0].dateStr;
+      const lastSelected = sorted[sorted.length - 1].dateStr;
+
+      if (firstSelected !== startDate) {
+        setStartDate(firstSelected);
+      }
+      if (lastSelected !== endDate) {
+        setEndDate(lastSelected);
+      }
+
       return copy;
     });
   };
@@ -556,15 +620,161 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setHasSelectedDates(false);
   };
 
+  const RESTRICTED_LEAVE_LABELS = ['Annual Leave', 'Paid Holiday', 'Paid Casual Leave'];
+
+  // Helper to validate leave balances
+  const validateLeaveBalances = (
+    targetLeaveTypeId: string,
+    additionalDays: number,
+    excludeDraftId: string | null = null
+  ) => {
+    const selectedLabel = visibleLeaveTypes.find(t => t.id === targetLeaveTypeId)?.label || selectedLeaveType.label;
+    const balanceItem = leaveBalances.find(b => b.id === targetLeaveTypeId || b.label === selectedLabel);
+    if (!balanceItem) return { isValid: true };
+
+    const remaining = balanceItem.remaining ?? 0;
+
+    // Sum the days already applied in OTHER drafts
+    let existingDays = 0;
+    draftList.forEach(draft => {
+      if (draft.id === excludeDraftId) return;
+
+      const isMatch = draft.leaveTypeId === targetLeaveTypeId || draft.leaveTypeLabel === balanceItem.label;
+      if (isMatch) {
+        existingDays += draft.days;
+      }
+    });
+
+    const totalProposed = existingDays + additionalDays;
+
+    if (remaining <= 0) {
+      return {
+        isValid: false,
+        message: `You have 0 days remaining for ${balanceItem.label}.`,
+      };
+    }
+
+    if (totalProposed > remaining) {
+      return {
+        isValid: false,
+        message: `Requested ${totalProposed} days of ${balanceItem.label}, but you only have ${remaining} days remaining.`,
+      };
+    }
+
+    return { isValid: true };
+  };
+
+  // Helper to check shift-level conflicts
+  const isShiftConflicting = (shift1: string, shift2: string): boolean => {
+    const s1 = shift1.toLowerCase();
+    const s2 = shift2.toLowerCase();
+    if (s1.includes('full') || s2.includes('full')) return true;
+    if (s1.includes('half') || s2.includes('half')) return true;
+    if (s1.includes('first') && s2.includes('first')) return true;
+    if (s1.includes('second') && s2.includes('second')) return true;
+    return false;
+  };
+
+  // Helper to check for conflicting leave dates in drafts and server history
+  const checkConflictingDates = (
+    targetRangeDates: RangeDateItem[],
+    excludeDraftId: string | null = null
+  ) => {
+    const selectedTargetDates = targetRangeDates.filter(d => d.isSelected);
+
+    // 1. Check against other drafts in the list
+    for (const draft of draftList) {
+      if (draft.id === excludeDraftId) continue;
+
+      if (draft.rangeDates) {
+        const checked = draft.rangeDates.filter(d => d.isSelected);
+        for (const target of selectedTargetDates) {
+          const match = checked.find(d => d.dateStr === target.dateStr);
+          if (match && isShiftConflicting(match.workingType, target.workingType)) {
+            return {
+              hasConflict: true,
+              message: `Shift conflict on ${formatDateInput(target.dateStr)}: Already selected as ${match.workingType} in draft item.`,
+            };
+          }
+        }
+      } else {
+        const start = new Date(`${draft.startDate}T00:00:00`);
+        const end = new Date(`${draft.endDate}T00:00:00`);
+        const current = new Date(start);
+        while (current <= end) {
+          const dStr = toDateInput(current);
+          const target = selectedTargetDates.find(d => d.dateStr === dStr);
+          if (target && isShiftConflicting(draft.workingType || 'Full Day', target.workingType)) {
+            return {
+              hasConflict: true,
+              message: `Shift conflict on ${formatDateInput(dStr)}: Already selected as ${draft.workingType || 'Full Day'} in draft item.`,
+            };
+          }
+          current.setDate(current.getDate() + 1);
+        }
+      }
+    }
+
+    // 2. Check against leave history fetched from database (pending or approved requests)
+    for (const item of leaveHistory) {
+      if (item.status !== 'Pending' && item.status !== 'Approved') continue;
+
+      const start = new Date(`${item.startDate}T00:00:00`);
+      const end = new Date(`${item.endDate}T00:00:00`);
+      const current = new Date(start);
+      while (current <= end) {
+        const dStr = toDateInput(current);
+        const target = selectedTargetDates.find(d => d.dateStr === dStr);
+        if (target && isShiftConflicting(item.isHalfDay ? 'Half Day' : 'Full Day', target.workingType)) {
+          return {
+            hasConflict: true,
+            message: `Date ${formatDateInput(dStr)} already has a pending/approved leave request: ${item.leaveType}.`,
+          };
+        }
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    return { hasConflict: false };
+  };
+
   const handleSaveDraft = () => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
-    if (!startDate || !endDate) {
+    if (!hasSelectedDates || !startDate || !endDate) {
       setErrorMessage('Please select start and end dates before adding range.');
       return;
     }
     if (new Date(`${endDate}T00:00:00`) < new Date(`${startDate}T00:00:00`)) {
       setErrorMessage('End date cannot be before start date.');
+      return;
+    }
+    if (trimmedReason.length < 5) {
+      setErrorMessage('Reason for leave is required (at least 5 characters).');
+      return;
+    }
+
+    // Role-based restrictions check
+    const isRestrictedCategory = RESTRICTED_LEAVE_LABELS.includes(selectedLeaveType.label);
+    const startsToday = startDate === toDateInput(new Date());
+    const isRegularEmployee = !employeeName.toLowerCase().includes('supervisor') && !employeeName.toLowerCase().includes('manager');
+
+    if (isRegularEmployee && isRestrictedCategory && startsToday) {
+      setErrorMessage(`You do not have permission to apply for ${selectedLeaveType.label} starting on the current date. Please plan in advance.`);
+      return;
+    }
+
+    // Balance check
+    const balanceCheck = validateLeaveBalances(leaveTypeId, activeFormDays, editingDraftId);
+    if (!balanceCheck.isValid) {
+      setErrorMessage(balanceCheck.message || 'Validation error');
+      return;
+    }
+
+    // Overlap check
+    const overlapCheck = checkConflictingDates(rangeDates, editingDraftId);
+    if (overlapCheck.hasConflict) {
+      setErrorMessage(overlapCheck.message || 'Overlap conflict');
       return;
     }
 
@@ -584,6 +794,8 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
             reason: trimmedReason,
             remarks: remarks.trim(),
             rangeDates: rangeDates,
+            attachmentUri,
+            attachmentName,
           };
         }
         return item;
@@ -610,6 +822,8 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         reason: trimmedReason,
         remarks: remarks.trim(),
         rangeDates: rangeDates,
+        attachmentUri,
+        attachmentName,
       };
       setDraftList(prev => [...prev, newDraft]);
       Toast.show({
@@ -633,6 +847,9 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     setReason(item.reason);
     setRemarks(item.remarks);
     setHasSelectedDates(true);
+    setAttachmentUploaded(!!item.attachmentUri);
+    setAttachmentUri(item.attachmentUri ?? null);
+    setAttachmentName(item.attachmentName ?? null);
     if (item.rangeDates) {
       setRangeDates(item.rangeDates);
       if (item.rangeDates.length > 0) {
@@ -659,26 +876,113 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     });
   };
 
+  interface LeaveRequestDetail {
+    lr_date: string;
+    lr_day: string;
+    type: string;
+    typ_id: string;
+  }
+
+  interface GroupedLeaveRequest {
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    isHalfDay: boolean;
+    attachment_path?: string;
+    details: LeaveRequestDetail[];
+  }
+
+  const getLeaveTypeId = (leaveType: string): string => {
+    const typeMap: Record<string, string> = {
+      'Annual Leave': '502',
+      'Paid Holiday': '504',
+      'Sick Leave': '505',
+      'Paid Casual Leave': '506',
+      'Unpaid Casual Leave': '507',
+      'Unpaid Leave': '508',
+      'Absent': '509',
+      'Rest Day': '510',
+      'Maternity Leave': '512',
+      'Paid Leave': '518',
+    };
+    return typeMap[leaveType] || '502';
+  };
+
+  const groupDatesToRequests = (
+    dates: RangeDateItem[],
+    reasonText: string,
+    remarksText: string,
+    attachmentPath?: string
+  ): GroupedLeaveRequest[] => {
+    const checked = dates.filter(d => d.isSelected);
+    if (checked.length === 0) return [];
+
+    // Sort chronologically
+    const sorted = [...checked].sort(
+      (a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()
+    );
+
+    const groups: GroupedLeaveRequest[] = [];
+    let currentGroup: GroupedLeaveRequest | null = null;
+
+    for (const item of sorted) {
+      const typeLabel = visibleLeaveTypes.find(t => t.id === item.leaveTypeId)?.label || selectedLeaveType.label;
+      const itemDate = new Date(`${item.dateStr}T00:00:00`);
+
+      let isContiguous = false;
+      if (currentGroup) {
+        const lastDetailDate = new Date(`${currentGroup.details[currentGroup.details.length - 1].lr_date}T00:00:00`);
+        const diffTime = itemDate.getTime() - lastDetailDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays === 1 && currentGroup.leaveType === typeLabel) {
+          isContiguous = true;
+        }
+      }
+
+      const detailItem: LeaveRequestDetail = {
+        lr_date: item.dateStr,
+        lr_day: item.workingType,
+        type: typeLabel,
+        typ_id: getLeaveTypeId(typeLabel),
+      };
+
+      if (isContiguous && currentGroup) {
+        currentGroup.details.push(detailItem);
+        currentGroup.endDate = item.dateStr;
+        if (item.workingType === 'Full Day') {
+          currentGroup.isHalfDay = false;
+        }
+      } else {
+        const finalReason = remarksText.trim()
+          ? `${reasonText} (Remarks: ${remarksText.trim()})`
+          : reasonText;
+
+        currentGroup = {
+          leaveType: typeLabel,
+          startDate: item.dateStr,
+          endDate: item.dateStr,
+          reason: finalReason,
+          isHalfDay: item.workingType === 'First Half' || item.workingType === 'Second Half',
+          attachment_path: attachmentPath || undefined,
+          details: [detailItem],
+        };
+        groups.push(currentGroup);
+      }
+    }
+
+    return groups;
+  };
+
   const handleSubmit = async () => {
     setErrorMessage(null);
     const trimmedReason = reason.trim();
 
-    // Check if attachment is required for sick leave of more than 1 day
-    if (totalSickLeaveDays > 1.0 && !attachmentUploaded) {
-      setErrorMessage('Attachment is compulsory for Sick Leave of more than 1 day. Please upload a document.');
-      return;
-    }
+    // Determine final drafts to submit
+    let finalDraftList = [...draftList];
 
-    const itemsToSubmit: Array<{
-      leaveType: string;
-      startDate: string;
-      endDate: string;
-      reason: string;
-      isHalfDay: boolean;
-    }> = [];
-
-    // Validate active form if filled
-    if (trimmedReason || startDate !== toDateInput(new Date())) {
+    // If user is editing a draft, auto-save/merge the active form values into that draft item first!
+    if (editingDraftId !== null) {
       if (!startDate || !endDate) {
         setErrorMessage('Please select start and end dates.');
         return;
@@ -692,53 +996,125 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
         return;
       }
 
+      // Balance and overlap check (excluding the current draft)
+      const balanceCheck = validateLeaveBalances(leaveTypeId, activeFormDays, editingDraftId);
+      if (!balanceCheck.isValid) {
+        setErrorMessage(balanceCheck.message || 'Validation error');
+        return;
+      }
+      const overlapCheck = checkConflictingDates(rangeDates, editingDraftId);
+      if (overlapCheck.hasConflict) {
+        setErrorMessage(overlapCheck.message || 'Overlap conflict');
+        return;
+      }
+
+      // Merge current form fields into the draft list
+      finalDraftList = finalDraftList.map(item => {
+        if (item.id === editingDraftId) {
+          return {
+            ...item,
+            employeeName,
+            leaveTypeLabel: selectedLeaveType.label,
+            leaveTypeId,
+            workingType: startWorkingType,
+            startDate,
+            endDate,
+            days: activeFormDays,
+            reason: trimmedReason,
+            remarks: remarks.trim(),
+            rangeDates: rangeDates,
+            attachmentUri,
+            attachmentName,
+          };
+        }
+        return item;
+      });
+    }
+
+    // Construct the list of items to submit
+    const itemsToSubmit: GroupedLeaveRequest[] = [];
+
+    // Add active form if NOT editing a draft, and if it's filled
+    const isActiveFormFilled = trimmedReason || startDate !== toDateInput(new Date());
+    if (editingDraftId === null && isActiveFormFilled) {
+      if (!startDate || !endDate) {
+        setErrorMessage('Please select start and end dates.');
+        return;
+      }
+      if (new Date(`${endDate}T00:00:00`) < new Date(`${startDate}T00:00:00`)) {
+        setErrorMessage('End date cannot be before start date.');
+        return;
+      }
+      if (trimmedReason.length < 5) {
+        setErrorMessage('Please enter a reason (at least 5 characters).');
+        return;
+      }
+
+      // Check if attachment is required for active form sick leave of more than 1 day
+      const mainIsSick = selectedLeaveType?.label && selectedLeaveType.label.toLowerCase().includes('sick');
+      if (mainIsSick && activeFormDays > 1.0 && !attachmentUri) {
+        setErrorMessage('Attachment is compulsory for Sick Leave of more than 1 day. Please upload a document.');
+        return;
+      }
+
+      // Role-based restrictions check
+      const isRestrictedCategory = RESTRICTED_LEAVE_LABELS.includes(selectedLeaveType.label);
+      const startsToday = startDate === toDateInput(new Date());
+      const isRegularEmployee = !employeeName.toLowerCase().includes('supervisor') && !employeeName.toLowerCase().includes('manager');
+
+      if (isRegularEmployee && isRestrictedCategory && startsToday) {
+        setErrorMessage(`You do not have permission to apply for ${selectedLeaveType.label} starting on the current date. Please plan in advance.`);
+        return;
+      }
+
       const checkedDates = rangeDates.filter(d => d.isSelected);
       if (checkedDates.length === 0) {
         setErrorMessage('No days are selected in the date checklist.');
         return;
       }
-
-      const finalReason = remarks.trim()
-        ? `${trimmedReason} (Remarks: ${remarks.trim()})`
-        : trimmedReason;
-
-      checkedDates.forEach(d => {
-        const typeLabel = leaveTypes.find(t => t.id === d.leaveTypeId)?.label || selectedLeaveType.label;
-        itemsToSubmit.push({
-          leaveType: typeLabel,
-          startDate: d.dateStr,
-          endDate: d.dateStr,
-          reason: finalReason,
-          isHalfDay: d.workingType === 'First Half' || d.workingType === 'Second Half',
-        });
-      });
     }
 
-    // Add drafts
-    draftList.forEach(draft => {
-      const finalReason = draft.remarks
-        ? `${draft.reason} (Remarks: ${draft.remarks})`
-        : draft.reason;
+    // Check if attachment is required for any draft sick leave of more than 1 day
+    for (const draft of finalDraftList) {
+      const draftIsSick = draft.leaveTypeLabel.toLowerCase().includes('sick');
+      if (draftIsSick && draft.days > 1.0 && !draft.attachmentUri) {
+        setErrorMessage(`Attachment is compulsory for Sick Leave range (${formatDateInput(draft.startDate)} to ${formatDateInput(draft.endDate)}).`);
+        return;
+      }
+    }
 
+    // 1. Group active form dates if active form is submitted
+    if (editingDraftId === null && isActiveFormFilled) {
+      const activeGroups = groupDatesToRequests(rangeDates, trimmedReason, remarks, attachmentUri || undefined);
+      itemsToSubmit.push(...activeGroups);
+    }
+
+    // 2. Group draft list dates
+    finalDraftList.forEach(draft => {
       if (draft.rangeDates && draft.rangeDates.length > 0) {
-        const checked = draft.rangeDates.filter(d => d.isSelected);
-        checked.forEach(d => {
-          const typeLabel = leaveTypes.find(t => t.id === d.leaveTypeId)?.label || draft.leaveTypeLabel;
-          itemsToSubmit.push({
-            leaveType: typeLabel,
-            startDate: d.dateStr,
-            endDate: d.dateStr,
-            reason: finalReason,
-            isHalfDay: d.workingType === 'First Half' || d.workingType === 'Second Half',
-          });
-        });
+        const draftGroups = groupDatesToRequests(draft.rangeDates, draft.reason, draft.remarks, draft.attachmentUri || undefined);
+        itemsToSubmit.push(...draftGroups);
       } else {
+        // Fallback for draft with no rangeDates
+        const typeLabel = draft.leaveTypeLabel;
+        const detailItem: LeaveRequestDetail = {
+          lr_date: draft.startDate,
+          lr_day: draft.workingType || 'Full Day',
+          type: typeLabel,
+          typ_id: getLeaveTypeId(typeLabel),
+        };
+        const finalReason = draft.remarks
+          ? `${draft.reason} (Remarks: ${draft.remarks})`
+          : draft.reason;
+
         itemsToSubmit.push({
-          leaveType: draft.leaveTypeLabel,
+          leaveType: typeLabel,
           startDate: draft.startDate,
           endDate: draft.endDate,
           reason: finalReason,
           isHalfDay: draft.workingType === 'First Half' || draft.workingType === 'Second Half',
+          attachment_path: draft.attachmentUri || undefined,
+          details: [detailItem],
         });
       }
     });
@@ -748,9 +1124,90 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
       return;
     }
 
+    // 3. Global Balance Check
+    const proposedBalances = new Map<string, number>();
+    for (const req of itemsToSubmit) {
+      const current = proposedBalances.get(req.leaveType) ?? 0;
+      const daysCount = req.details.reduce((sum, d) => sum + ((d.lr_day === 'First Half' || d.lr_day === 'Second Half') ? 0.5 : 1.0), 0);
+      proposedBalances.set(req.leaveType, current + daysCount);
+    }
+
+    for (const [label, proposedDays] of proposedBalances.entries()) {
+      const balanceItem = leaveBalances.find(b => b.label.toLowerCase() === label.toLowerCase());
+      if (balanceItem) {
+        const remaining = balanceItem.remaining ?? 0;
+        if (remaining <= 0) {
+          setErrorMessage(`You have 0 days remaining for ${balanceItem.label}.`);
+          return;
+        }
+        if (proposedDays > remaining) {
+          setErrorMessage(`Requested ${proposedDays} days of ${balanceItem.label}, but you only have ${remaining} days remaining.`);
+          return;
+        }
+      }
+    }
+
+    // 4. Global Overlap Check
+    const historyShifts = new Map<string, string>();
+    for (const item of leaveHistory) {
+      if (item.status === 'Cancelled' || item.status === 'Rejected') continue;
+      const start = new Date(`${item.startDate}T00:00:00`);
+      const end = new Date(`${item.endDate}T00:00:00`);
+      const current = new Date(start);
+      while (current <= end) {
+        historyShifts.set(toDateInput(current), item.isHalfDay ? 'Half Day' : 'Full Day');
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    const submittedShifts = new Map<string, string>();
+    for (const req of itemsToSubmit) {
+      for (const d of req.details) {
+        const dStr = d.lr_date;
+        const shiftType = d.lr_day;
+
+        if (historyShifts.has(dStr)) {
+          const histShift = historyShifts.get(dStr)!;
+          if (isShiftConflicting(histShift, shiftType)) {
+            setErrorMessage(`Conflict on ${formatDateInput(dStr)}: Already has a pending/approved leave request.`);
+            return;
+          }
+        }
+
+        if (submittedShifts.has(dStr)) {
+          const subShift = submittedShifts.get(dStr)!;
+          if (isShiftConflicting(subShift, shiftType)) {
+            setErrorMessage(`Duplicate date selection: Shift conflict on ${formatDateInput(dStr)} within this request.`);
+            return;
+          }
+        }
+        submittedShifts.set(dStr, shiftType);
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      // 5. Upload files first if local files are selected
+      let activeUploadedPath = attachmentUri;
+      if (editingDraftId === null && attachmentUri && (attachmentUri.startsWith('file://') || attachmentUri.startsWith('content://'))) {
+        const path = await uploadLeaveAttachment(attachmentUri, attachmentName || 'attachment.jpg');
+        activeUploadedPath = path;
+      }
+
+      for (const req of itemsToSubmit) {
+        if (req.attachment_path && (req.attachment_path.startsWith('file://') || req.attachment_path.startsWith('content://'))) {
+          if (req.attachment_path === attachmentUri) {
+            req.attachment_path = activeUploadedPath || undefined;
+          } else {
+            const filename = req.attachment_path.split('/').pop() || 'attachment.jpg';
+            const path = await uploadLeaveAttachment(req.attachment_path, filename);
+            req.attachment_path = path;
+          }
+        }
+      }
+
+      // 6. Submit leave requests sequentially
       for (const item of itemsToSubmit) {
         await applyForLeave(item);
       }
@@ -784,9 +1241,77 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
     return employeeName.slice(0, 2).toUpperCase();
   }, [employeeName]);
 
+  const handlePickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Denied', 'Permission to access gallery is required to select images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setAttachmentUploaded(true);
+        const filename = asset.uri.split('/').pop() || 'image.jpg';
+        setAttachmentUri(asset.uri);
+        setAttachmentName(filename);
+        Alert.alert('Attachment', `Image "${filename}" selected successfully.`);
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+      Alert.alert('Error', 'Failed to pick image.');
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setAttachmentUploaded(true);
+        setAttachmentUri(result.assets[0].uri);
+        setAttachmentName(result.assets[0].name);
+        Alert.alert('Attachment', `Document "${result.assets[0].name}" selected successfully.`);
+      } else if ((result as any).type === 'success') {
+        setAttachmentUploaded(true);
+        setAttachmentUri((result as any).uri);
+        setAttachmentName((result as any).name || 'document');
+        Alert.alert('Attachment', `Document "${(result as any).name || 'document'}" selected successfully.`);
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+      Alert.alert('Error', 'Failed to pick document.');
+    }
+  };
+
   const handleAttachmentUpload = () => {
-    setAttachmentUploaded(true);
-    Alert.alert('Attachment', 'Document selected successfully.');
+    Alert.alert(
+      'Attach File',
+      'Choose attachment source:',
+      [
+        {
+          text: 'Camera Roll / Photo Gallery',
+          onPress: handlePickImage,
+        },
+        {
+          text: 'Document (PDF, Word, etc.)',
+          onPress: handlePickDocument,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   return (
@@ -874,13 +1399,37 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
               <View style={styles.fieldSection}>
                 <View style={styles.fieldLabelRow}>
                   <Text style={styles.fieldLabel}>SELECT LEAVE TYPE</Text>
-                  <TouchableOpacity style={styles.calendarEditBtn} activeOpacity={0.7} onPress={() => setIsLeaveTypePickerOpen(true)}>
+                  <TouchableOpacity
+                    style={styles.calendarEditBtn}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (isProfileLoading) {
+                        Toast.show({
+                          type: 'info',
+                          text1: 'Loading profile...',
+                          text2: 'Please wait, checking gender restrictions.',
+                        });
+                        return;
+                      }
+                      setIsLeaveTypePickerOpen(true);
+                    }}
+                  >
                     <Ionicons name="calendar-outline" size={moderateScale(16)} color="#FF4D1C" />
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
                   style={styles.dropdownSelector}
-                  onPress={() => setIsLeaveTypePickerOpen(true)}
+                  onPress={() => {
+                    if (isProfileLoading) {
+                      Toast.show({
+                        type: 'info',
+                        text1: 'Loading profile...',
+                        text2: 'Please wait, checking gender restrictions.',
+                      });
+                      return;
+                    }
+                    setIsLeaveTypePickerOpen(true);
+                  }}
                   activeOpacity={0.85}
                 >
                   <View style={styles.dropdownLeft}>
@@ -926,15 +1475,22 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
 
               {/* 3. Add Another Date Range Button */}
               <TouchableOpacity style={styles.addRangeButton} onPress={handleSaveDraft} activeOpacity={0.8}>
-                <Ionicons name="add-circle-outline" size={moderateScale(18)} color="#FF4D1C" style={{ marginRight: 6 }} />
-                <Text style={styles.addRangeButtonText}>Add another date range</Text>
+                <Ionicons
+                  name={editingDraftId ? "checkmark-circle-outline" : "add-circle-outline"}
+                  size={moderateScale(18)}
+                  color="#FF4D1C"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.addRangeButtonText}>
+                  {editingDraftId ? 'Save Changes' : 'Add another date range'}
+                </Text>
               </TouchableOpacity>
 
               {/* Checklist of selected range days */}
               {hasSelectedDates && (
                 <View style={styles.checklistSection}>
                   <Text style={styles.checklistTitle}>Date Checklist ({activeFormDays} Days)</Text>
-                  
+
                   {/* Single day checklist */}
                   {rangeDates.length === 0 && (
                     <View style={styles.checkItemRow}>
@@ -1006,6 +1562,48 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                   </Text>
                   <Text style={styles.uploadBoxSubtext}>PDF, JPG up to 5MB</Text>
                 </TouchableOpacity>
+
+                {attachmentUploaded && attachmentUri && (
+                  <View style={styles.attachmentFileCard}>
+                    <Ionicons name="document-text-outline" size={24} color="#FF4D1C" />
+                    <View style={styles.attachmentFileInfo}>
+                      <Text style={styles.attachmentFileName} numberOfLines={1}>
+                        {attachmentName || 'attachment.jpg'}
+                      </Text>
+                      <Text style={styles.attachmentFileSize}>Tap to view file</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.attachmentViewBtn}
+                      onPress={async () => {
+                        if (attachmentUri) {
+                          try {
+                            const isAvailable = await Sharing.isAvailableAsync();
+                            if (isAvailable) {
+                              await Sharing.shareAsync(attachmentUri);
+                            } else {
+                              await Linking.openURL(attachmentUri);
+                            }
+                          } catch (err) {
+                            Alert.alert('Attachment', `Attached file: ${attachmentName}`);
+                            console.warn('Error sharing attachment:', err);
+                          }
+                        }
+                      }}
+                    >
+                      <Ionicons name="eye-outline" size={20} color="#FF4D1C" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.attachmentRemoveBtn}
+                      onPress={() => {
+                        setAttachmentUploaded(false);
+                        setAttachmentUri(null);
+                        setAttachmentName(null);
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               {/* Error Message Box */}
@@ -1017,7 +1615,18 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
               )}
 
               {/* 6. Submit Button */}
-              <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isSubmitting} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={[styles.submitBtn, editingDraftId !== null && { backgroundColor: '#CBD5E1' }]}
+                onPress={() => {
+                  if (editingDraftId !== null) {
+                    Alert.alert('Unsaved Changes', 'Please save your date range changes first.');
+                  } else {
+                    handleSubmit();
+                  }
+                }}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+              >
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -1058,16 +1667,6 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                 ))}
               </View>
             )}
-
-            {/* Bottom Info Box */}
-            <View style={styles.bottomInfoContainer}>
-              <View style={styles.bottomInfoIconFrame}>
-                <Ionicons name="information-circle-outline" size={moderateScale(20)} color="#FF4D1C" />
-              </View>
-              <Text style={styles.bottomInfoText}>
-                Your request will be sent to <Text style={{ fontWeight: '700' }}>Alex Rivers</Text> for approval. You'll receive a notification once the status is updated.
-              </Text>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
@@ -1079,7 +1678,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Leave Type</Text>
             <ScrollView>
-              {leaveTypes.map(type => (
+              {visibleLeaveTypes.map(type => (
                 <TouchableOpacity
                   key={type.id}
                   style={styles.modalItem}
@@ -1124,7 +1723,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Leave Type</Text>
             <ScrollView>
-              {rangeItemPickerIndex !== null && leaveTypes.map(type => (
+              {rangeItemPickerIndex !== null && visibleLeaveTypes.map(type => (
                 <TouchableOpacity
                   key={type.id}
                   style={styles.modalItem}
@@ -1166,7 +1765,7 @@ const ApplyLeaveScreen = ({ navigation }: any) => {
                   const isSelected = dayObj.dateString === (calendarTarget === 'start' ? startDate : endDate);
                   const isCurrentMonth = dayObj.month === currentCalendarMonth;
                   const isToday = dayObj.isToday;
-                  
+
                   // Check if date is in the past
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
@@ -1577,6 +2176,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
     fontSize: moderateScale(11),
     color: '#64748B',
+  },
+  attachmentFileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: moderateScale(14),
+    padding: moderateScale(12),
+    marginTop: moderateScale(10),
+  },
+  attachmentFileInfo: {
+    flex: 1,
+    marginLeft: moderateScale(10),
+  },
+  attachmentFileName: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(13),
+    color: '#0F172A',
+  },
+  attachmentFileSize: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(11),
+    color: '#FF4D1C',
+    marginTop: moderateScale(1),
+  },
+  attachmentViewBtn: {
+    padding: moderateScale(8),
+    marginRight: moderateScale(4),
+  },
+  attachmentRemoveBtn: {
+    padding: moderateScale(8),
   },
   formErrorBox: {
     flexDirection: 'row',

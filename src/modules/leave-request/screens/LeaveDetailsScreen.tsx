@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -8,6 +8,7 @@ import {
   View,
   Alert,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +18,7 @@ import AppCard from '../../../components/AppCard';
 import { Colors, Theme } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { moderateScale } from '../../../utils/responsive';
-import { LeaveRequest, LeaveStatus } from '../services/leave';
+import { LeaveRequest, LeaveStatus, getLeaveRequestDetails, cancelLeaveRequest } from '../services/leave';
 import Toast from 'react-native-toast-message';
 import { downloadReport } from '../../../utils/reportDownloader';
 import { Share } from 'react-native';
@@ -89,6 +90,31 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
   const tone = statusTone[leaveItem.status] || statusTone.Pending;
   const dates = getDatesInRange(leaveItem.startDate, leaveItem.endDate);
 
+  const [fullDetails, setFullDetails] = useState<any>(null);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(true);
+
+  useEffect(() => {
+    const numericIdVal = Number(leaveItem.id);
+    const isServerId = !Number.isNaN(numericIdVal) && numericIdVal < 1000000000;
+
+    if (!isServerId) {
+      setIsDetailsLoading(false);
+      return;
+    }
+
+    const fetchDetails = async () => {
+      try {
+        const details = await getLeaveRequestDetails(leaveItem.id);
+        setFullDetails(details);
+      } catch (err) {
+        console.warn('Could not fetch real details from server for ID:', leaveItem.id, err);
+      } finally {
+        setIsDetailsLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [leaveItem.id]);
+
   useEffect(() => {
     navigation.setOptions({
       headerShown: false,
@@ -104,15 +130,20 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
         {
           text: 'Yes, Cancel',
           style: 'destructive',
-          onPress: () => {
-            Toast.show({
-              type: 'success',
-              text1: 'Request Cancelled',
-              text2: 'Cancellation request sent to supervisor successfully.',
-              position: 'top',
-              topOffset: 60,
-            });
-            navigation.goBack();
+          onPress: async () => {
+            try {
+              const res = await cancelLeaveRequest(leaveItem.id);
+              Toast.show({
+                type: 'success',
+                text1: 'Request Cancelled',
+                text2: res.message || 'Leave cancellation request updated successfully.',
+                position: 'top',
+                topOffset: 60,
+              });
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to cancel leave request.');
+            }
           },
         },
       ]
@@ -208,29 +239,56 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
             </View>
             <View style={styles.divider} />
             <View style={styles.rangeDaysContainer}>
-              {dates.map((dateStr) => {
-                const dateObj = new Date(`${dateStr}T00:00:00`);
-                const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                
-                return (
-                  <View key={dateStr} style={styles.rangeDayRow}>
-                    <View style={styles.rangeDayInfo}>
-                      <View style={styles.rangeDayTextGroup}>
-                        <Text style={styles.rangeDayLabel}>{dateLabel} {dayLabel}</Text>
-                        <Text style={styles.rangeDateLabel}>Full Working Day</Text>
+              {fullDetails && fullDetails.details && fullDetails.details.length > 0 ? (
+                fullDetails.details.map((item: any) => {
+                  const dateObj = new Date(`${item.lr_date}T00:00:00`);
+                  const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                  const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  const workingTypeStr = item.lr_day || 'Full Day';
+                  
+                  return (
+                    <View key={item.pk_lrd_id || item.lr_date} style={styles.rangeDayRow}>
+                      <View style={styles.rangeDayInfo}>
+                        <View style={styles.rangeDayTextGroup}>
+                          <Text style={styles.rangeDayLabel}>{dateLabel} {dayLabel}</Text>
+                          <Text style={styles.rangeDateLabel}>{workingTypeStr}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.rangeDayBadges}>
+                        <View style={styles.rangePill}>
+                          <Text style={styles.rangePillText}>
+                            {workingTypeStr.toUpperCase()}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                    <View style={styles.rangeDayBadges}>
-                      <View style={styles.rangePill}>
-                        <Text style={styles.rangePillText}>
-                          {leaveItem.isHalfDay ? 'HALF DAY' : 'FULL DAY'}
-                        </Text>
+                  );
+                })
+              ) : (
+                dates.map((dateStr) => {
+                  const dateObj = new Date(`${dateStr}T00:00:00`);
+                  const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                  const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  
+                  return (
+                    <View key={dateStr} style={styles.rangeDayRow}>
+                      <View style={styles.rangeDayInfo}>
+                        <View style={styles.rangeDayTextGroup}>
+                          <Text style={styles.rangeDayLabel}>{dateLabel} {dayLabel}</Text>
+                          <Text style={styles.rangeDateLabel}>Full Working Day</Text>
+                        </View>
+                      </View>
+                      <View style={styles.rangeDayBadges}>
+                        <View style={styles.rangePill}>
+                          <Text style={styles.rangePillText}>
+                            {leaveItem.isHalfDay ? 'HALF DAY' : 'FULL DAY'}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                );
-              })}
+                  );
+                })
+              )}
             </View>
           </AppCard>
         )}
@@ -245,6 +303,40 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
             </Text>
           </View>
         </AppCard>
+
+        {/* Attachment Card */}
+        {fullDetails?.attachment_path && (
+          <AppCard style={styles.remarksCard}>
+            <Text style={styles.sectionTitle}>Attachment</Text>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(255, 77, 28, 0.05)',
+                padding: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 77, 28, 0.2)',
+                gap: 8,
+              }}
+              onPress={() => {
+                const url = `http://192.168.1.102:3000${fullDetails.attachment_path}`;
+                Linking.openURL(url).catch(err => Alert.alert('Error', 'Unable to open attachment url.'));
+              }}
+            >
+              <Ionicons name="document-attach-outline" size={24} color="#FF4D1C" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 13, color: Colors.text }} numberOfLines={1}>
+                  {fullDetails.attachment_path.split('/').pop()}
+                </Text>
+                <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 11, color: Colors.textSecondary }}>
+                  Tap to view attachment
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </AppCard>
+        )}
 
         {/* Manager Feedback */}
         <AppCard style={styles.feedbackCard}>
@@ -267,7 +359,7 @@ const LeaveDetailsScreen = ({ route, navigation }: any) => {
             <Ionicons name="document-text-outline" size={moderateScale(18)} color={Colors.primary} />
             <Text style={styles.pdfButtonText}>PDF</Text>
           </TouchableOpacity>
-          {leaveItem.status === 'Pending' && (
+          {(leaveItem.status === 'Pending' || leaveItem.status === 'Approved') && (
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={handleCancelRequest}

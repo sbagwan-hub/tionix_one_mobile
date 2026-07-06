@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -27,9 +28,89 @@ import { calculateLocalEMI, submitLoanRequest } from '../services/loan';
 import { LoanAmortizationLine } from '../services/loan-request.service';
 import AppBar from '../../../components/AppBar';
 
-const LOAN_TYPES = ['Personal Loan', 'Home Loan', 'Vehicle Loan', 'Salary Advance', 'Festival Advance', 'Other'];
+interface LoanConfig {
+  minAmount: number;
+  maxAmount: number;
+  defaultInterestRate: number;
+  defaultInstallments: number;
+  allowedInstallments: number[];
+}
+
+const LOAN_CONFIGS: Record<string, LoanConfig> = {
+  'Salary Advance': {
+    minAmount: 5000,
+    maxAmount: 50000,
+    defaultInterestRate: 0,
+    defaultInstallments: 3,
+    allowedInstallments: [1, 2, 3, 4, 5, 6],
+  },
+  'Festival Advance': {
+    minAmount: 2000,
+    maxAmount: 20000,
+    defaultInterestRate: 0,
+    defaultInstallments: 6,
+    allowedInstallments: [1, 2, 3, 4, 5, 6, 10, 12],
+  },
+  'Personal Loan': {
+    minAmount: 10000,
+    maxAmount: 500000,
+    defaultInterestRate: 12,
+    defaultInstallments: 12,
+    allowedInstallments: [6, 12, 18, 24, 36, 48, 60],
+  },
+  'Home Loan': {
+    minAmount: 100000,
+    maxAmount: 5000000,
+    defaultInterestRate: 8.5,
+    defaultInstallments: 120,
+    allowedInstallments: [12, 24, 36, 48, 60, 120, 180, 240],
+  },
+  'Vehicle Loan': {
+    minAmount: 50000,
+    maxAmount: 1500000,
+    defaultInterestRate: 9.5,
+    defaultInstallments: 36,
+    allowedInstallments: [12, 24, 36, 48, 60, 72, 84],
+  },
+  'Other': {
+    minAmount: 1000,
+    maxAmount: 1000000,
+    defaultInterestRate: 10,
+    defaultInstallments: 6,
+    allowedInstallments: [1, 2, 3, 6, 12, 18, 24, 36],
+  },
+};
+
+const LOAN_TYPES = Object.keys(LOAN_CONFIGS);
 const RETURN_METHODS = ['Salary', 'Hand'];
 const CALC_METHODS = ['Equated Monthly Method', 'Interest Calculation', 'Remaining Balance Calculation'];
+
+const LOAN_DISCLAIMERS: Record<string, string> = {
+  'Salary Advance': 'Eligibility: Requires minimum 6 months of continuous service. Max advance is capped at 50% of net monthly salary.',
+  'Festival Advance': 'Eligibility: Available once per calendar year prior to major regional/national festivals.',
+  'Personal Loan': 'Eligibility: Requires minimum 1 year of continuous service and active full-time status. Subject to credit assessment.',
+  'Home Loan': 'Eligibility: Requires minimum 2 years of continuous service. Asset mortgage valuation documents must be provided.',
+  'Vehicle Loan': 'Eligibility: Requires minimum 1 year of continuous service. Vehicle invoice and dealership details must be uploaded.',
+  'Other': 'Eligibility: Evaluated case-by-case. Requires business justification and approval from senior management.',
+};
+
+const getInterestRateOptions = (type: string, tenureStr: string): number[] => {
+  const tenure = parseInt(tenureStr, 10) || 0;
+  switch (type) {
+    case 'Salary Advance':
+    case 'Festival Advance':
+      return [0];
+    case 'Personal Loan':
+      return tenure <= 12 ? [10, 10.5, 11] : [11.5, 12, 12.5];
+    case 'Home Loan':
+      return tenure <= 60 ? [7.5, 8.0, 8.5] : [8.5, 9.0, 9.5];
+    case 'Vehicle Loan':
+      return tenure <= 36 ? [8.5, 9.0, 9.5] : [9.5, 10.0, 10.5];
+    case 'Other':
+    default:
+      return tenure <= 12 ? [9.0, 9.5, 10.0] : [10.0, 10.5, 11.0];
+  }
+};
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
@@ -37,6 +118,16 @@ const formatCurrency = (amount: number) => {
     currency: 'INR',
     maximumFractionDigits: 2,
   }).format(amount);
+};
+
+const formatFullDate = (value: string) => {
+  try {
+    const [year, month, day] = value.split('-');
+    const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day || '1', 10));
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return value;
+  }
 };
 
 const formatMonth = (value: string) => {
@@ -109,8 +200,8 @@ const ApplyLoanScreen = ({ navigation }: any) => {
   const [loanType, setLoanType] = useState('Salary Advance');
   const [loanAmount, setLoanAmount] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
-  const [interestRate, setInterestRate] = useState('0');
-  const [installments, setInstallments] = useState('6');
+  const [interestRate, setInterestRate] = useState(() => String(LOAN_CONFIGS['Salary Advance'].defaultInterestRate));
+  const [installments, setInstallments] = useState(() => String(LOAN_CONFIGS['Salary Advance'].defaultInstallments));
   const [returnThrough, setReturnThrough] = useState<'Salary' | 'Hand'>('Salary');
   const [deductFromMonth, setDeductFromMonth] = useState(() => {
     const date = new Date();
@@ -126,6 +217,10 @@ const ApplyLoanScreen = ({ navigation }: any) => {
   const [isReturnPickerOpen, setIsReturnPickerOpen] = useState(false);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isMethodPickerOpen, setIsMethodPickerOpen] = useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
+
+  const currentConfig = LOAN_CONFIGS[loanType] || LOAN_CONFIGS['Other'];
 
   // EMI Schedule Preview States
 
@@ -176,12 +271,31 @@ const ApplyLoanScreen = ({ navigation }: any) => {
       return;
     }
 
+    if (!isTermsAccepted) {
+      Toast.show({
+        type: 'error',
+        text1: 'Terms & Conditions',
+        text2: 'Please read and agree to the Terms & Conditions and Privacy Policy.',
+      });
+      return;
+    }
+
     const amount = parseFloat(loanAmount);
     const rate = parseFloat(interestRate);
     const tenure = parseInt(installments, 10);
 
     if (isNaN(amount) || amount <= 0) {
       Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a valid loan amount.' });
+      return;
+    }
+
+    const config = LOAN_CONFIGS[loanType] || LOAN_CONFIGS['Other'];
+    if (amount < config.minAmount || amount > config.maxAmount) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: `Loan amount for ${loanType} must be between ${formatCurrency(config.minAmount)} and ${formatCurrency(config.maxAmount)}.`,
+      });
       return;
     }
 
@@ -248,6 +362,7 @@ const ApplyLoanScreen = ({ navigation }: any) => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + moderateScale(40) }]}
       >
         {/* Employee Summary Card */}
@@ -286,6 +401,14 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </InputWrapper>
 
+          {/* Eligibility Limit Disclaimer */}
+          {LOAN_DISCLAIMERS[loanType] && (
+            <View style={styles.disclaimerContainer}>
+              <Ionicons name="information-circle-outline" size={20} color={Colors.primary} style={styles.disclaimerIcon} />
+              <Text style={styles.disclaimerText}>{LOAN_DISCLAIMERS[loanType]}</Text>
+            </View>
+          )}
+
           {/* Loan Amount + Interest Rate */}
           <View style={styles.row}>
             <View style={styles.col}>
@@ -297,22 +420,28 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                     value={loanAmount}
                     onChangeText={setLoanAmount}
                     keyboardType="numeric"
-                    placeholder="0"
+                    placeholder={`Min ${currentConfig.minAmount}`}
                     placeholderTextColor={Colors.textMuted}
                   />
                 </View>
               </InputWrapper>
+              <Text style={styles.limitHelperText}>
+                Limit: {formatCurrency(currentConfig.minAmount)} - {formatCurrency(currentConfig.maxAmount)}
+              </Text>
             </View>
             <View style={styles.col}>
-              <InputWrapper icon="trending-up-outline" label="INTEREST RATE (%)">
-                <TextInput
-                  style={styles.textInputField}
-                  value={interestRate}
-                  onChangeText={setInterestRate}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={Colors.textMuted}
-                />
+              <InputWrapper icon="trending-up-outline" label="INTEREST RATE">
+                <View style={styles.currencyInputContainer}>
+                  <TextInput
+                    style={styles.textInputField}
+                    value={interestRate}
+                    onChangeText={setInterestRate}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <Text style={styles.currencyPrefix}>%</Text>
+                </View>
               </InputWrapper>
             </View>
           </View>
@@ -321,14 +450,17 @@ const ApplyLoanScreen = ({ navigation }: any) => {
           <View style={styles.row}>
             <View style={styles.col}>
               <InputWrapper icon="time-outline" label="INSTALLMENTS">
-                <TextInput
-                  style={styles.textInputField}
-                  value={installments}
-                  onChangeText={setInstallments}
-                  keyboardType="numeric"
-                  placeholder="Months"
-                  placeholderTextColor={Colors.textMuted}
-                />
+                <View style={styles.currencyInputContainer}>
+                  <TextInput
+                    style={styles.textInputField}
+                    value={installments}
+                    onChangeText={setInstallments}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <Text style={styles.currencyPrefix}>Months</Text>
+                </View>
               </InputWrapper>
             </View>
             <View style={styles.col}>
@@ -473,6 +605,35 @@ const ApplyLoanScreen = ({ navigation }: any) => {
           </View>
         )}
 
+        {/* Acknowledgement and Terms checkbox */}
+        <View style={styles.acknowledgementRow}>
+          <TouchableOpacity
+            style={[styles.checkboxHitArea]}
+            onPress={() => setIsTermsAccepted(!isTermsAccepted)}
+            activeOpacity={0.8}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={[styles.checkbox, isTermsAccepted && styles.checkboxActive]}>
+              {isTermsAccepted && <Ionicons name="checkmark" size={moderateScale(12)} color="#FFF" />}
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.acknowledgementText}>
+            {'I acknowledge and agree to the '}
+            <Text
+              style={styles.linkText}
+              onPress={() => setIsTermsModalOpen(true)}
+              suppressHighlighting
+            >Terms {'&'} Conditions</Text>
+            {' and '}
+            <Text
+              style={styles.linkText}
+              onPress={() => setIsTermsModalOpen(true)}
+              suppressHighlighting
+            >Privacy Policy</Text>
+            {'.'}
+          </Text>
+        </View>
+
         {/* Submit Button */}
         <PrimaryButton
           label="Submit Loan Request"
@@ -503,6 +664,14 @@ const ApplyLoanScreen = ({ navigation }: any) => {
                   style={styles.modalItem}
                   onPress={() => {
                     setLoanType(type);
+                    const config = LOAN_CONFIGS[type] || LOAN_CONFIGS['Other'];
+                    const defaultInstallments = String(config.defaultInstallments);
+                    setInstallments(defaultInstallments);
+                    
+                    const rateOpts = getInterestRateOptions(type, defaultInstallments);
+                    const defaultRate = rateOpts[Math.floor(rateOpts.length / 2)];
+                    setInterestRate(String(defaultRate));
+
                     setIsTypePickerOpen(false);
                   }}
                 >
@@ -513,6 +682,47 @@ const ApplyLoanScreen = ({ navigation }: any) => {
             </ScrollView>
           </View>
         </Pressable>
+      </Modal>
+
+
+
+      {/* Terms and Conditions Modal */}
+      <Modal visible={isTermsModalOpen} transparent animationType="slide" onRequestClose={() => setIsTermsModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxHeight: '85%', width: '100%', paddingBottom: Math.max(insets.bottom, moderateScale(16)) + moderateScale(8) }]}>
+            <View style={styles.dragHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms & Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setIsTermsModalOpen(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={22} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: moderateScale(20) }}>
+              <Text style={styles.termsSectionTitle}>1. Loan Request Terms & Conditions</Text>
+              <Text style={styles.termsBodyText}>
+                By applying for this loan, you acknowledge and agree that this request is subject to eligibility verification and management approval. Approved loan amounts will be deducted from your salary according to the selected installments plan. If you resign or your employment is terminated before full repayment, the remaining balance will be adjusted against your final settlement.
+              </Text>
+              
+              <Text style={styles.termsSectionTitle}>2. Interest and Calculation</Text>
+              <Text style={styles.termsBodyText}>
+                Interest rates are determined dynamically based on the selected loan type and tenure. Calculations follow standard financial methods (Equated Monthly Method or remaining balance calculation).
+              </Text>
+              
+              <Text style={styles.termsSectionTitle}>3. Privacy Policy</Text>
+              <Text style={styles.termsBodyText}>
+                We collect and process your financial details solely for the purpose of assessing and servicing your loan request. Your data is stored securely and shared only with authorized human resources and payroll departments in compliance with active data privacy rules.
+              </Text>
+            </ScrollView>
+            <PrimaryButton
+              label="Accept & Close"
+              onPress={() => {
+                setIsTermsAccepted(true);
+                setIsTermsModalOpen(false);
+              }}
+              style={{ marginTop: moderateScale(12) }}
+            />
+          </View>
+        </View>
       </Modal>
 
       {/* Return Method Picker Modal */}
@@ -1014,6 +1224,104 @@ const styles = StyleSheet.create({
   modalItemTextActive: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  limitHelperText: {
+    fontSize: moderateScale(10),
+    color: '#64748B',
+    marginTop: 4,
+    marginLeft: 4,
+    fontFamily: 'Outfit_400Regular',
+  },
+  disclaimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 77, 28, 0.05)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF4D1C',
+    borderRadius: moderateScale(10),
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
+    gap: moderateScale(8),
+  },
+  disclaimerIcon: {
+    alignSelf: 'flex-start',
+    marginTop: 1,
+  },
+  disclaimerText: {
+    ...Typography.caption,
+    fontSize: moderateScale(11),
+    color: '#1E293B',
+    flex: 1,
+    lineHeight: moderateScale(15),
+    fontFamily: 'Outfit_400Regular',
+  },
+  acknowledgementRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: Theme.spacing.xs,
+    marginVertical: Theme.spacing.md,
+    gap: moderateScale(10),
+  },
+  checkboxHitArea: {
+    padding: moderateScale(4),
+    marginTop: moderateScale(1),
+  },
+  acknowledgementTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: moderateScale(18),
+    height: moderateScale(18),
+    borderRadius: moderateScale(4),
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxActive: {
+    backgroundColor: '#FF4D1C',
+    borderColor: '#FF4D1C',
+  },
+  acknowledgementText: {
+    ...Typography.body,
+    fontSize: moderateScale(13),
+    color: '#334155',
+    flex: 1,
+    fontFamily: 'Outfit_400Regular',
+    lineHeight: moderateScale(18),
+  },
+  linkText: {
+    color: '#FF4D1C',
+    fontFamily: 'Outfit_600SemiBold',
+    textDecorationLine: 'underline',
+  },
+  termsSectionTitle: {
+    ...Typography.heading,
+    fontSize: moderateScale(14),
+    color: Colors.text,
+    fontFamily: 'Outfit_600SemiBold',
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.xs,
+  },
+  termsBodyText: {
+    ...Typography.body,
+    fontSize: moderateScale(12),
+    color: Colors.textSecondary,
+    fontFamily: 'Outfit_400Regular',
+    lineHeight: moderateScale(16),
+  },
+  dragHandle: {
+    width: moderateScale(40),
+    height: moderateScale(4),
+    borderRadius: moderateScale(2),
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: moderateScale(10),
   },
 });
 
