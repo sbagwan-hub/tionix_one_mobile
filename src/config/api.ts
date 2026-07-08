@@ -1,5 +1,6 @@
 //export const API_BASE_URL = 'http://192.168.1.4:4100';
 export const API_BASE_URL = 'http://tionixone.com.texto-qa.in';
+//export const API_BASE_URL = 'http://192.168.1.4:4100';
 
 export const API_ENDPOINTS = {
   login: '/api/mobile/auth/login',
