@@ -17,6 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tionixone.tionixonehr",
+      "googleServicesFile": "./src/config/GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "AttendanceApp needs your location to verify you are at the office before marking attendance.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "AttendanceApp needs your location in the background to continuously track attendance.",
@@ -49,6 +50,7 @@
       "googleServicesFile": "./src/config/google-services.json"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-location",
         {

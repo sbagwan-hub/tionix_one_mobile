@@ -65,7 +65,7 @@ const formatMonth = (value: string) => {
   }
 };
 
-const MyLoansScreen = ({ navigation, route }: any) => {
+  const MyLoansScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const [loans, setLoans] = useState<NormalizedLoan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,6 +143,16 @@ const MyLoansScreen = ({ navigation, route }: any) => {
     const totalDebt = approvedLoans.reduce((sum, item) => sum + item.loanAmount, 0);
     const availableLimit = 25000 - totalDebt;
     
+    // Calculate simulated progress across all approved loans
+    let totalOriginal = 0;
+    let totalRemaining = 0;
+    approvedLoans.forEach((loan) => {
+      totalOriginal += loan.loanAmount;
+      // using fixed progress for summary representation
+      totalRemaining += loan.loanAmount * 0.55; 
+    });
+    const overallProgress = totalOriginal > 0 ? Math.round(((totalOriginal - totalRemaining) / totalOriginal) * 100) : 0;
+
     let nextRepayment = 'N/A';
     const today = new Date();
     for (const loan of approvedLoans) {
@@ -160,18 +170,31 @@ const MyLoansScreen = ({ navigation, route }: any) => {
       totalDebt,
       availableLimit: Math.max(0, availableLimit),
       nextRepayment,
+      overallProgress,
     };
   }, [loans]);
 
   const currentLoans = useMemo(() => {
-    const allLoans = loans.filter((item) => item.status === 'Approved' || item.status === 'Pending');
+    const allLoans = loans.filter((item) => item.status === 'Approved');
     return allLoans.map((loan) => {
-      const paidPercentage = loan.status === 'Approved' ? Math.round(Math.random() * 80) + 10 : 0;
+      const paidPercentage = Math.round(Math.random() * 80) + 10;
       const remaining = loan.loanAmount * (1 - paidPercentage / 100);
       return {
         ...loan,
         paidPercentage,
         remaining,
+        loanNo: loan.loanNo,
+      };
+    });
+  }, [loans]);
+
+  const upcomingLoans = useMemo(() => {
+    const allLoans = loans.filter((item) => item.status === 'Pending');
+    return allLoans.map((loan) => {
+      return {
+        ...loan,
+        paidPercentage: 0,
+        remaining: loan.loanAmount,
         loanNo: loan.loanNo,
       };
     });
@@ -223,33 +246,103 @@ const MyLoansScreen = ({ navigation, route }: any) => {
 
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: moderateScale(100) + insets.bottom }]}>
+          {/* ── Overview Card Shimmer ── */}
+          <View style={[styles.premiumDebtCard, { backgroundColor: '#1E1B4B', opacity: 0.6 }]}>
+            <View style={styles.premiumCardTopRow}>
+              <Shimmer width="40%" height={16} borderRadius={8} />
+              <Shimmer width={20} height={20} borderRadius={10} />
+            </View>
+            <View style={[styles.chipRow, { marginBottom: 12 }]}>
+              <Shimmer width={36} height={26} borderRadius={4} />
+              <Shimmer width="30%" height={12} borderRadius={3} />
+            </View>
+            <View style={styles.premiumCardAmountSection}>
+              <Shimmer width="50%" height={10} borderRadius={2} style={{ marginBottom: 6 }} />
+              <Shimmer width="65%" height={34} borderRadius={6} />
+            </View>
+            <View style={styles.premiumDebtDivider} />
+            <View style={styles.premiumDebtDetailsRow}>
+              <View style={styles.premiumDebtDetailCol}>
+                <Shimmer width="70%" height={8} borderRadius={2} style={{ marginBottom: 4 }} />
+                <Shimmer width="50%" height={12} borderRadius={3} />
+              </View>
+              <View style={styles.premiumDebtDetailCol}>
+                <Shimmer width="70%" height={8} borderRadius={2} style={{ marginBottom: 4 }} />
+                <Shimmer width="50%" height={12} borderRadius={3} />
+              </View>
+              <View style={styles.premiumDebtDetailCol}>
+                <Shimmer width="70%" height={8} borderRadius={2} style={{ marginBottom: 4 }} />
+                <Shimmer width="50%" height={12} borderRadius={3} />
+              </View>
+            </View>
+          </View>
 
-          {/* Current Loans Shimmer */}
+          {/* ── Stats Row Shimmer ── */}
+          <View style={styles.statsRow}>
+            {[1, 2, 3].map(i => (
+              <View key={i} style={[styles.statChip, { backgroundColor: 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }]}>
+                <Shimmer width={14} height={14} borderRadius={7} style={{ marginBottom: 4 }} />
+                <Shimmer width="50%" height={14} borderRadius={3} style={{ marginBottom: 3 }} />
+                <Shimmer width="30%" height={8} borderRadius={2} />
+              </View>
+            ))}
+          </View>
+
+          {/* ── Current Loans Shimmer ── */}
           <Text style={styles.sectionTitle}>Current Loans</Text>
-          {[1, 2].map(i => (
+          {[1].map(i => (
             <AppCard key={i} style={styles.loanCard}>
-              <View style={styles.loanCardHeader}>
-                <Shimmer width="40%" height={16} borderRadius={4} />
-                <Shimmer width={80} height={14} borderRadius={3} />
+              <View style={styles.loanCardTop}>
+                <Shimmer width={32} height={32} borderRadius={16} style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Shimmer width="60%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="40%" height={10} borderRadius={2} />
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Shimmer width="50%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="30%" height={8} borderRadius={2} />
+                </View>
+              </View>
+              <View style={styles.loanProgressRow}>
+                <Shimmer width="20%" height={10} borderRadius={2} />
+                <Shimmer width="15%" height={10} borderRadius={2} />
               </View>
               <View style={styles.progressContainer}>
-                <Shimmer width="100%" height={8} borderRadius={4} />
+                <Shimmer width="100%" height={6} borderRadius={3} />
               </View>
-              <Shimmer width="30%" height={12} borderRadius={3} style={{ marginTop: 8 }} />
             </AppCard>
           ))}
 
-          {/* Upcoming Repayments Shimmer */}
+          {/* ── Upcoming Loans Shimmer ── */}
+          <Text style={styles.sectionTitle}>Upcoming Loans</Text>
+          {[1].map(i => (
+            <AppCard key={i} style={styles.loanCard}>
+              <View style={styles.loanCardTop}>
+                <Shimmer width={32} height={32} borderRadius={16} style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Shimmer width="60%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="40%" height={10} borderRadius={2} />
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Shimmer width="50%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                  <Shimmer width="30%" height={8} borderRadius={2} />
+                </View>
+              </View>
+            </AppCard>
+          ))}
+
+          {/* ── Upcoming Repayments Shimmer ── */}
           <Text style={styles.sectionTitle}>Upcoming Repayments</Text>
           {[1, 2].map(i => (
             <AppCard key={i} style={styles.repaymentCard}>
-              <View style={styles.repaymentLeft}>
-                <Shimmer width="40%" height={14} borderRadius={3} />
-                <Shimmer width="30%" height={12} borderRadius={3} style={{ marginTop: 4 }} />
+              <Shimmer width={44} height={44} borderRadius={8} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Shimmer width="60%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                <Shimmer width="40%" height={10} borderRadius={2} />
               </View>
-              <View style={styles.repaymentRight}>
-                <Shimmer width={60} height={18} borderRadius={4} />
-                <Shimmer width={50} height={10} borderRadius={3} style={{ marginTop: 4 }} />
+              <View style={{ alignItems: 'flex-end' }}>
+                <Shimmer width={60} height={16} borderRadius={4} style={{ marginBottom: 4 }} />
+                <Shimmer width={40} height={10} borderRadius={2} />
               </View>
             </AppCard>
           ))}
@@ -287,6 +380,86 @@ const MyLoansScreen = ({ navigation, route }: any) => {
               />
             }
           >
+
+            {/* ── Premium Debt Summary Card (Redesigned) ── */}
+            <LinearGradient
+              colors={['#1E1B4B', '#0F0C24'] as const}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.premiumDebtCard}
+            >
+              <View style={styles.premiumCardTopRow}>
+                <View style={styles.premiumBadgeContainer}>
+                  <View style={styles.pulseDot} />
+                  <Text style={styles.premiumCardBrand}>LIABILITIES STATUS</Text>
+                </View>
+                <Ionicons name="wifi-outline" size={moderateScale(20)} color="rgba(255,255,255,0.4)" style={{ transform: [{ rotate: '90deg' }] }} />
+              </View>
+
+              <View style={styles.chipRow}>
+                {/* Simulated EMV Chip */}
+                <LinearGradient
+                  colors={['#F59E0B', '#D97706'] as const}
+                  style={styles.emvChip}
+                />
+                <Text style={styles.cardTypeLabel}>PREMIUM ACCOUNT</Text>
+              </View>
+
+              <View style={styles.premiumCardAmountSection}>
+                <Text style={styles.premiumDebtLabel}>TOTAL OUTSTANDING BALANCE</Text>
+                <View style={styles.amountDisplayRow}>
+                  <Text style={styles.currencySymbol}>₹ </Text>
+                  <Text style={styles.premiumDebtAmount}>{debtSummary.totalDebt.toLocaleString('en-IN')}</Text>
+                </View>
+              </View>
+
+              {/* Repayment Progress Bar inside the card */}
+              <View style={styles.cardProgressWrapper}>
+                <View style={styles.cardProgressHeader}>
+                  <Text style={styles.cardProgressLabel}>Repayment Progress</Text>
+                  <Text style={styles.cardProgressValue}>{debtSummary.overallProgress}% Paid</Text>
+                </View>
+                <View style={styles.cardProgressBarBg}>
+                  <View style={[styles.cardProgressBarFill, { width: `${debtSummary.overallProgress}%` }]} />
+                </View>
+              </View>
+
+              <View style={styles.premiumDebtDivider} />
+
+              <View style={styles.premiumDebtDetailsRow}>
+                <View style={styles.premiumDebtDetailCol}>
+                  <Text style={styles.premiumDebtDetailLabel}>LIMIT AVAILABLE</Text>
+                  <Text style={styles.premiumDebtDetailVal}>{formatCurrency(debtSummary.availableLimit)}</Text>
+                </View>
+                <View style={styles.premiumDebtDetailCol}>
+                  <Text style={styles.premiumDebtDetailLabel}>NEXT DUE DATE</Text>
+                  <Text style={styles.premiumDebtDetailVal}>{debtSummary.nextRepayment}</Text>
+                </View>
+                <View style={styles.premiumDebtDetailCol}>
+                  <Text style={styles.premiumDebtDetailLabel}>ACTIVE LOANS</Text>
+                  <Text style={[styles.premiumDebtDetailVal, { color: '#10B981' }]}>{stats.approvedCount}</Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* ── Quick Stats Row ── */}
+            <View style={styles.statsRow}>
+              <View style={[styles.statChip, { backgroundColor: 'rgba(255,179,0,0.10)' }]}>
+                <Ionicons name="time-outline" size={moderateScale(14)} color={Colors.warning} />
+                <Text style={[styles.statChipLabel, { color: Colors.warning }]}>{stats.pending}</Text>
+                <Text style={styles.statChipSub}>Pending</Text>
+              </View>
+              <View style={[styles.statChip, { backgroundColor: 'rgba(16,185,129,0.10)' }]}>
+                <Ionicons name="checkmark-circle-outline" size={moderateScale(14)} color={Colors.success} />
+                <Text style={[styles.statChipLabel, { color: Colors.success }]}>{stats.approvedCount}</Text>
+                <Text style={styles.statChipSub}>Approved</Text>
+              </View>
+              <View style={[styles.statChip, { backgroundColor: 'rgba(255,77,28,0.08)' }]}>
+                <Ionicons name="cash-outline" size={moderateScale(14)} color={Colors.primary} />
+                <Text style={[styles.statChipLabel, { color: Colors.primary }]}>{formatCurrency(stats.totalApprovedAmount)}</Text>
+                <Text style={styles.statChipSub}>Disbursed</Text>
+              </View>
+            </View>
 
             {/* Current Loans Section */}
             <View style={styles.sectionHeaderRow}>
@@ -371,6 +544,68 @@ const MyLoansScreen = ({ navigation, route }: any) => {
                             }
                           ]} />
                         </View>
+                      </View>
+                    </AppCard>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            {/* Upcoming Loans Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Upcoming Loans</Text>
+            </View>
+
+            {upcomingLoans.length === 0 ? (
+              <AppCard style={styles.emptyCard}>
+                <Ionicons name="hourglass-outline" size={moderateScale(40)} color={Colors.textMuted} />
+                <Text style={styles.emptyTitle}>No Upcoming Loans</Text>
+                <Text style={styles.emptySubtitle}>You don't have any pending loan requests.</Text>
+              </AppCard>
+            ) : (
+              upcomingLoans.map((loan: any) => {
+                const tone = statusTone[loan.status as 'Pending' | 'Approved' | 'Rejected'] || { color: Colors.textSecondary };
+                const isAsset = loan.loanType === 'Asset Purchase';
+                return (
+                  <TouchableOpacity
+                    key={loan.id || loan.pk_lr_id}
+                    activeOpacity={0.85}
+                    onPress={() => loan.id && typeof loan.id === 'string' && loan.id.startsWith('mock-') ? {} : navigation.navigate('LoanDetails', { loanId: loan.id || loan.pk_lr_id })}
+                  >
+                    <AppCard style={[styles.loanCard, { borderLeftWidth: moderateScale(4), borderLeftColor: tone.color }]}>
+                      <View style={styles.loanCardTop}>
+                        <LinearGradient
+                          colors={isAsset ? ['#3B82F6', '#1D4ED8'] as const : ['#FFA040', '#FF4D1C'] as const}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.loanIconGradientContainer}
+                        >
+                          <Ionicons
+                            name={isAsset ? 'car-outline' : 'person-outline'}
+                            size={moderateScale(18)}
+                            color={Colors.white}
+                          />
+                        </LinearGradient>
+                        <View style={styles.loanMetaContainer}>
+                          <Text style={styles.loanTitle}>{loan.loanType}</Text>
+                          <Text style={styles.loanNoText}>{loan.loanNo}</Text>
+                        </View>
+                        <View style={styles.loanAmountContainer}>
+                          <Text style={styles.loanRemainingText}>{formatCurrency(loan.loanAmount)}</Text>
+                          <Text style={styles.loanAmountLabel}>REQUESTED</Text>
+                        </View>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={moderateScale(16)}
+                          color={Colors.textMuted}
+                          style={styles.loanChevron}
+                        />
+                      </View>
+                      <View style={styles.loanProgressRow}>
+                        <Text style={styles.progressLabel}>Status</Text>
+                        <Text style={[styles.progressPercentageText, { color: Colors.warning }]}>
+                          Pending Approval
+                        </Text>
                       </View>
                     </AppCard>
                   </TouchableOpacity>
@@ -550,44 +785,99 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: moderateScale(16),
+    marginBottom: moderateScale(12),
+  },
+  premiumBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: moderateScale(4),
+    borderRadius: moderateScale(20),
+  },
+  pulseDot: {
+    width: moderateScale(6),
+    height: moderateScale(6),
+    borderRadius: moderateScale(3),
+    backgroundColor: '#10B981',
   },
   premiumCardBrand: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(14),
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
+    fontSize: moderateScale(10),
+    color: 'rgba(255,255,255,0.9)',
+    letterSpacing: 1.0,
   },
-  premiumCardChip: {
-    opacity: 0.85,
+  chipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: moderateScale(18),
+  },
+  emvChip: {
+    width: moderateScale(36),
+    height: moderateScale(26),
+    borderRadius: moderateScale(4),
+  },
+  cardTypeLabel: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(10),
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1.0,
   },
   premiumCardAmountSection: {
-    marginBottom: moderateScale(4),
-  },
-  premiumDebtHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: moderateScale(12),
   },
   premiumDebtLabel: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: moderateScale(10),
-    color: '#94A3B8',
-    letterSpacing: 1.2,
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: moderateScale(9),
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1.0,
+  },
+  amountDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: moderateScale(2),
+  },
+  currencySymbol: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(22),
+    color: '#FFA040',
   },
   premiumDebtAmount: {
     fontFamily: 'Outfit_800ExtraBold',
-    fontSize: moderateScale(30),
+    fontSize: moderateScale(34),
     color: '#FFFFFF',
-    marginTop: moderateScale(4),
   },
-  premiumDebtIconContainer: {
-    width: moderateScale(44),
-    height: moderateScale(44),
-    borderRadius: moderateScale(12),
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  cardProgressWrapper: {
+    marginBottom: moderateScale(4),
+  },
+  cardProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: moderateScale(6),
+  },
+  cardProgressLabel: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: moderateScale(10),
+    color: 'rgba(255,255,255,0.5)',
+  },
+  cardProgressValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(10),
+    color: '#FFFFFF',
+  },
+  cardProgressBarBg: {
+    height: moderateScale(6),
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: moderateScale(3),
+    overflow: 'hidden',
+  },
+  cardProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFA040',
+    borderRadius: moderateScale(3),
   },
   premiumDebtDivider: {
     height: 1,
@@ -827,6 +1117,30 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginTop: Theme.spacing.sm,
     marginBottom: Theme.spacing.xs,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: moderateScale(10),
+    marginBottom: Theme.spacing.xs,
+  },
+  statChip: {
+    flex: 1,
+    borderRadius: moderateScale(14),
+    paddingVertical: moderateScale(10),
+    paddingHorizontal: moderateScale(8),
+    alignItems: 'center',
+    gap: moderateScale(3),
+  },
+  statChipLabel: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: moderateScale(13),
+    color: Colors.text,
+  },
+  statChipSub: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: moderateScale(9),
+    color: Colors.textMuted,
+    letterSpacing: 0.3,
   },
   loanCard: {
     padding: Theme.spacing.md,
